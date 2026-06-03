@@ -32,6 +32,7 @@ export interface Task {
   draft_url: string | null
   draft_note: string | null
   draft_submitted_at: string | null
+  draft_due_date: string | null
   draft_file_urls: string[]
   draft_file_names: string[]
   response_file_urls: string[]

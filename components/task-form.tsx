@@ -34,6 +34,7 @@ export function TaskForm() {
   const [category, setCategory] = useState('')
   const [clientSlug, setClientSlug] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>()
+  const [draftDueDate, setDraftDueDate] = useState<Date | undefined>()
   const [availableChannels, setAvailableChannels] = useState<string[]>([])
   const [selectedChannels, setSelectedChannels] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -73,6 +74,7 @@ export function TaskForm() {
       title: title.trim(),
       assignee: category,
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
+      draft_due_date: draftDueDate ? format(draftDueDate, 'yyyy-MM-dd') : null,
       file_urls: files.uploadedFiles.map((f) => f.url),
       discord_channels: selectedChannels,
       client_slug: clientSlug.trim() || null,
@@ -159,7 +161,25 @@ export function TaskForm() {
           </div>
 
           <div className="space-y-2">
-            <Label>期限日</Label>
+            <Label>初校締切日</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn('w-full justify-start text-left font-normal', !draftDueDate && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="mr-2 size-4" />
+                  {draftDueDate ? format(draftDueDate, 'yyyy/MM/dd', { locale: ja }) : '初校締切日を選択'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={draftDueDate} onSelect={setDraftDueDate} locale={ja} />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-2">
+            <Label>最終締切日</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -167,7 +187,7 @@ export function TaskForm() {
                   className={cn('w-full justify-start text-left font-normal', !dueDate && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 size-4" />
-                  {dueDate ? format(dueDate, 'yyyy/MM/dd', { locale: ja }) : '期限日を選択'}
+                  {dueDate ? format(dueDate, 'yyyy/MM/dd', { locale: ja }) : '最終締切日を選択'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">

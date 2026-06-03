@@ -51,6 +51,7 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
   const [sortKey, setSortKey] = useState<'created' | 'due'>('created')
   const [sortAsc, setSortAsc] = useState(false)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const [calendarMode, setCalendarMode] = useState<'最終' | '初校' | '一覧'>('一覧')
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   // 新規タスク
@@ -444,48 +445,93 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
 
               {/* カレンダー */}
               {tasks.length > 0 && (() => {
-                const tasksWithDate = tasks.filter(t => t.due_date && t.status !== '完了')
-                const sortedByDate = [...tasksWithDate].sort((a, b) =>
-                  compareAsc(parseISO(a.due_date!), parseISO(b.due_date!))
-                )
+                const getDate = (t: typeof tasks[0]) => calendarMode === '初校' ? t.draft_due_date : calendarMode === '最終' ? t.due_date : null
+                const tasksWithDate = tasks.filter(t => (t.due_date || t.draft_due_date) && t.status !== '完了')
+                type DateEntry = { date: string; type: '初校' | '最終'; task: typeof tasks[0] }
+                const allEntries: DateEntry[] = []
+                tasksWithDate.forEach(t => {
+                  if (t.draft_due_date) allEntries.push({ date: t.draft_due_date, type: '初校', task: t })
+                  if (t.due_date) allEntries.push({ date: t.due_date, type: '最終', task: t })
+                })
+                allEntries.sort((a, b) => compareAsc(parseISO(a.date), parseISO(b.date)))
+                const singleModeEntries = calendarMode !== '一覧'
+                  ? tasksWithDate.filter(t => getDate(t)).sort((a, b) => compareAsc(parseISO(getDate(a)!), parseISO(getDate(b)!)))
+                  : []
                 return (
                   <div className="flex flex-col gap-3">
-                    {sortedByDate.length > 0 && (
+                    <div className="flex rounded-md border overflow-hidden text-xs w-fit">
+                      {(['一覧', '初校', '最終'] as const).map((m) => (
+                        <button key={m} onClick={() => setCalendarMode(m)}
+                          className={`px-3 py-1 transition-colors ${calendarMode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}>
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                    {calendarMode === '一覧' && allEntries.length > 0 && (
                       <div className="rounded-md border p-3 space-y-1">
                         <p className="text-xs font-medium text-muted-foreground mb-2">期日一覧</p>
-                        {sortedByDate.map(task => (
-                          <div key={task.id}
+                        {allEntries.map((entry, i) => (
+                          <div key={`${entry.task.id}-${entry.type}-${i}`}
                             className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-muted group"
-                            onClick={() => handleCalendarTaskClick(task.id)}
+                            onClick={() => handleCalendarTaskClick(entry.task.id)}
                           >
                             <span className="text-xs font-mono text-muted-foreground shrink-0 w-8">
-                              {format(parseISO(task.due_date!), 'M/d', { locale: ja })}
+                              {format(parseISO(entry.date), 'M/d', { locale: ja })}
                             </span>
-                            <p className="text-sm truncate flex-1 group-hover:text-primary transition-colors">{task.title}</p>
-                            <Badge className={`${statusColors[task.status]} shrink-0 text-xs`} variant="secondary">
-                              {task.status}
+                            <span className={`text-xs shrink-0 px-1 rounded ${entry.type === '初校' ? 'text-violet-600 bg-violet-50' : 'text-muted-foreground bg-muted'}`}>
+                              {entry.type}
+                            </span>
+                            <p className="text-sm truncate flex-1 group-hover:text-primary transition-colors">{entry.task.title}</p>
+                            <Badge className={`${statusColors[entry.task.status]} shrink-0 text-xs`} variant="secondary">
+                              {entry.task.status}
                             </Badge>
                           </div>
                         ))}
                       </div>
                     )}
-                    <Calendar
-                      locale={ja}
-                      mode="single"
-                      modifiers={{ hasTask: (date) => tasksWithDate.some(t => isSameDay(parseISO(t.due_date!), date)) }}
-                      components={{
-                        DayButton: (props) => {
-                          const hasTask = props.modifiers?.hasTask
-                          return (
-                            <CalendarDayButton {...props}>
-                              {props.children}
-                              {hasTask && <span className="block w-1 h-1 rounded-full bg-primary mx-auto -mt-0.5" />}
-                            </CalendarDayButton>
-                          )
-                        },
-                      }}
-                      className="rounded-md border"
-                    />
+                    {calendarMode !== '一覧' && (
+                      <>
+                        {singleModeEntries.length > 0 && (
+                          <div className="rounded-md border p-3 space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">{calendarMode}締切一覧</p>
+                            {singleModeEntries.map((task) => (
+                              <div key={task.id}
+                                className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-muted group"
+                                onClick={() => handleCalendarTaskClick(task.id)}
+                              >
+                                <span className="text-xs font-mono text-muted-foreground shrink-0 w-8">
+                                  {format(parseISO(getDate(task)!), 'M/d', { locale: ja })}
+                                </span>
+                                <p className="text-sm truncate flex-1 group-hover:text-primary transition-colors">{task.title}</p>
+                                <Badge className={`${statusColors[task.status]} shrink-0 text-xs`} variant="secondary">
+                                  {task.status}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {singleModeEntries.length === 0 && (
+                          <p className="text-xs text-muted-foreground">{calendarMode}締切が設定されたタスクがありません</p>
+                        )}
+                        <Calendar
+                          locale={ja}
+                          mode="single"
+                          modifiers={{ hasTask: (date) => singleModeEntries.some(t => isSameDay(parseISO(getDate(t)!), date)) }}
+                          components={{
+                            DayButton: (props) => {
+                              const hasTask = props.modifiers?.hasTask
+                              return (
+                                <CalendarDayButton {...props}>
+                                  {props.children}
+                                  {hasTask && <span className={`block w-1 h-1 rounded-full mx-auto -mt-0.5 ${calendarMode === '初校' ? 'bg-violet-500' : 'bg-primary'}`} />}
+                                </CalendarDayButton>
+                              )
+                            },
+                          }}
+                          className="rounded-md border"
+                        />
+                      </>
+                    )}
                   </div>
                 )
               })()}
@@ -560,10 +606,16 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                               </div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{task.assignee}</span>
+                                {task.draft_due_date && (
+                                  <span className="text-xs text-violet-600 flex items-center gap-0.5">
+                                    <ClockIcon className="size-3" />
+                                    初校 {format(new Date(task.draft_due_date), 'M/d', { locale: ja })}
+                                  </span>
+                                )}
                                 {task.due_date && (
                                   <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                                     <ClockIcon className="size-3" />
-                                    {format(new Date(task.due_date), 'yyyy/MM/dd', { locale: ja })}
+                                    最終 {format(new Date(task.due_date), 'yyyy/MM/dd', { locale: ja })}
                                   </span>
                                 )}
                               </div>

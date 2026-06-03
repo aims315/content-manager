@@ -34,7 +34,7 @@ interface TaskEditDialogProps {
   onOpenChange: (open: boolean) => void
   onSave: (
     taskId: string,
-    updates: { title: string; assignee: string; due_date: string | null; description?: string; client_slug?: string | null }
+    updates: { title: string; assignee: string; due_date: string | null; draft_due_date: string | null; description?: string; client_slug?: string | null }
   ) => Promise<boolean>
 }
 
@@ -44,6 +44,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
   const [description, setDescription] = useState('')
   const [clientSlug, setClientSlug] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>()
+  const [draftDueDate, setDraftDueDate] = useState<Date | undefined>()
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
       setDescription(task.description ?? '')
       setClientSlug(task.client_slug ?? '')
       setDueDate(task.due_date ? parseISO(task.due_date) : undefined)
+      setDraftDueDate(task.draft_due_date ? parseISO(task.draft_due_date) : undefined)
     }
   }, [task])
 
@@ -64,6 +66,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
       assignee: category,
       description: description.trim() || undefined,
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
+      draft_due_date: draftDueDate ? format(draftDueDate, 'yyyy-MM-dd') : null,
       client_slug: clientSlug.trim() || null,
     })
     setIsSaving(false)
@@ -126,7 +129,25 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
           </div>
 
           <div className="space-y-2">
-            <Label>期限日</Label>
+            <Label>初校締切日</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn('w-full justify-start text-left font-normal', !draftDueDate && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="mr-2 size-4" />
+                  {draftDueDate ? format(draftDueDate, 'yyyy/MM/dd', { locale: ja }) : '初校締切日を選択'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={draftDueDate} onSelect={setDraftDueDate} locale={ja} />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-2">
+            <Label>最終締切日</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -134,7 +155,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
                   className={cn('w-full justify-start text-left font-normal', !dueDate && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 size-4" />
-                  {dueDate ? format(dueDate, 'yyyy/MM/dd', { locale: ja }) : '期限日を選択'}
+                  {dueDate ? format(dueDate, 'yyyy/MM/dd', { locale: ja }) : '最終締切日を選択'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">

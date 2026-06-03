@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar'
 import { Task } from '@/lib/types'
 import { isSameDay, parseISO, format, compareAsc } from 'date-fns'
@@ -20,22 +21,43 @@ const statusColors: Record<string, string> = {
   '完了': 'bg-emerald-100 text-emerald-800',
 }
 
+type DateMode = '最終' | '初校'
+
 export function TaskCalendar({ tasks, onDateSelect, onTaskSelect }: TaskCalendarProps) {
-  const tasksWithDate = tasks.filter((task) => task.due_date && task.status !== '完了')
+  const [mode, setMode] = useState<DateMode>('最終')
+
+  const getDate = (task: Task) => mode === '初校' ? task.draft_due_date : task.due_date
+
+  const tasksWithDate = tasks.filter((task) => getDate(task) && task.status !== '完了')
 
   const hasTaskOnDate = (date: Date) =>
-    tasksWithDate.some((task) => isSameDay(parseISO(task.due_date!), date))
+    tasksWithDate.some((task) => isSameDay(parseISO(getDate(task)!), date))
 
   const sortedTasks = [...tasksWithDate].sort((a, b) =>
-    compareAsc(parseISO(a.due_date!), parseISO(b.due_date!))
+    compareAsc(parseISO(getDate(a)!), parseISO(getDate(b)!))
   )
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 期日一覧：スマホでは上、PCでは下 */}
+      {/* 切り替えボタン */}
+      <div className="flex rounded-md border overflow-hidden text-xs w-fit">
+        {(['最終', '初校'] as DateMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={`px-3 py-1 transition-colors ${mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+
+      {/* 期日一覧 */}
       {sortedTasks.length > 0 && (
         <div className="rounded-md border p-3 space-y-1 order-first md:order-last">
-          <p className="text-xs font-medium text-muted-foreground mb-2">期日一覧</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">
+            {mode}締切一覧
+          </p>
           {sortedTasks.map((task) => (
             <div
               key={task.id}
@@ -43,7 +65,7 @@ export function TaskCalendar({ tasks, onDateSelect, onTaskSelect }: TaskCalendar
               onClick={() => onTaskSelect?.(task.id)}
             >
               <span className="text-xs font-mono text-muted-foreground shrink-0 w-8">
-                {format(parseISO(task.due_date!), 'M/d', { locale: ja })}
+                {format(parseISO(getDate(task)!), 'M/d', { locale: ja })}
               </span>
               <p className="text-sm truncate flex-1 group-hover:text-primary transition-colors">
                 {task.title}
@@ -55,16 +77,17 @@ export function TaskCalendar({ tasks, onDateSelect, onTaskSelect }: TaskCalendar
           ))}
         </div>
       )}
+      {sortedTasks.length === 0 && (
+        <p className="text-xs text-muted-foreground">{mode}締切が設定されたタスクがありません</p>
+      )}
 
-      {/* カレンダー：スマホでは下、PCでは上 */}
+      {/* カレンダー */}
       <div className="order-last md:order-first">
         <Calendar
           locale={ja}
           mode="single"
           onSelect={(date) => date && onDateSelect?.(date)}
-          modifiers={{
-            hasTask: (date) => hasTaskOnDate(date),
-          }}
+          modifiers={{ hasTask: (date) => hasTaskOnDate(date) }}
           components={{
             DayButton: (props) => {
               const hasTask = props.modifiers?.hasTask
@@ -72,7 +95,7 @@ export function TaskCalendar({ tasks, onDateSelect, onTaskSelect }: TaskCalendar
                 <CalendarDayButton {...props}>
                   {props.children}
                   {hasTask && (
-                    <span className="block w-1 h-1 rounded-full bg-primary mx-auto -mt-0.5" />
+                    <span className={`block w-1 h-1 rounded-full mx-auto -mt-0.5 ${mode === '初校' ? 'bg-violet-500' : 'bg-primary'}`} />
                   )}
                 </CalendarDayButton>
               )

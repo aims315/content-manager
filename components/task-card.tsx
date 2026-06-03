@@ -381,10 +381,16 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
               </span>
             </div>
           )}
+          {task.draft_due_date && (
+            <div className="flex items-center gap-1 text-violet-600">
+              <CalendarIcon className="size-3" />
+              <span>初校 {format(new Date(task.draft_due_date), 'M/d', { locale: ja })}</span>
+            </div>
+          )}
           {task.due_date && (
             <div className="flex items-center gap-1">
               <CalendarIcon className="size-3" />
-              <span>{format(new Date(task.due_date), 'yyyy/MM/dd', { locale: ja })}</span>
+              <span>最終 {format(new Date(task.due_date), 'M/d', { locale: ja })}</span>
             </div>
           )}
         </div>

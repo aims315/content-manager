@@ -234,7 +234,7 @@ export function useTasks() {
 
   const updateTask = async (
     taskId: string,
-    updates: { title: string; assignee: string; due_date: string | null; description?: string; client_slug?: string | null }
+    updates: { title: string; assignee: string; due_date: string | null; draft_due_date: string | null; description?: string; client_slug?: string | null }
   ) => {
     const { error } = await supabase.from('tasks').update(updates).eq('id', taskId)
     if (error) { console.error('Error updating task:', error); return false }

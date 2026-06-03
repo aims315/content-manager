@@ -25,6 +25,7 @@ export function TaskList() {
   const [clientFilter, setClientFilter] = useState<string>('all')
   const [selectedTrashIds, setSelectedTrashIds] = useState<Set<string>>(new Set())
   const [staffFilter, setStaffFilter] = useState<string>('all')
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('all')
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortAsc, setSortAsc] = useState(false)
   const [earlyDays, setEarlyDays] = useState<number>(() => {
@@ -71,6 +72,10 @@ export function TaskList() {
     new Set(tasks.map((t) => t.staff).filter(Boolean) as string[])
   ).sort()
 
+  const assigneeList = Array.from(
+    new Set(tasks.map((t) => t.assignee).filter(Boolean) as string[])
+  ).sort()
+
   const handleTaskSelect = useCallback((taskId: string) => {
     setHighlightedTaskId(taskId)
     const el = cardRefs.current[taskId]
@@ -107,6 +112,7 @@ export function TaskList() {
     else if (clientFilter !== 'all') result = result.filter((t) => t.client_slug === clientFilter)
     if (staffFilter === 'none') result = result.filter((t) => !t.staff)
     else if (staffFilter !== 'all') result = result.filter((t) => t.staff === staffFilter)
+    if (assigneeFilter !== 'all') result = result.filter((t) => t.assignee === assigneeFilter)
     return sortTasks(result)
   }
 
@@ -221,6 +227,23 @@ export function TaskList() {
                     <SelectItem value="all">すべて</SelectItem>
                     <SelectItem value="none">未設定</SelectItem>
                     {staffList.map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            {assigneeList.length > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">カテゴリ:</span>
+                <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                  <SelectTrigger className="w-32 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">すべて</SelectItem>
+                    {assigneeList.map((name) => (
                       <SelectItem key={name} value={name}>{name}</SelectItem>
                     ))}
                   </SelectContent>
