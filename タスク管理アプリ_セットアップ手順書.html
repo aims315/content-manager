@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>タスク管理アプリ セットアップ・引き継ぎ手順書</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; color: #222; line-height: 1.8; background: #fff; }
+  .cover { background: linear-gradient(135deg, #6d28d9, #4f46e5); color: white; padding: 60px 40px; text-align: center; }
+  .cover h1 { font-size: 28px; margin-bottom: 12px; }
+  .cover p { font-size: 14px; opacity: 0.85; }
+  .toc { background: #f5f3ff; padding: 30px 40px; border-bottom: 1px solid #e5e7eb; }
+  .toc h2 { font-size: 16px; color: #6d28d9; margin-bottom: 12px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { font-size: 13px; color: #555; margin-bottom: 6px; }
+  .container { max-width: 860px; margin: 0 auto; padding: 40px 40px 80px; }
+  h2 { font-size: 20px; color: #fff; background: #6d28d9; padding: 10px 16px; border-radius: 6px; margin: 48px 0 20px; }
+  h3 { font-size: 16px; color: #4f46e5; border-left: 4px solid #6d28d9; padding-left: 10px; margin: 28px 0 12px; }
+  h4 { font-size: 14px; color: #374151; margin: 20px 0 8px; font-weight: bold; }
+  p { font-size: 14px; color: #444; margin-bottom: 10px; }
+  ul, ol { font-size: 14px; color: #444; padding-left: 22px; margin-bottom: 12px; }
+  li { margin-bottom: 6px; }
+  code { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 3px; padding: 1px 6px; font-family: 'Courier New', monospace; font-size: 12px; color: #7c3aed; }
+  pre { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 18px 20px; overflow-x: auto; margin: 12px 0 20px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.7; }
+  pre .comment { color: #6c7086; }
+  pre .keyword { color: #cba6f7; }
+  pre .string { color: #a6e3a1; }
+  .note { background: #fffbea; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #78350f; }
+  .info { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #1e40af; }
+  .success { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #166534; }
+  .danger { background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #991b1b; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+  th { background: #6d28d9; color: white; padding: 10px 12px; text-align: left; }
+  td { padding: 9px 12px; border: 1px solid #e5e7eb; }
+  tr:nth-child(even) td { background: #faf5ff; }
+  .step { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 20px; }
+  .step-num { background: #6d28d9; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; shrink: 0; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  .url { color: #4f46e5; font-weight: bold; }
+  .badge { display: inline-block; background: #6d28d9; color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+  .divider { border: none; border-top: 2px dashed #e5e7eb; margin: 40px 0; }
+  @media print {
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h2 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>📋 タスク管理アプリ<br>セットアップ・引き継ぎ手順書</h1>
+  <p>初心者向け完全ガイド｜最終更新：2026年6月</p>
+  <p style="margin-top:12px;"><a href="タスク管理アプリ_サーバー構築手順書.html" style="color:white;text-decoration:underline;font-size:13px;">🖥️ 自社・レンタルサーバーで動かす場合はこちら →</a></p>
+</div>
+
+<div class="toc">
+  <h2>📑 目次</h2>
+  <ol>
+    <li>システム概要・使い方</li>
+    <li>引き継ぎ時に渡すもの一覧</li>
+    <li>必要なアカウントとツールの準備</li>
+    <li>Supabase（データベース）のセットアップ</li>
+    <li>Vercel（公開サーバー）のセットアップ</li>
+    <li>Discord通知の設定</li>
+    <li>メール通知（Resend）の設定</li>
+    <li>動作確認チェックリスト</li>
+    <li>主要URL一覧</li>
+    <li>トラブルシューティング</li>
+    <li><a href="#newclient">🆕 別の会社・別の管理画面として新たに作る手順</a></li>
+    <li><a href="#github">🔗 GitHub連携でターミナル不要の自動デプロイ</a></li>
+  </ol>
+</div>
+
+<div class="container">
+
+<!-- ==================== 1. システム概要 ==================== -->
+<h2>1. システム概要・使い方</h2>
+
+<h3>何ができるシステムか</h3>
+<p>デザイン・動画などの制作案件を管理するためのWebアプリです。管理者とクライアント（お客様）がそれぞれ専用の画面を持ちます。</p>
+
+<table>
+  <tr><th>画面</th><th>誰が使う</th><th>できること</th></tr>
+  <tr><td>管理画面</td><td>制作会社側</td><td>タスク一覧・ステータス管理・カレンダー（初校/最終切り替え）・カテゴリ絞り込み・初校提出・修正対応</td></tr>
+  <tr><td>タスク送信フォーム</td><td>制作会社側</td><td>新規タスク登録・修正指示の送信</td></tr>
+  <tr><td>クライアントポータル</td><td>お客様</td><td>新規依頼・修正指示・進捗確認・ファイル確認</td></tr>
+</table>
+
+<h3>ステータスの流れ</h3>
+<p>タスクは以下の順序でステータスが変わります：</p>
+<pre>未着手 → 進行中 → 初校提出 → 修正 → 修正対応完了 → 完了</pre>
+
+<h3>使用しているサービス</h3>
+<table>
+  <tr><th>サービス名</th><th>役割</th><th>費用</th></tr>
+  <tr><td>Vercel</td><td>Webサイトの公開サーバー</td><td>無料プランあり</td></tr>
+  <tr><td>Supabase</td><td>データベース・ファイル保存</td><td>無料プランあり</td></tr>
+  <tr><td>Discord</td><td>通知（Webhook）</td><td>無料</td></tr>
+  <tr><td>Resend</td><td>メール通知送信</td><td>月3,000通まで無料</td></tr>
+</table>
+
+<!-- ==================== 2. 引き継ぎ ==================== -->
+<h2>2. 引き継ぎ時に渡すもの一覧</h2>
+
+<div class="danger">⚠️ 以下の情報は機密情報です。メールやチャットで送る際は取り扱いに注意してください。ZIPファイルには含めず、別途お渡しください。</div>
+
+<table>
+  <tr><th>渡すもの</th><th>内容</th><th>どこで確認するか</th></tr>
+  <tr><td>ソースコード（ZIP）</td><td>アプリのプログラム一式</td><td>task-management-appフォルダを圧縮</td></tr>
+  <tr><td>Supabase URL</td><td>データベースのアドレス</td><td>Supabase → Settings → API → Project URL</td></tr>
+  <tr><td>Supabase Anon Key</td><td>データベースの接続キー</td><td>Supabase → Settings → API → anon public</td></tr>
+  <tr><td>ADMIN_PATH_SECRET</td><td>管理画面URLの秘密キー</td><td>現在の値：qk9m3xtv</td></tr>
+  <tr><td>DISCORD_WEBHOOKS</td><td>Discord通知先のURL（JSON形式）</td><td>Vercel → Settings → Environment Variables</td></tr>
+  <tr><td>RESEND_API_KEY</td><td>メール送信のAPIキー</td><td>Vercel → Settings → Environment Variables</td></tr>
+</table>
+
+<div class="info">💡 Vercelのアカウントごと引き継ぐ場合は、Vercel → Settings → Members → Invite でメンバー追加するだけでOKです。SupabaseはSettings → Team → Invite memberから同様に招待できます。</div>
+
+<!-- ==================== 3. 準備 ==================== -->
+<h2>3. 必要なアカウントとツールの準備</h2>
+
+<h3>アカウント作成（すべて無料）</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <h4>Vercelアカウント</h4>
+    <p><span class="url">https://vercel.com</span> → 「Sign Up」→ GitHubまたはGoogleでログイン</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h4>Supabaseアカウント</h4>
+    <p><span class="url">https://supabase.com</span> → 「Start your project」→ GitHubでログイン</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <h4>Resendアカウント（メール通知用）</h4>
+    <p><span class="url">https://resend.com</span> → 「Sign Up」→ メールアドレスで登録</p>
+  </div>
+</div>
+
+<h3>パソコンへのツールインストール</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <h4>Node.jsのインストール</h4>
+    <p><span class="url">https://nodejs.org</span> → 「LTS」と書かれた緑のボタンをクリックしてダウンロード・インストール</p>
+    <div class="info">💡 LTS版は安定版です。必ずLTS版を選んでください。</div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h4>Vercel CLIのインストール</h4>
+    <p>ターミナル（Macはターミナル.app、Windowsはコマンドプロンプト）を開いて以下を入力してEnterキー：</p>
+    <pre>npm install -g vercel</pre>
+    <p>「added XX packages」と表示されれば成功です。</p>
+  </div>
+</div>
+
+<!-- ==================== 4. Supabase ==================== -->
+<h2>4. Supabase（データベース）のセットアップ</h2>
+
+<h3>4-1. 新しいプロジェクトを作成</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>Supabaseにログイン → 「New Project」をクリック</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>プロジェクト名（例：task-management）、データベースパスワード（忘れずメモ）を入力して「Create new project」</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>2〜3分待つとプロジェクトが作成されます</p>
+  </div>
+</div>
+
+<h3>4-2. テーブル（データの入れ物）を作成</h3>
+
+<p>左メニューの「SQL Editor」→「New query」をクリックして、以下のSQLをコピー＆ペーストして「Run」ボタンを押してください。</p>
+
+<div class="note">⚠️ 下のSQLは必ず一度に全部コピーして実行してください。</div>
+
+<pre><span class="comment">-- =============================================
+-- タスク管理アプリ データベース初期設定SQL（最新版）
+-- =============================================</span>
+
+<span class="comment">-- 1. タスクテーブル</span>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> tasks (
+  id UUID <span class="keyword">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  title TEXT <span class="keyword">NOT NULL</span>,
+  description TEXT,
+  assignee TEXT <span class="keyword">NOT NULL DEFAULT</span> <span class="string">''</span>,
+  status TEXT <span class="keyword">DEFAULT</span> <span class="string">'未着手'</span>
+    <span class="keyword">CONSTRAINT</span> tasks_status_check
+    <span class="keyword">CHECK</span> (status <span class="keyword">IN</span> (<span class="string">'未着手'</span>, <span class="string">'進行中'</span>, <span class="string">'初校提出'</span>, <span class="string">'修正'</span>, <span class="string">'修正対応完了'</span>, <span class="string">'完了'</span>)),
+  due_date DATE,
+  file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  client_slug TEXT,
+  staff TEXT,
+  discord_channels TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  modification_note TEXT,
+  modification_files TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  modified_by TEXT,
+  modified_at TIMESTAMPTZ,
+  response_url TEXT,
+  response_note TEXT,
+  responded_at TIMESTAMPTZ,
+  response_file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  response_file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  draft_url TEXT,
+  draft_note TEXT,
+  draft_submitted_at TIMESTAMPTZ,
+  draft_file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  draft_file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  draft_due_date DATE,
+  completed_at TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> NOW()
+);
+
+<span class="comment">-- 2. 修正指示テーブル</span>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> task_revisions (
+  id UUID <span class="keyword">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  task_id UUID <span class="keyword">REFERENCES</span> tasks(id) <span class="keyword">ON DELETE CASCADE</span>,
+  note TEXT <span class="keyword">NOT NULL</span>,
+  created_by TEXT <span class="keyword">NOT NULL DEFAULT</span> <span class="string">''</span>,
+  file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  created_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> NOW()
+);
+
+<span class="comment">-- 3. クライアント設定テーブル（Discord・メール設定）</span>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> client_settings (
+  slug TEXT <span class="keyword">PRIMARY KEY</span>,
+  discord_channel TEXT,
+  notification_email TEXT,
+  created_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> NOW()
+);
+
+<span class="comment">-- 4. セキュリティ設定（RLS：全員アクセス許可）</span>
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ENABLE ROW LEVEL SECURITY</span>;
+<span class="keyword">ALTER TABLE</span> task_revisions <span class="keyword">ENABLE ROW LEVEL SECURITY</span>;
+<span class="keyword">ALTER TABLE</span> client_settings <span class="keyword">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow all"</span> <span class="keyword">ON</span> tasks <span class="keyword">FOR ALL USING</span> (true) <span class="keyword">WITH CHECK</span> (true);
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow all"</span> <span class="keyword">ON</span> task_revisions <span class="keyword">FOR ALL USING</span> (true) <span class="keyword">WITH CHECK</span> (true);
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow all"</span> <span class="keyword">ON</span> client_settings <span class="keyword">FOR ALL USING</span> (true) <span class="keyword">WITH CHECK</span> (true);
+
+<span class="comment">-- 5. リアルタイム更新を有効化</span>
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">REPLICA IDENTITY FULL</span>;
+<span class="keyword">ALTER TABLE</span> task_revisions <span class="keyword">REPLICA IDENTITY FULL</span>;
+<span class="keyword">ALTER TABLE</span> client_settings <span class="keyword">REPLICA IDENTITY FULL</span>;</pre>
+
+<div class="success">✅ 「Success. No rows returned」と表示されれば成功です！</div>
+
+<h3>4-3. ファイル保存用ストレージの設定</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>左メニューの「Storage」→「New bucket」をクリック</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>Bucket name に <code>task-files</code> と入力、「Public bucket」をONにして「Save」</p>
+    <div class="note">⚠️ 必ず「Public bucket」をONにしてください。ONにしないとファイルが表示されません。</div>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>SQL Editorで以下を実行してアップロード権限を設定：</p>
+    <pre><span class="comment">-- ファイルアップロードを許可</span>
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow upload"</span> <span class="keyword">ON</span> storage.objects
+  <span class="keyword">FOR INSERT TO</span> anon <span class="keyword">WITH CHECK</span> (bucket_id = <span class="string">'task-files'</span>);
+
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow read"</span> <span class="keyword">ON</span> storage.objects
+  <span class="keyword">FOR SELECT TO</span> anon <span class="keyword">USING</span> (bucket_id = <span class="string">'task-files'</span>);
+
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow delete"</span> <span class="keyword">ON</span> storage.objects
+  <span class="keyword">FOR DELETE TO</span> anon <span class="keyword">USING</span> (bucket_id = <span class="string">'task-files'</span>);</pre>
+  </div>
+</div>
+
+<h3>4-4. 接続情報をメモする</h3>
+
+<p>左メニューの「Settings」→「API」を開いて以下をメモしてください：</p>
+<table>
+  <tr><th>項目名</th><th>Vercelでの変数名</th><th>場所</th></tr>
+  <tr><td>Project URL</td><td>NEXT_PUBLIC_SUPABASE_URL</td><td>「Project URL」欄</td></tr>
+  <tr><td>anon public key</td><td>NEXT_PUBLIC_SUPABASE_ANON_KEY</td><td>「Project API keys」→「anon」</td></tr>
+</table>
+
+<!-- ==================== 5. Vercel ==================== -->
+<h2>5. Vercel（公開サーバー）のセットアップ</h2>
+
+<h3>5-1. ソースコードの準備</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>受け取ったZIPファイルを解凍する</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>解凍したフォルダの中に <code>.env.local</code> という名前のファイルを新規作成して、以下を記入：</p>
+    <pre>NEXT_PUBLIC_SUPABASE_URL=（SupabaseのProject URL）
+NEXT_PUBLIC_SUPABASE_ANON_KEY=（Supabaseのanon key）
+ADMIN_PATH_SECRET=（管理画面URLに使う任意の文字列 例：mycompany2024）
+DISCORD_WEBHOOKS={"チャンネル名":"https://discord.com/api/webhooks/..."}
+RESEND_API_KEY=（ResendのAPIキー）</pre>
+    <div class="note">⚠️ このファイルはZIPで渡さないでください。パスワードのような重要な情報が含まれています。</div>
+  </div>
+</div>
+
+<h3>5-2. デプロイ（公開）する</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>ターミナルを開いて、解凍したフォルダに移動：</p>
+    <pre>cd （フォルダをここにドラッグ＆ドロップするとパスが入力される）</pre>
+    <p>例：</p>
+    <pre>cd /Users/yamada/Downloads/task-management-app</pre>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>パッケージをインストール：</p>
+    <pre>npm install</pre>
+    <p>完了まで1〜2分かかります。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>Vercelにログイン：</p>
+    <pre>vercel login</pre>
+    <p>ブラウザが開くのでVercelアカウントでログインしてください。</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <p>本番環境にデプロイ：</p>
+    <pre>vercel --prod</pre>
+    <p>いくつか質問が表示されます。基本的に全部Enterキーで進めてOKです。<br>最後に <code>https://xxxxx.vercel.app</code> のようなURLが表示されれば成功です！</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">5</div>
+  <div class="step-body">
+    <p>Vercelの管理画面から環境変数を設定：</p>
+    <p>Vercel（vercel.com）→ プロジェクトを選択 → Settings → Environment Variables → 「Add Environment Variable」で以下を追加：</p>
+    <table>
+      <tr><th>Key（変数名）</th><th>Value（値）</th></tr>
+      <tr><td>NEXT_PUBLIC_SUPABASE_URL</td><td>SupabaseのProject URL</td></tr>
+      <tr><td>NEXT_PUBLIC_SUPABASE_ANON_KEY</td><td>Supabaseのanon key</td></tr>
+      <tr><td>ADMIN_PATH_SECRET</td><td>管理画面URLに使う文字列</td></tr>
+      <tr><td>DISCORD_WEBHOOKS</td><td>{"チャンネル名":"webhook URL"}</td></tr>
+      <tr><td>RESEND_API_KEY</td><td>ResendのAPIキー（re_から始まる）</td></tr>
+    </table>
+    <p>追加後にもう一度 <code>vercel --prod</code> を実行して再デプロイしてください。</p>
+  </div>
+</div>
+
+<h3>5-3. コードを修正した後の再デプロイ方法</h3>
+
+<p>ファイルを編集・追加した後は、毎回以下のどちらかの方法でデプロイしてください。</p>
+
+<h4>【方法A】ターミナル1行で完結（推奨・最速）</h4>
+<p>ターミナルを開いて以下を貼り付けて Enter するだけ：</p>
+<pre>cd ~/Downloads/task-management-app && git add . && git commit -m "更新" && git push</pre>
+<p>1〜2分で Vercel に自動デプロイされます。「✓ Ready」のメール or Vercel ダッシュボードで確認できます。</p>
+
+<div class="note">⚠️ 事前に GitHub Desktop でリポジトリを作成・Vercel と GitHub を連携済みであること（セクション12参照）</div>
+
+<h4>【方法B】GitHub Desktop を使う</h4>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">GitHub Desktop を開く → 左下 Summary に変更内容を一言入力（例：<code>ボタンを修正</code>）</div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body"><strong>「Commit to main」</strong> → <strong>「Push origin」</strong> をクリック</div>
+</div>
+
+<h4>反映されない場合</h4>
+<p>ブラウザで <strong>強制リロード（Command + Shift + R）</strong> を試してください。</p>
+
+<!-- ==================== 6. Discord ==================== -->
+<h2>6. Discord通知の設定</h2>
+
+<h3>Webhook URLの取得方法</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>Discordで通知を受け取りたいチャンネルを右クリック → 「チャンネルの編集」</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>「連携サービス」→「ウェブフック」→「新しいウェブフック」</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>「ウェブフックURLをコピー」でURLをコピー</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <p>複数チャンネルある場合は以下の形式でまとめてVercelに設定：</p>
+    <pre>{
+  "チャンネル名A": "https://discord.com/api/webhooks/...",
+  "チャンネル名B": "https://discord.com/api/webhooks/...",
+  "default": "https://discord.com/api/webhooks/..."
+}</pre>
+    <div class="info">💡 <code>default</code> はクライアントコードとの紐付けがない場合に使われるチャンネルです。必ず設定してください。</div>
+  </div>
+</div>
+
+<h3>クライアントコードとチャンネルの紐付け</h3>
+<p>管理画面にログイン後、<code>/p/（ADMIN_PATH_SECRET）/settings</code> にアクセスすると設定画面が開きます。クライアントコードとDiscordチャンネルをここで紐付けてください。</p>
+
+<!-- ==================== 7. Resend ==================== -->
+<h2>7. メール通知（Resend）の設定</h2>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><span class="url">https://resend.com</span> でアカウント作成（無料）</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>ログイン後、左メニューの「API Keys」→「Create API Key」</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>表示された <code>re_xxxxxxxx</code> という文字列をコピーして、VercelのEnvironment Variablesに <code>RESEND_API_KEY</code> として設定</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <p>設定後に <code>vercel --prod</code> で再デプロイ</p>
+  </div>
+</div>
+
+<div class="info">💡 無料プランは月3,000通まで送信可能です。テスト送信は <code>onboarding@resend.dev</code> からの送信になります。独自ドメインを設定するとよりプロフェッショナルな見た目になります。</div>
+
+<!-- ==================== 8. 動作確認 ==================== -->
+<h2>8. 動作確認チェックリスト</h2>
+
+<table>
+  <tr><th>確認項目</th><th>確認方法</th><th>✓</th></tr>
+  <tr><td>管理画面が開く</td><td><code>https://（あなたのURL）/p/（ADMIN_PATH_SECRET）</code> にアクセス</td><td></td></tr>
+  <tr><td>タスクが作成できる</td><td>管理画面からタスクを1件作成してみる</td><td></td></tr>
+  <tr><td>ファイルがアップできる</td><td>タスク作成時にファイルを添付してみる</td><td></td></tr>
+  <tr><td>Discord通知が届く</td><td>タスク作成後にDiscordに通知が来るか確認</td><td></td></tr>
+  <tr><td>クライアントポータルが開く</td><td><code>/submit/（クライアントコード）</code> にアクセス</td><td></td></tr>
+  <tr><td>ステータス変更が反映される</td><td>管理画面でステータスを変更してクライアントポータルを確認</td><td></td></tr>
+  <tr><td>メール通知が届く</td><td>クライアントポータルでメール登録してステータスを変更</td><td></td></tr>
+</table>
+
+<!-- ==================== 9. URL一覧 ==================== -->
+<h2>9. 主要URL一覧</h2>
+
+<table>
+  <tr><th>URL</th><th>説明</th><th>誰がアクセスするか</th></tr>
+  <tr><td><code>https://（サイトURL）/</code></td><td>管理画面（タスク一覧）</td><td>制作会社側</td></tr>
+  <tr><td><code>/p/（ADMIN_PATH_SECRET）</code></td><td>タスク送信・修正指示フォーム</td><td>制作会社側</td></tr>
+  <tr><td><code>/p/（ADMIN_PATH_SECRET）/settings</code></td><td>Discord通知チャンネル設定</td><td>制作会社側（管理者）</td></tr>
+  <tr><td><code>/submit</code></td><td>クライアントポータル入口</td><td>お客様</td></tr>
+  <tr><td><code>/submit/（クライアントコード）</code></td><td>特定クライアント専用ポータル</td><td>特定のお客様</td></tr>
+</table>
+
+<div class="note">⚠️ <code>/p/（ADMIN_PATH_SECRET）</code> のURLは外部に公開しないでください。タスクの削除なども可能なため、クライアントには渡さないようにしてください。</div>
+
+<!-- ==================== 10. トラブルシューティング ==================== -->
+<h2>10. トラブルシューティング</h2>
+
+<h3>「This page couldn't load」と表示される</h3>
+<p>JavaScriptのエラーが起きています。以下を確認してください：</p>
+<ul>
+  <li>Vercelの環境変数がすべて正しく設定されているか</li>
+  <li><code>vercel --prod</code> で最新版をデプロイしたか</li>
+</ul>
+
+<h3>ファイルがアップロードできない・表示されない</h3>
+<p>Supabaseのストレージ設定を確認：</p>
+<ul>
+  <li>Storage → task-filesバケットが「PUBLIC」になっているか</li>
+  <li>Storage Policyが設定されているか（INSERT / SELECT / DELETEの3つ）</li>
+</ul>
+
+<h3>Discord通知が届かない</h3>
+<ul>
+  <li>DISCORD_WEBHOOKSの値がJSON形式で正しく設定されているか確認</li>
+  <li>Webhook URLが有効かDiscordで確認</li>
+  <li><code>default</code> キーが設定されているか確認</li>
+</ul>
+
+<h3>ステータスの変更でエラーが出る</h3>
+<p>DBのステータス制約が古い可能性があります。SQL Editorで実行：</p>
+<pre><span class="keyword">UPDATE</span> tasks <span class="keyword">SET</span> status = <span class="string">'未着手'</span>
+  <span class="keyword">WHERE</span> status <span class="keyword">NOT IN</span> (<span class="string">'未着手'</span>,<span class="string">'進行中'</span>,<span class="string">'初校提出'</span>,<span class="string">'修正'</span>,<span class="string">'修正対応完了'</span>,<span class="string">'完了'</span>);
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">DROP CONSTRAINT IF EXISTS</span> tasks_status_check;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD CONSTRAINT</span> tasks_status_check
+  <span class="keyword">CHECK</span> (status <span class="keyword">IN</span> (<span class="string">'未着手'</span>, <span class="string">'進行中'</span>, <span class="string">'初校提出'</span>, <span class="string">'修正'</span>, <span class="string">'修正対応完了'</span>, <span class="string">'完了'</span>));</pre>
+
+<h3>既存のDBにカラムを追加する（アップデート時）</h3>
+<p>新バージョンで追加されたカラムが不足している場合はSQL Editorで実行：</p>
+<pre><span class="comment">-- 担当者・ゴミ箱・初校ファイル・納品ファイルカラムを追加</span>
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> staff TEXT;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> deleted_at TIMESTAMPTZ;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> draft_file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> draft_file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> response_file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> response_file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> draft_due_date DATE;
+<span class="keyword">ALTER TABLE</span> client_settings <span class="keyword">ADD COLUMN IF NOT EXISTS</span> notification_email TEXT;
+
+<span class="comment">-- 締切リマインダー設定テーブル（Vercel Cron用）</span>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> app_settings (
+  key TEXT <span class="keyword">PRIMARY KEY</span>,
+  value TEXT <span class="keyword">NOT NULL</span>,
+  updated_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> now()
+);
+<span class="keyword">ALTER TABLE</span> app_settings <span class="keyword">ENABLE ROW LEVEL SECURITY</span>;
+<span class="comment">-- service_role でのみアクセス（RLS で anon を拒否）</span>
+<span class="keyword">CREATE POLICY</span> <span class="string">"service only"</span> <span class="keyword">ON</span> app_settings <span class="keyword">USING</span> (false);
+<span class="keyword">INSERT INTO</span> app_settings (key, value) <span class="keyword">VALUES</span> (<span class="string">'due_reminder_days'</span>, <span class="string">'3'</span>) <span class="keyword">ON CONFLICT</span> (key) <span class="keyword">DO NOTHING</span>;</pre>
+
+<h3>メール通知が届かない</h3>
+<ul>
+  <li>RESEND_API_KEYが正しく設定されているか確認</li>
+  <li>クライアントポータルの「進捗確認」タブでメールアドレスが保存されているか確認</li>
+  <li>迷惑メールフォルダも確認</li>
+</ul>
+
+<hr class="divider">
+
+<!-- ===== 他社向け新規展開 ===== -->
+<h2 id="newclient">11. 別の会社・別の管理画面として新たに作る手順</h2>
+
+<p>このアプリを別の会社・別のプロジェクト向けに新たにセットアップしてあげる場合の手順です。<strong>コード（ZIPファイル）は使い回し</strong>できます。作るのは「Supabaseのプロジェクト」と「Vercelのプロジェクト」だけです。</p>
+
+<div class="info">
+  💡 <strong>ポイント：</strong>コードは同じもの・変わるのは「環境変数」だけです。<br>
+  新しい Supabase プロジェクト ＋ 新しい Vercel プロジェクト ＝ 完全に独立した別の管理画面ができます。
+</div>
+
+<h3>自分のPCに必要なもの（事前確認）</h3>
+
+<ul>
+  <li>✅ <code>/Users/あなた/Downloads/task-management-app.zip</code>（アプリのZIP）</li>
+  <li>✅ Supabase のアカウント（既存のもので別プロジェクトを追加できる）</li>
+  <li>✅ Vercel のアカウント（既存のもので別プロジェクトを追加できる）</li>
+  <li>✅ 相手先の Discord Webhook URL（相手に作ってもらうか、自分で作る）</li>
+</ul>
+
+<h3>全体の流れ（30〜60分）</h3>
+
+<div class="step">
+  <div class="step-num">①</div>
+  <div class="step-body">新しい Supabase プロジェクトを作る</div>
+</div>
+<div class="step">
+  <div class="step-num">②</div>
+  <div class="step-body">SQL を実行してテーブルを作る</div>
+</div>
+<div class="step">
+  <div class="step-num">③</div>
+  <div class="step-body">Storage のバケットを作る</div>
+</div>
+<div class="step">
+  <div class="step-num">④</div>
+  <div class="step-body">新しい Vercel プロジェクトを作る（同じZIPを使う）</div>
+</div>
+<div class="step">
+  <div class="step-num">⑤</div>
+  <div class="step-body">環境変数を設定する</div>
+</div>
+<div class="step">
+  <div class="step-num">⑥</div>
+  <div class="step-body">デプロイして動作確認・URLを相手に渡す</div>
+</div>
+
+<hr style="margin:24px 0;border:none;border-top:1px dashed #e5e7eb;">
+
+<h3>① 新しい Supabase プロジェクトを作る</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><a href="https://supabase.com" target="_blank">supabase.com</a> にログインして「New project」をクリック</p>
+    <ul>
+      <li><strong>Name：</strong>相手先の会社名など（例：yamada-tasks）</li>
+      <li><strong>Database Password：</strong>自動生成されたものをどこかにメモ</li>
+      <li><strong>Region：</strong>Northeast Asia（Tokyo）を選択</li>
+    </ul>
+    <p>作成完了まで1〜2分待ちます。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>プロジェクトが作成されたら <strong>Project Settings → API</strong> を開いて以下の値をメモする：</p>
+    <ul>
+      <li><strong>Project URL</strong>（例：https://xxxxxxxx.supabase.co）</li>
+      <li><strong>anon public</strong> キー（長い文字列）</li>
+      <li><strong>service_role</strong> キー（長い文字列・秘密）</li>
+    </ul>
+    <div class="note">⚠️ service_role キーは絶対に相手に渡さないでください。Vercelの環境変数にだけ設定します。</div>
+  </div>
+</div>
+
+<h3>② SQLを実行してテーブルを作る</h3>
+
+<p>新しいプロジェクトの <strong>SQL Editor</strong> を開いて、以下のSQLを貼り付けて実行します。</p>
+
+<pre><span class="comment">-- タスクテーブル</span>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> tasks (
+  id UUID <span class="keyword">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  title TEXT <span class="keyword">NOT NULL</span>,
+  description TEXT,
+  assignee TEXT <span class="keyword">NOT NULL DEFAULT</span> <span class="string">''</span>,
+  due_date DATE,
+  status TEXT <span class="keyword">NOT NULL DEFAULT</span> <span class="string">'未着手'</span>
+    <span class="keyword">CONSTRAINT</span> tasks_status_check
+    <span class="keyword">CHECK</span> (status <span class="keyword">IN</span> (<span class="string">'未着手'</span>,<span class="string">'進行中'</span>,<span class="string">'初校提出'</span>,<span class="string">'修正'</span>,<span class="string">'修正対応完了'</span>,<span class="string">'完了'</span>)),
+  file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  created_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> NOW(),
+  completed_at TIMESTAMPTZ,
+  modification_note TEXT,
+  modification_files TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  modified_by TEXT,
+  modified_at TIMESTAMPTZ,
+  discord_channels TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  response_url TEXT,
+  response_note TEXT,
+  responded_at TIMESTAMPTZ,
+  draft_url TEXT,
+  draft_note TEXT,
+  draft_submitted_at TIMESTAMPTZ,
+  draft_due_date DATE,
+  client_slug TEXT
+);
+
+<span class="comment">-- 修正指示テーブル</span>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> task_revisions (
+  id UUID <span class="keyword">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  task_id UUID <span class="keyword">NOT NULL REFERENCES</span> tasks(id) <span class="keyword">ON DELETE CASCADE</span>,
+  note TEXT <span class="keyword">NOT NULL</span>,
+  created_by TEXT <span class="keyword">NOT NULL DEFAULT</span> <span class="string">''</span>,
+  file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
+  created_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> NOW()
+);
+
+<span class="comment">-- クライアント設定テーブル</span>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> client_settings (
+  id UUID <span class="keyword">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  slug TEXT <span class="keyword">UNIQUE NOT NULL</span>,
+  discord_channel TEXT,
+  notification_email TEXT,
+  created_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> NOW(),
+  updated_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> NOW()
+);
+
+<span class="comment">-- Realtimeを有効化（管理画面とクライアントポータルの即時反映に必要）</span>
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">REPLICA IDENTITY FULL</span>;
+<span class="keyword">ALTER TABLE</span> task_revisions <span class="keyword">REPLICA IDENTITY FULL</span>;
+<span class="keyword">ALTER TABLE</span> client_settings <span class="keyword">REPLICA IDENTITY FULL</span>;</pre>
+
+<p>「Success. No rows returned.」と表示されれば完了です。</p>
+
+<h3>③ Storage のバケットを作る</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>Supabase の左メニュー <strong>Storage</strong> → <strong>New bucket</strong> をクリック</p>
+    <ul>
+      <li><strong>Name：</strong><code>task-files</code>（この名前で固定）</li>
+      <li><strong>Public bucket：</strong>✅ オンにする</li>
+    </ul>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>バケット作成後、<strong>SQL Editor</strong> で以下を実行してアップロードを許可する：</p>
+    <pre><span class="comment">-- 誰でもファイルをアップロードできるポリシー</span>
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow upload"</span> <span class="keyword">ON</span> storage.objects
+  <span class="keyword">FOR INSERT TO</span> anon <span class="keyword">WITH CHECK</span> (bucket_id = <span class="string">'task-files'</span>);
+
+<span class="comment">-- 誰でもファイルを読める（公開）ポリシー</span>
+<span class="keyword">CREATE POLICY</span> <span class="string">"allow read"</span> <span class="keyword">ON</span> storage.objects
+  <span class="keyword">FOR SELECT TO</span> anon <span class="keyword">USING</span> (bucket_id = <span class="string">'task-files'</span>);</pre>
+  </div>
+</div>
+
+<h3>④ 新しい Vercel プロジェクトを作る</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><a href="https://vercel.com" target="_blank">vercel.com</a> にログインして <strong>Add New → Project</strong> をクリック</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>「Import Git Repository」ではなく「Deploy without a Git repository（ZIP）」</strong>を選ぶ</p>
+    <p>または、GitHubリポジトリを持っている場合は同じリポジトリを再度インポートしてもOK（別プロジェクトとして作成される）</p>
+    <div class="note">
+      ⚠️ ZIPからの直接インポート：Vercelのダッシュボードで「Import」→「Upload」→ ZIPを選択
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>プロジェクト名を決める（例：<code>yamada-task-management</code>）</p>
+    <p>Framework Preset は <strong>Next.js</strong> を選択</p>
+    <p><strong>まだ「Deploy」は押さない → 先に環境変数を設定する</strong></p>
+  </div>
+</div>
+
+<h3>⑤ 環境変数を設定する</h3>
+
+<p>「Environment Variables」のセクションに以下を1つずつ追加します。</p>
+
+<table>
+  <tr><th>変数名</th><th>値</th><th>備考</th></tr>
+  <tr>
+    <td><code>NEXT_PUBLIC_SUPABASE_URL</code></td>
+    <td>新しいプロジェクトのURL</td>
+    <td>Supabase → Settings → API → Project URL</td>
+  </tr>
+  <tr>
+    <td><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td>
+    <td>新しい anon キー</td>
+    <td>Supabase → Settings → API → anon public</td>
+  </tr>
+  <tr>
+    <td><code>SUPABASE_SERVICE_ROLE_KEY</code></td>
+    <td>新しい service_role キー</td>
+    <td>Supabase → Settings → API → service_role</td>
+  </tr>
+  <tr>
+    <td><code>ADMIN_PATH_SECRET</code></td>
+    <td>新しい管理パス（自分で決める）</td>
+    <td>例：<code>abc12345</code>　※元の案件と別の値を推奨</td>
+  </tr>
+  <tr>
+    <td><code>DISCORD_WEBHOOKS</code></td>
+    <td>相手先のDiscord Webhook JSON</td>
+    <td>例：<code>{"チャンネル名":"https://discord.com/..."}</code></td>
+  </tr>
+  <tr>
+    <td><code>RESEND_API_KEY</code></td>
+    <td>自分のResend APIキー（使い回し可）</td>
+    <td>メール通知が不要なら設定しなくてもOK</td>
+  </tr>
+</table>
+
+<div class="note">
+  💡 <strong>ADMIN_PATH_SECRET について：</strong>これが管理画面のURLになります。<br>
+  例えば <code>yamada2024</code> に設定すると、管理画面URLは<br>
+  <code>https://yamada-task-management.vercel.app/p/yamada2024</code> になります。<br>
+  相手に渡すURLと、クライアント用URLを整理してメモしておきましょう。
+</div>
+
+<h3>⑥ デプロイして相手に渡す</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>環境変数の設定後、<strong>「Deploy」ボタン</strong>を押す。2〜3分でデプロイ完了。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>完了後、以下のURLを相手に伝える：</p>
+    <table>
+      <tr><th>渡す相手</th><th>URL</th></tr>
+      <tr>
+        <td>管理側（あなたたち）</td>
+        <td><code>https://[プロジェクト名].vercel.app/p/[ADMIN_PATH_SECRET]</code></td>
+      </tr>
+      <tr>
+        <td>クライアント側</td>
+        <td><code>https://[プロジェクト名].vercel.app/submit/[クライアントコード]</code></td>
+      </tr>
+      <tr>
+        <td>Discord通知設定</td>
+        <td><code>https://[プロジェクト名].vercel.app/p/[ADMIN_PATH_SECRET]/settings</code></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>管理画面にアクセスして動作確認：</p>
+    <ul>
+      <li>テストタスクを1件作成してみる</li>
+      <li>クライアントポータルにアクセスしてタスクが見えるか確認</li>
+      <li>Discord通知設定からチャンネルを紐付ける</li>
+    </ul>
+  </div>
+</div>
+
+<div class="success">
+  ✅ これで完全に独立した別の管理画面が完成です。<br>
+  元の案件のデータとは完全に分離されています。
+</div>
+
+<h3>よくある質問</h3>
+
+<h4>Q. 何社分でも作れる？</h4>
+<p>はい。Supabase（無料プランで最大2プロジェクト、有料で無制限）とVercel（無料プランで無制限プロジェクト）の制限範囲内であれば何社分でも作れます。</p>
+
+<h4>Q. Resend（メール通知）は使い回せる？</h4>
+<p>はい。同じ API キーを複数のVercelプロジェクトで使えます。ただし無料プランは月100通まで。複数社で使う場合は通数に注意してください。</p>
+
+<h4>Q. 独自ドメインを使いたい</h4>
+<p>Vercel の各プロジェクトの <strong>Settings → Domains</strong> から独自ドメインを追加できます。例：<code>tasks.yamada-company.com</code></p>
+
+<h4>Q. 相手に GitHub や Vercel のアカウントを作ってもらう必要はある？</h4>
+<p>いいえ。<strong>自分のアカウントで全部管理する場合は不要</strong>です。相手には管理画面のURLとパスワード（ADMIN_PATH_SECRET）だけ渡せばOKです。相手側で自分たちが管理したい場合は別途アカウントを作って引き継ぎます。</p>
+
+<hr class="divider">
+
+<!-- ===== GitHub連携 ===== -->
+<h2 id="github">12. GitHub連携でターミナル不要の自動デプロイ</h2>
+
+<p>現在はターミナルで <code>vercel --prod</code> を実行してデプロイしています。GitHubと連携すると、<strong>ファイルを保存してGitHubにアップするだけで自動的にVercelにデプロイ</strong>されます。ターミナルは不要になります。</p>
+
+<div class="info">
+  💡 <strong>メリット：</strong>コードの変更履歴が残る・間違えても前のバージョンに戻せる・デプロイが自動化される
+</div>
+
+<h3>① GitHubアカウントを作る（持っている場合はスキップ）</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><a href="https://github.com" target="_blank">github.com</a> にアクセスして「Sign up」でアカウント作成</p>
+    <ul>
+      <li>メールアドレス・パスワード・ユーザー名を設定するだけ</li>
+      <li>無料プランで十分です</li>
+    </ul>
+  </div>
+</div>
+
+<h3>② GitHub Desktop をインストール（GUI操作ツール）</h3>
+
+<p>ターミナル不要でGitHubを使えるアプリです。</p>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><a href="https://desktop.github.com" target="_blank">desktop.github.com</a> からダウンロード・インストール</p>
+    <p>起動後、GitHubアカウントでサインイン</p>
+  </div>
+</div>
+
+<h3>③ アプリをGitHubに登録（リポジトリ作成）</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>GitHub Desktop を開いて <strong>「Add an Existing Repository from your Hard Drive...」</strong> をクリック</p>
+    <p>→ <code>/Users/あなた/Downloads/task-management-app</code> フォルダを選択</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>「create a repository」リンクが出たらクリック → <strong>Initialize Repository</strong> ボタンを押す</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>右上の <strong>「Publish repository」</strong> ボタンを押す</p>
+    <ul>
+      <li><strong>Name：</strong>task-management-app（そのままでOK）</li>
+      <li><strong>Keep this code private：</strong>✅ チェックを入れる（他人に見られないように）</li>
+    </ul>
+    <p>「Publish Repository」ボタンを押して完了</p>
+  </div>
+</div>
+
+<h3>④ VercelをGitHubリポジトリに連携させる</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><a href="https://vercel.com" target="_blank">vercel.com</a> → 該当プロジェクト → <strong>Settings → Git</strong> を開く</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>「Connect Git Repository」</strong> をクリック → GitHub を選択 → 先ほど作った <code>task-management-app</code> リポジトリを選択</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>接続完了。これ以降は自動デプロイが有効になります。</p>
+  </div>
+</div>
+
+<div class="success">
+  ✅ これ以降の更新は以下の手順だけ：<br><br>
+  ① ファイルを編集・保存<br>
+  ② GitHub Desktop を開く<br>
+  ③ 左下の「Summary」欄に変更内容を一言入力（例：「担当者機能を追加」）<br>
+  ④ 青い <strong>「Commit to main」</strong> ボタンを押す<br>
+  ⑤ 上の <strong>「Push origin」</strong> ボタンを押す<br>
+  ⑥ 1〜2分でVercelに自動デプロイ完了 🎉
+</div>
+
+<h3>間違えた時に前のバージョンに戻す方法</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>GitHub Desktop の <strong>「History」タブ</strong> を開く → 過去のコミット一覧が表示される</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>戻したいコミットを右クリック → <strong>「Revert Changes in Commit」</strong> を選択</p>
+    <p>→ Push origin すれば古いバージョンに戻ってデプロイされる</p>
+  </div>
+</div>
+
+<div class="note">
+  ⚠️ <strong>注意：</strong>環境変数（APIキーなど）はVercelで管理されているので、GitHubには保存されません。新しいプロジェクトを作る時は環境変数の再設定が必要です。
+</div>
+
+<hr class="divider">
+
+<!-- ===== Vercel Cron 締切リマインダー ===== -->
+<h2 id="cron">13. 締切リマインダー通知（Vercel Cron）</h2>
+
+<p>指定日数後に締切が来るのに未完了のタスクを、毎朝 <strong>9:00 JST（0:00 UTC）</strong> に自動でDiscordへ通知します。</p>
+
+<h3>① Supabase でテーブル作成</h3>
+<p>SupabaseのSQL Editorで以下を実行してください（初回のみ）：</p>
+<pre>
+<span class="keyword">CREATE TABLE IF NOT EXISTS</span> app_settings (
+  key TEXT <span class="keyword">PRIMARY KEY</span>,
+  value TEXT <span class="keyword">NOT NULL</span>,
+  updated_at TIMESTAMPTZ <span class="keyword">DEFAULT</span> now()
+);
+<span class="keyword">ALTER TABLE</span> app_settings <span class="keyword">ENABLE ROW LEVEL SECURITY</span>;
+<span class="keyword">CREATE POLICY</span> <span class="string">"service only"</span> <span class="keyword">ON</span> app_settings <span class="keyword">USING</span> (false);
+<span class="keyword">INSERT INTO</span> app_settings (key, value)
+  <span class="keyword">VALUES</span> (<span class="string">'due_reminder_days'</span>, <span class="string">'3'</span>)
+  <span class="keyword">ON CONFLICT</span> (key) <span class="keyword">DO NOTHING</span>;
+</pre>
+
+<h3>② Vercel 環境変数の確認</h3>
+<p><code>SUPABASE_SERVICE_ROLE_KEY</code> が Vercel に設定されていること（Supabase → Project Settings → API → service_role key）</p>
+<div class="note">⚠️ service_role キーは絶対に公開しないでください。Vercelの環境変数にのみ設定します。</div>
+
+<h3>③ デプロイするだけで自動有効化</h3>
+<p><code>vercel.json</code> にCron設定が含まれているため、<strong>デプロイするだけで Vercel Cron が自動的に有効</strong>になります。</p>
+<div class="info">
+  📋 動作確認はVercelダッシュボード → <strong>Cron Jobs</strong> タブで確認できます。手動実行ボタンもあります。
+</div>
+
+<h3>④ 通知日数の変更方法</h3>
+<p>管理画面のフィルタバーに <strong>「締切○日前に未完了通知」</strong> という設定バッジが表示されます。「変更」をクリックして日数を入力→「保存」すると Supabase に保存され、次回のCronから新しい日数で通知されます。</p>
+
+<h3>Discord 通知の例</h3>
+<pre>
+⚠️ <strong>締切まであと3日です！</strong>
+
+タイトル: ロゴデザイン修正
+担当者: 山田
+期限: 2026-06-05
+ステータス: 修正対応完了
+</pre>
+
+<hr class="divider">
+<p style="text-align:center;color:#999;font-size:12px;">タスク管理アプリ セットアップ・引き継ぎ手順書　©2026</p>
+
+</div>
+</body>
+</html>
