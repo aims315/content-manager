@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { type, title, assignee, dueDate, channels, note, modifiedBy, responseUrl, responseNote, clientSlug, daysEarly } = await request.json()
+    const { type, title, assignee, dueDate, channels, note, modifiedBy, responseUrl, responseNote, clientSlug, daysEarly, description, fileUrls, previousStatus, newStatus } = await request.json()
 
     let message = ''
     if (type === 'created') {
-      message = `🆕 **新しいタスクが作成されました！**\n\n**タイトル:** ${title}\n**担当者:** ${assignee}${dueDate ? `\n**期限:** ${dueDate}` : ''}`
+      message = `🆕 **新しいタスクが作成されました！**\n\n**タイトル:** ${title}\n**担当者:** ${assignee}${dueDate ? `\n**期限:** ${dueDate}` : ''}${description ? `\n**備考:** ${description}` : ''}${fileUrls && fileUrls.length > 0 ? `\n**添付ファイル:**\n${fileUrls.map((u: string) => u).join('\n')}` : ''}`
     } else if (type === 'completed') {
       message = `✅ **タスクが完了しました！**\n\n**タイトル:** ${title}\n**担当者:** ${assignee}${dueDate ? `\n**期限:** ${dueDate}` : ''}`
     } else if (type === 'early_completion') {
@@ -70,6 +70,10 @@ export async function POST(request: NextRequest) {
       message = `📤 **修正対応が完了しました！**\n\n**タイトル:** ${title}\n**担当者:** ${assignee}${responseNote ? `\n**備考:** ${responseNote}` : ''}${responseUrl ? `\n**データリンク:** ${responseUrl}` : ''}`
     } else if (type === 'draft') {
       message = `📎 **初校が提出されました！**\n\n**タイトル:** ${title}\n**担当者:** ${assignee}${responseNote ? `\n**備考:** ${responseNote}` : ''}${responseUrl ? `\n**データリンク:** ${responseUrl}` : ''}`
+    } else if (type === 'status_changed') {
+      message = `🔄 **ステータスが変更されました**\n\n**タイトル:** ${title}\n**担当者:** ${assignee}\n**変更:** ${previousStatus} → ${newStatus}${dueDate ? `\n**期限:** ${dueDate}` : ''}`
+    } else if (type === 'updated') {
+      message = `✏️ **タスクが更新されました**\n\n**タイトル:** ${title}\n**担当者:** ${assignee}${dueDate ? `\n**期限:** ${dueDate}` : ''}`
     } else {
       return NextResponse.json({ error: 'Invalid notification type' }, { status: 400 })
     }

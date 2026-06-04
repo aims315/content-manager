@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -33,6 +34,7 @@ export function TaskForm() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [clientSlug, setClientSlug] = useState('')
+  const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>()
   const [draftDueDate, setDraftDueDate] = useState<Date | undefined>()
   const [availableChannels, setAvailableChannels] = useState<string[]>([])
@@ -73,6 +75,7 @@ export function TaskForm() {
     const { error: insertError } = await supabase.from('tasks').insert({
       title: title.trim(),
       assignee: category,
+      description: description.trim() || null,
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
       draft_due_date: draftDueDate ? format(draftDueDate, 'yyyy-MM-dd') : null,
       file_urls: files.uploadedFiles.map((f) => f.url),
@@ -95,6 +98,8 @@ export function TaskForm() {
           title: title.trim(),
           assignee: category,
           dueDate: dueDate ? format(dueDate, 'yyyy/MM/dd') : null,
+          description: description.trim() || undefined,
+          fileUrls: files.uploadedFiles.map((f) => f.url),
           channels: selectedChannels,
         }),
       })
@@ -158,6 +163,17 @@ export function TaskForm() {
                 クライアントURL: <span className="font-mono text-primary">/submit/{clientSlug.trim()}</span>
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">内容・備考</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="詳細を入力（任意）"
+              rows={3}
+            />
           </div>
 
           <div className="space-y-2">

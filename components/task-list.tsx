@@ -362,6 +362,8 @@ export function TaskList() {
             <TabsList className="mb-4 flex-wrap h-auto gap-1">
               <TabsTrigger value="all" className="text-xs">すべて ({filterByStatus('all').length})</TabsTrigger>
               <TabsTrigger value="未着手" className="text-xs">未着手 ({filterByStatus('未着手').length})</TabsTrigger>
+              <TabsTrigger value="制作要項待ち" className="text-xs">要項待ち ({filterByStatus('制作要項待ち').length})</TabsTrigger>
+              <TabsTrigger value="制作要項受領" className="text-xs">要項受領 ({filterByStatus('制作要項受領').length})</TabsTrigger>
               <TabsTrigger value="進行中" className="text-xs">進行中 ({filterByStatus('進行中').length})</TabsTrigger>
               <TabsTrigger value="初校提出" className="text-xs">初校提出 ({filterByStatus('初校提出').length})</TabsTrigger>
               <TabsTrigger value="修正" className="text-xs">
@@ -376,6 +378,8 @@ export function TaskList() {
             </TabsList>
             <TabsContent value="all">{renderTasks('all')}</TabsContent>
             <TabsContent value="未着手">{renderTasks('未着手')}</TabsContent>
+            <TabsContent value="制作要項待ち">{renderTasks('制作要項待ち')}</TabsContent>
+            <TabsContent value="制作要項受領">{renderTasks('制作要項受領')}</TabsContent>
             <TabsContent value="進行中">{renderTasks('進行中')}</TabsContent>
             <TabsContent value="初校提出">{renderTasks('初校提出')}</TabsContent>
             <TabsContent value="修正">{renderTasks('修正')}</TabsContent>

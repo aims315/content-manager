@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>タスク管理アプリ 引き継ぎ手順</title>
+<style>
+  body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 40px; color: #222; line-height: 1.7; }
+  h1 { font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-top: 40px; }
+  h2 { font-size: 17px; margin-top: 32px; color: #444; }
+  h3 { font-size: 15px; margin-top: 24px; color: #555; }
+  code, pre { background: #f4f4f4; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 13px; }
+  pre { padding: 12px 16px; overflow-x: auto; border-left: 3px solid #ccc; }
+  code { padding: 1px 5px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th { background: #f0f0f0; text-align: left; padding: 8px 12px; border: 1px solid #ddd; font-size: 14px; }
+  td { padding: 8px 12px; border: 1px solid #ddd; font-size: 14px; }
+  .section { margin-top: 40px; }
+  .note { background: #fffbea; border-left: 4px solid #f0c000; padding: 10px 16px; margin: 16px 0; font-size: 14px; }
+  .url { color: #1a73e8; }
+  @media print { body { margin: 20px; } }
+</style>
+</head>
+<body>
+
+<h1>タスク管理アプリ　引き継ぎ手順書</h1>
+
+<div class="section">
+  <h1>1. 渡すもの一覧</h1>
+  <table>
+    <tr><th>渡すもの</th><th>内容・確認場所</th></tr>
+    <tr><td>ソースコード（ZIP）</td><td><code>task-management-app</code> フォルダを圧縮</td></tr>
+    <tr><td>Supabase URL</td><td>Supabase → Settings → API → Project URL</td></tr>
+    <tr><td>Supabase Anon Key</td><td>Supabase → Settings → API → anon public</td></tr>
+    <tr><td>ADMIN_PATH_SECRET</td><td><code>qk9m3xtv</code>（管理画面のURL）</td></tr>
+    <tr><td>DISCORD_WEBHOOKS</td><td>Vercel → Settings → Environment Variables</td></tr>
+  </table>
+  <div class="note">⚠️ 環境変数はセキュリティ上、ZIPに含めず別途メール等で渡してください。</div>
+</div>
+
+<div class="section">
+  <h1>2. 受け取った側のセットアップ手順</h1>
+
+  <h2>STEP 1. Node.js をインストール</h2>
+  <p><span class="url">https://nodejs.org</span> にアクセスして LTS版 をダウンロード・インストール</p>
+
+  <h2>STEP 2. Vercel CLI をインストール</h2>
+  <p>ターミナル（Macはターミナル.app、Windowsはコマンドプロンプト）で：</p>
+  <pre>npm install -g vercel</pre>
+
+  <h2>STEP 3. ZIPを展開してフォルダへ移動</h2>
+  <pre>cd task-management-app</pre>
+
+  <h2>STEP 4. パッケージをインストール</h2>
+  <pre>npm install</pre>
+
+  <h2>STEP 5. 環境変数ファイルを作成</h2>
+  <p>フォルダ直下に <code>.env.local</code> というファイルを作り、以下を記入：</p>
+  <pre>NEXT_PUBLIC_SUPABASE_URL=（SupabaseのProject URL）
+NEXT_PUBLIC_SUPABASE_ANON_KEY=（SupabaseのAnon Key）
+ADMIN_PATH_SECRET=qk9m3xtv
+DISCORD_WEBHOOKS={"シンコール":"https://...","ALSOK":"https://...",...}</pre>
+
+  <h2>STEP 6. Vercelにデプロイ</h2>
+  <pre>vercel login    # Vercelアカウントでログイン（ブラウザが開く）
+vercel --prod   # 本番環境にデプロイ</pre>
+  <p>完了すると本番URLが表示されます。</p>
+</div>
+
+<div class="section">
+  <h1>3. Vercelアカウントごと引き継ぐ場合（簡単）</h1>
+  <p>デプロイ不要で最も簡単な方法：</p>
+  <ol>
+    <li>Vercel（<span class="url">https://vercel.com</span>）にログイン</li>
+    <li>プロジェクト → Settings → Members → Invite</li>
+    <li>引き継ぎ先のメールアドレスを招待</li>
+  </ol>
+  <p>Supabaseも同様：Supabase → Settings → Team → Invite member</p>
+</div>
+
+<div class="section">
+  <h1>4. システム構成</h1>
+  <table>
+    <tr><th>要素</th><th>サービス</th><th>用途</th></tr>
+    <tr><td>フロントエンド</td><td>Next.js (App Router)</td><td>画面・UI</td></tr>
+    <tr><td>ホスティング</td><td>Vercel</td><td>本番公開</td></tr>
+    <tr><td>データベース</td><td>Supabase (PostgreSQL)</td><td>タスクデータ保存</td></tr>
+    <tr><td>ファイル保存</td><td>Supabase Storage</td><td>添付ファイル</td></tr>
+    <tr><td>通知</td><td>Discord Webhook</td><td>タスク・修正通知</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h1>5. 主要URL</h1>
+  <table>
+    <tr><th>URL</th><th>内容</th></tr>
+    <tr><td><code>https://v0-task-management-app-six-inky.vercel.app/</code></td><td>管理画面</td></tr>
+    <tr><td><code>/p/qk9m3xtv</code></td><td>タスク送信・修正指示フォーム（管理者用）</td></tr>
+    <tr><td><code>/p/qk9m3xtv/settings</code></td><td>Discord通知チャンネル設定</td></tr>
+    <tr><td><code>/submit</code></td><td>クライアントポータル入口</td></tr>
+    <tr><td><code>/submit/[クライアントコード]</code></td><td>クライアント専用ページ</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h1>6. DBを新規作成する場合のSQL</h1>
+  <p>既存のSupabaseを引き継げばSQL不要。新しく作る場合のみ実行：</p>
+  <pre>-- tasks テーブル
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  assignee TEXT NOT NULL,
+  status TEXT DEFAULT '未着手',
+  due_date DATE,
+  file_urls TEXT[] DEFAULT '{}',
+  file_names TEXT[] DEFAULT '{}',
+  client_slug TEXT,
+  discord_channels TEXT[] DEFAULT '{}',
+  modification_note TEXT,
+  modification_files TEXT[] DEFAULT '{}',
+  modified_by TEXT,
+  modified_at TIMESTAMPTZ,
+  response_url TEXT,
+  response_note TEXT,
+  responded_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- task_revisions テーブル
+CREATE TABLE task_revisions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
+  note TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  file_urls TEXT[] DEFAULT '{}',
+  file_names TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- client_settings テーブル
+CREATE TABLE client_settings (
+  slug TEXT PRIMARY KEY,
+  discord_channel TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS（全員アクセス許可）
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE task_revisions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow all" ON tasks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow all" ON task_revisions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow all" ON client_settings FOR ALL USING (true) WITH CHECK (true);
+
+-- Storage（task-filesバケットをPublicで作成後）
+CREATE POLICY "allow upload" ON storage.objects
+  FOR INSERT TO anon WITH CHECK (bucket_id = 'task-files');
+CREATE POLICY "allow read" ON storage.objects
+  FOR SELECT TO anon USING (bucket_id = 'task-files');</pre>
+</div>
+
+</body>
+</html>

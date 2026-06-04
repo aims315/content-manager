@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タスク管理アプリ 使い方ガイド</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; color: #222; line-height: 1.8; background: #fff; }
+  .cover { background: linear-gradient(135deg, #6d28d9, #4f46e5); color: white; padding: 60px 40px; text-align: center; }
+  .cover h1 { font-size: 28px; margin-bottom: 12px; }
+  .cover p { font-size: 14px; opacity: 0.85; }
+  .toc { background: #f5f3ff; padding: 30px 40px; border-bottom: 1px solid #e5e7eb; }
+  .toc h2 { font-size: 16px; color: #6d28d9; margin-bottom: 12px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { font-size: 13px; color: #555; margin-bottom: 6px; }
+  .container { max-width: 860px; margin: 0 auto; padding: 40px 40px 80px; }
+  h2 { font-size: 20px; color: #fff; background: #6d28d9; padding: 10px 16px; border-radius: 6px; margin: 48px 0 20px; }
+  h3 { font-size: 16px; color: #4f46e5; border-left: 4px solid #6d28d9; padding-left: 10px; margin: 28px 0 12px; }
+  h4 { font-size: 14px; color: #374151; margin: 20px 0 8px; font-weight: bold; }
+  p { font-size: 14px; color: #444; margin-bottom: 10px; }
+  ul, ol { font-size: 14px; color: #444; padding-left: 22px; margin-bottom: 12px; }
+  li { margin-bottom: 6px; }
+  code { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 3px; padding: 1px 6px; font-family: 'Courier New', monospace; font-size: 12px; color: #7c3aed; }
+  pre { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 18px 20px; overflow-x: auto; margin: 12px 0 20px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.7; }
+  .note { background: #fffbea; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #78350f; }
+  .info { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #1e40af; }
+  .success { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #166534; }
+  .danger { background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; color: #991b1b; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+  th { background: #6d28d9; color: white; padding: 10px 12px; text-align: left; }
+  td { padding: 9px 12px; border: 1px solid #e5e7eb; }
+  tr:nth-child(even) td { background: #faf5ff; }
+  .step { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 20px; }
+  .step-num { background: #6d28d9; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 10px; border-radius: 10px; margin: 2px; font-weight: bold; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-violet { background: #ede9fe; color: #5b21b6; }
+  .badge-rose { background: #ffe4e6; color: #9f1239; }
+  .badge-blue { background: #dbeafe; color: #1e3a8a; }
+  .badge-green { background: #dcfce7; color: #14532d; }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 16px 0; }
+  .flow-arrow { color: #9ca3af; font-size: 16px; }
+  .divider { border: none; border-top: 2px dashed #e5e7eb; margin: 40px 0; }
+  .screen-box { border: 2px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; margin: 12px 0; }
+  .screen-box h4 { color: #6d28d9; margin-top: 0; }
+  .url { color: #4f46e5; font-weight: bold; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>📋 タスク管理アプリ<br>使い方ガイド</h1>
+  <p>日常業務での使い方｜管理者・クライアント向け</p>
+  <p style="margin-top:8px;font-size:12px;opacity:0.7;">最終更新：2026年6月</p>
+</div>
+
+<div class="toc">
+  <h2>📑 目次</h2>
+  <ol>
+    <li>画面の種類と役割</li>
+    <li>ステータスの流れ</li>
+    <li>タスクを登録する（管理者）</li>
+    <li>クライアントコードとは</li>
+    <li>タスクを管理する（管理画面）</li>
+    <li>クライアントポータルの使い方</li>
+    <li>Discord通知について</li>
+    <li>よくある質問</li>
+  </ol>
+</div>
+
+<div class="container">
+
+<!-- ==================== 1. 画面の種類 ==================== -->
+<h2>1. 画面の種類と役割</h2>
+
+<p>このシステムは3つの画面で構成されています。</p>
+
+<div class="screen-box">
+  <h4>🖥️ 管理画面（タスク一覧）</h4>
+  <p><strong>誰が使う：</strong>制作会社スタッフ</p>
+  <p><strong>できること：</strong>全タスクの確認・ステータス変更・初校提出・修正対応・カレンダー確認</p>
+  <p><strong>URL：</strong><code>https://（サイトURL）/</code></p>
+</div>
+
+<div class="screen-box">
+  <h4>📝 タスク送信フォーム</h4>
+  <p><strong>誰が使う：</strong>制作会社スタッフ（内部から新規タスク登録・修正指示）</p>
+  <p><strong>できること：</strong>新規タスク作成・既存タスクへの修正指示送信</p>
+  <p><strong>URL：</strong><code>https://（サイトURL）/p/（管理パス）</code></p>
+  <div class="danger">⚠️ このURLはクライアントに教えないでください。削除操作なども可能な管理専用URLです。</div>
+</div>
+
+<div class="screen-box">
+  <h4>👤 クライアントポータル</h4>
+  <p><strong>誰が使う：</strong>お客様（クライアント）</p>
+  <p><strong>できること：</strong>新規依頼・修正指示・進捗確認・ファイル確認・メール通知設定</p>
+  <p><strong>URL：</strong><code>https://（サイトURL）/submit/（クライアントコード）</code></p>
+</div>
+
+<!-- ==================== 2. ステータス ==================== -->
+<h2>2. ステータスの流れ</h2>
+
+<p>タスクは以下の順序でステータスが変わります。</p>
+
+<div class="flow">
+  <span class="badge badge-gray">未着手</span>
+  <span class="flow-arrow">→</span>
+  <span class="badge badge-amber">進行中</span>
+  <span class="flow-arrow">→</span>
+  <span class="badge badge-violet">初校提出</span>
+  <span class="flow-arrow">→</span>
+  <span class="badge badge-rose">修正</span>
+  <span class="flow-arrow">→</span>
+  <span class="badge badge-blue">修正対応完了</span>
+  <span class="flow-arrow">→</span>
+  <span class="badge badge-green">完了</span>
+</div>
+
+<table>
+  <tr><th>ステータス</th><th>意味</th><th>誰が変更するか</th></tr>
+  <tr><td><span class="badge badge-gray">未着手</span></td><td>タスク作成直後の初期状態</td><td>自動（タスク作成時）</td></tr>
+  <tr><td><span class="badge badge-amber">進行中</span></td><td>制作着手中</td><td>管理者</td></tr>
+  <tr><td><span class="badge badge-violet">初校提出</span></td><td>初稿・初校をクライアントに提出した状態</td><td>管理者（初校提出ボタン）</td></tr>
+  <tr><td><span class="badge badge-rose">修正</span></td><td>クライアントから修正指示が届いた状態</td><td>クライアント（ポータルから）</td></tr>
+  <tr><td><span class="badge badge-blue">修正対応完了</span></td><td>修正作業が完了し、再提出した状態</td><td>管理者（修正対応完了ボタン）</td></tr>
+  <tr><td><span class="badge badge-green">完了</span></td><td>納品・案件完了</td><td>管理者 or クライアント</td></tr>
+</table>
+
+<div class="info">💡 ステータスは管理画面のカード右上のドロップダウンからいつでも変更できます。変更するとDiscordに通知が届きます。</div>
+
+<!-- ==================== 3. タスク登録 ==================== -->
+<h2>3. タスクを登録する（管理者）</h2>
+
+<h3>方法A：管理画面から直接作成</h3>
+<p>管理画面（タスク一覧）の右上にある <strong>「新規タスク」</strong> ボタンをクリックします。</p>
+
+<table>
+  <tr><th>項目</th><th>説明</th><th>必須</th></tr>
+  <tr><td>カテゴリ</td><td>案件の種類（設定画面で追加・削除可能）</td><td>✅</td></tr>
+  <tr><td>タイトル</td><td>案件名・タスク名</td><td>✅</td></tr>
+  <tr><td>内容・備考</td><td>詳細説明・メモ</td><td>任意</td></tr>
+  <tr><td>クライアントコード</td><td>お客様専用URLを発行する場合に設定（後述）</td><td>任意</td></tr>
+  <tr><td>初校締切日</td><td>初校を提出する予定日</td><td>任意</td></tr>
+  <tr><td>最終締切日</td><td>最終納品期限</td><td>任意</td></tr>
+  <tr><td>添付ファイル</td><td>素材・参考画像など</td><td>任意</td></tr>
+</table>
+
+<h3>方法B：タスク送信フォームから登録</h3>
+<p><code>/p/（管理パス）</code> にアクセスして「新規タスク」タブから登録します。修正指示も同じフォームから送れます。</p>
+
+<!-- ==================== 4. クライアントコード ==================== -->
+<h2>4. クライアントコードとは</h2>
+
+<p>クライアントコードを設定すると、<strong>お客様専用のURLが発行</strong>されます。お客様はそのURLから自分の案件だけを確認・操作できます。</p>
+
+<h3>具体的なイメージ</h3>
+
+<div class="info">
+  例：クライアントコードを <code>yamada-sangyo</code> に設定すると…<br><br>
+  ✅ お客様専用URL：<code>https://（サイトURL）/submit/yamada-sangyo</code><br>
+  ✅ このURLにアクセスすると「yamada-sangyo」のタスクだけが表示されます<br>
+  ✅ お客様はこのURLから新しい依頼や修正指示を送れます
+</div>
+
+<h3>クライアントコードの決め方</h3>
+<ul>
+  <li>英数字とハイフンのみ使用できます（例：<code>tanaka</code>、<code>abc-company</code>、<code>client01</code>）</li>
+  <li>スペースや日本語は使えません</li>
+  <li>会社名をローマ字にするとわかりやすいです</li>
+  <li>同じコードを複数のタスクに設定すると、すべて同じポータルに表示されます</li>
+</ul>
+
+<h3>設定手順</h3>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">タスク作成 or 編集画面で「クライアントコード」欄に入力（例：<code>yamada-sangyo</code>）</div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">タスクを保存すると <code>/submit/yamada-sangyo</code> というURLが有効になります</div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">このURLをお客様にメールやチャットで共有します</div>
+</div>
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">Discord通知設定でクライアントコードとDiscordチャンネルを紐付けると、そのお客様の通知が専用チャンネルに届きます</div>
+</div>
+
+<div class="note">⚠️ クライアントコードを変更すると古いURLが使えなくなります。お客様に共有後は変更しないようにしましょう。</div>
+
+<!-- ==================== 5. 管理画面 ==================== -->
+<h2>5. タスクを管理する（管理画面）</h2>
+
+<h3>タスク一覧の見方</h3>
+<p>管理画面では全タスクをステータスごとのタブで確認できます。</p>
+<ul>
+  <li><strong>すべて</strong>：完了以外の全タスク</li>
+  <li>各ステータスタブ：そのステータスのタスクのみ表示</li>
+  <li><strong>ゴミ箱</strong>：削除済みタスク（復元可能）</li>
+</ul>
+
+<h3>絞り込み・ソート</h3>
+<table>
+  <tr><th>機能</th><th>操作方法</th></tr>
+  <tr><td>カテゴリで絞り込み</td><td>「カテゴリ:」ドロップダウンで選択</td></tr>
+  <tr><td>クライアントで絞り込み</td><td>「クライアント:」ドロップダウンで選択</td></tr>
+  <tr><td>担当者で絞り込み</td><td>「担当者:」ドロップダウンで選択</td></tr>
+  <tr><td>並び替え</td><td>「ソート:」で登録順・締切順・担当者順を選択</td></tr>
+</table>
+
+<h3>初校を提出する</h3>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">「進行中」のタスクカードを開く</div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">「初校提出」ボタンをクリック</div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">データURL・備考・ファイルを入力して送信 → ステータスが「初校提出」に変わり、Discordに通知が届きます</div>
+</div>
+
+<h3>修正対応を完了する</h3>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">「修正」または「修正対応完了」のタスクカードを開く</div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">「修正対応完了」ボタンをクリック</div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">データURL・備考を入力して送信 → Discordに通知が届きます</div>
+</div>
+
+<h3>カレンダーの使い方</h3>
+<p>管理画面左側のカレンダーで締切日を一覧確認できます。</p>
+<ul>
+  <li><strong>最終</strong>ボタン：最終締切日をカレンダーに表示（黒丸）</li>
+  <li><strong>初校</strong>ボタン：初校締切日をカレンダーに表示（紫丸）</li>
+  <li>日付をクリックするとその日のタスクが表示されます</li>
+</ul>
+
+<h3>タスクを編集する</h3>
+<p>タスクカード右上の <strong>「…」メニュー → 編集</strong> からタイトル・カテゴリ・締切日・クライアントコードを変更できます。</p>
+
+<!-- ==================== 6. クライアントポータル ==================== -->
+<h2>6. クライアントポータルの使い方</h2>
+
+<p>お客様は専用URLにアクセスするだけでログイン不要で使えます。</p>
+
+<h3>新しい依頼を送る</h3>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">「新規依頼」タブを選択</div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">カテゴリ・タイトル・内容・締切日・ファイルを入力して「送信」</div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">制作会社側のDiscordに通知が届きます</div>
+</div>
+
+<h3>修正指示を送る</h3>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">「修正指示」タブを選択</div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">対象のタスクを選んで修正内容・ファイルを入力して「送信」</div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">ステータスが「修正」に変わり、Discordに通知が届きます</div>
+</div>
+
+<h3>進捗を確認する</h3>
+<p>「進捗確認」タブでは自分の全タスクが一覧表示されます。</p>
+<ul>
+  <li>ステータスバッジで現在の状況が確認できます</li>
+  <li>初校・修正済みデータのURLやファイルも確認できます</li>
+  <li>カレンダーで締切日を確認できます（一覧・初校・最終の3モード切替可）</li>
+</ul>
+
+<h3>メール通知を設定する</h3>
+<p>「進捗確認」タブの下部にある通知設定でメールアドレスを登録すると、ステータス変更時にメールが届きます。</p>
+
+<!-- ==================== 7. Discord通知 ==================== -->
+<h2>7. Discord通知について</h2>
+
+<p>以下のアクションで自動的にDiscordに通知が届きます。</p>
+
+<table>
+  <tr><th>通知のタイミング</th><th>メッセージ例</th></tr>
+  <tr><td>新規タスク作成</td><td>🆕 新しいタスクが作成されました</td></tr>
+  <tr><td>ステータス変更</td><td>🔄 ステータスが変更されました（進行中 → 初校提出）</td></tr>
+  <tr><td>タスク内容更新</td><td>✏️ タスクが更新されました</td></tr>
+  <tr><td>初校提出</td><td>📎 初校が提出されました</td></tr>
+  <tr><td>修正指示（クライアントから）</td><td>🔧 修正依頼が届きました</td></tr>
+  <tr><td>修正対応完了</td><td>📤 修正対応が完了しました</td></tr>
+  <tr><td>完了</td><td>✅ タスクが完了しました</td></tr>
+  <tr><td>期日より早く完了</td><td>🎉 期日より○日早く完了しました</td></tr>
+</table>
+
+<h3>通知チャンネルの仕組み</h3>
+<p>通知は以下の優先順位でチャンネルが決まります：</p>
+<ol>
+  <li>タスク作成時に選択したチャンネル（管理者が指定した場合）</li>
+  <li>クライアントコードに紐付けられたチャンネル（設定画面で設定）</li>
+  <li><code>default</code> チャンネル</li>
+</ol>
+
+<h3>クライアントとチャンネルの紐付け設定</h3>
+<p><code>/p/（管理パス）/settings</code> の設定画面からクライアントコードとDiscordチャンネルを紐付けられます。</p>
+
+<!-- ==================== 8. FAQ ==================== -->
+<h2>8. よくある質問</h2>
+
+<h4>Q. クライアントポータルのURLを変えたい</h4>
+<p>タスクの編集画面でクライアントコードを変更すれば新しいURLが有効になります。ただし古いURLは使えなくなるので、お客様に新しいURLを再共有してください。</p>
+
+<h4>Q. 複数のお客様のタスクを同じポータルで管理したい</h4>
+<p>複数のタスクに同じクライアントコードを設定すればOKです。同じURLで全タスクが見えます。</p>
+
+<h4>Q. 1つのタスクを複数のDiscordチャンネルに通知したい</h4>
+<p>管理者がタスク送信フォームでタスクを作成する際、通知チャンネルを複数選択できます。</p>
+
+<h4>Q. 誤って完了にしてしまった</h4>
+<p>ステータスのドロップダウンから別のステータスに戻せます。</p>
+
+<h4>Q. タスクを誤って削除してしまった</h4>
+<p>管理画面の「ゴミ箱」タブから復元できます。ゴミ箱からも削除（完全削除）すると復元できなくなります。</p>
+
+<h4>Q. 締切リマインダー通知はいつ届く？</h4>
+<p>毎朝9時（日本時間）に、締切まで設定日数以内のタスクがあればDiscordに通知されます。通知する日数は管理画面のフィルターバーから変更できます。</p>
+
+<h4>Q. カテゴリを追加・削除したい</h4>
+<p><code>/p/（管理パス）/settings</code> の設定画面の「カテゴリ管理」から追加・削除できます。</p>
+
+<hr class="divider">
+<p style="text-align:center;color:#999;font-size:12px;">タスク管理アプリ 使い方ガイド　©2026</p>
+
+</div>
+</body>
+</html>

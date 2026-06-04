@@ -89,7 +89,7 @@
 
 <h3>ステータスの流れ</h3>
 <p>タスクは以下の順序でステータスが変わります：</p>
-<pre>未着手 → 進行中 → 初校提出 → 修正 → 修正対応完了 → 完了</pre>
+<pre>未着手 → 制作要項待ち → 制作要項受領 → 進行中 → 初校提出 → 修正 → 修正対応完了 → 完了</pre>
 
 <h3>使用しているサービス</h3>
 <table>
@@ -209,7 +209,7 @@
   assignee TEXT <span class="keyword">NOT NULL DEFAULT</span> <span class="string">''</span>,
   status TEXT <span class="keyword">DEFAULT</span> <span class="string">'未着手'</span>
     <span class="keyword">CONSTRAINT</span> tasks_status_check
-    <span class="keyword">CHECK</span> (status <span class="keyword">IN</span> (<span class="string">'未着手'</span>, <span class="string">'進行中'</span>, <span class="string">'初校提出'</span>, <span class="string">'修正'</span>, <span class="string">'修正対応完了'</span>, <span class="string">'完了'</span>)),
+    <span class="keyword">CHECK</span> (status <span class="keyword">IN</span> (<span class="string">'未着手'</span>, <span class="string">'制作要項待ち'</span>, <span class="string">'制作要項受領'</span>, <span class="string">'進行中'</span>, <span class="string">'初校提出'</span>, <span class="string">'修正'</span>, <span class="string">'修正対応完了'</span>, <span class="string">'完了'</span>)),
   due_date DATE,
   file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
   file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
@@ -535,10 +535,10 @@ RESEND_API_KEY=（ResendのAPIキー）</pre>
 <h3>ステータスの変更でエラーが出る</h3>
 <p>DBのステータス制約が古い可能性があります。SQL Editorで実行：</p>
 <pre><span class="keyword">UPDATE</span> tasks <span class="keyword">SET</span> status = <span class="string">'未着手'</span>
-  <span class="keyword">WHERE</span> status <span class="keyword">NOT IN</span> (<span class="string">'未着手'</span>,<span class="string">'進行中'</span>,<span class="string">'初校提出'</span>,<span class="string">'修正'</span>,<span class="string">'修正対応完了'</span>,<span class="string">'完了'</span>);
+  <span class="keyword">WHERE</span> status <span class="keyword">NOT IN</span> (<span class="string">'未着手'</span>,<span class="string">'制作要項待ち'</span>,<span class="string">'制作要項受領'</span>,<span class="string">'進行中'</span>,<span class="string">'初校提出'</span>,<span class="string">'修正'</span>,<span class="string">'修正対応完了'</span>,<span class="string">'完了'</span>);
 <span class="keyword">ALTER TABLE</span> tasks <span class="keyword">DROP CONSTRAINT IF EXISTS</span> tasks_status_check;
 <span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD CONSTRAINT</span> tasks_status_check
-  <span class="keyword">CHECK</span> (status <span class="keyword">IN</span> (<span class="string">'未着手'</span>, <span class="string">'進行中'</span>, <span class="string">'初校提出'</span>, <span class="string">'修正'</span>, <span class="string">'修正対応完了'</span>, <span class="string">'完了'</span>));</pre>
+  <span class="keyword">CHECK</span> (status <span class="keyword">IN</span> (<span class="string">'未着手'</span>, <span class="string">'制作要項待ち'</span>, <span class="string">'制作要項受領'</span>, <span class="string">'進行中'</span>, <span class="string">'初校提出'</span>, <span class="string">'修正'</span>, <span class="string">'修正対応完了'</span>, <span class="string">'完了'</span>));</pre>
 
 <h3>既存のDBにカラムを追加する（アップデート時）</h3>
 <p>新バージョンで追加されたカラムが不足している場合はSQL Editorで実行：</p>

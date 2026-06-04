@@ -75,6 +75,8 @@ interface TaskCardProps {
 
 const statusColors: Record<TaskStatus, string> = {
   '未着手': 'bg-muted text-muted-foreground',
+  '制作要項待ち': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  '制作要項受領': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
   '進行中': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
   '初校提出': 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
   '修正': 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
@@ -828,6 +830,8 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="未着手">未着手</SelectItem>
+              <SelectItem value="制作要項待ち">制作要項待ち</SelectItem>
+              <SelectItem value="制作要項受領">制作要項受領</SelectItem>
               <SelectItem value="進行中">進行中</SelectItem>
               <SelectItem value="初校提出">初校提出</SelectItem>
               <SelectItem value="修正">修正</SelectItem>

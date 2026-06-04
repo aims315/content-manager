@@ -168,18 +168,21 @@ export function useTasks() {
       .update({ status, completed_at: completedAt })
       .eq('id', taskId)
     if (error) { console.error('Error updating task:', error); return false }
-    if (status === '完了' && previousStatus !== '完了' && task) {
-      await sendDiscordNotification('completed', task.title, task.assignee, task.due_date, task.discord_channels)
-      // 早期完了チェック
-      if (task.due_date) {
-        const due = new Date(task.due_date)
-        due.setHours(23, 59, 59, 999)
-        const daysEarly = Math.floor((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        let threshold = 3
-        try { threshold = parseInt(localStorage.getItem('early_completion_days') ?? '3', 10) || 3 } catch { /* noop */ }
-        if (daysEarly >= threshold) {
-          await sendDiscordNotification('early_completion', task.title, task.assignee, task.due_date, task.discord_channels, { daysEarly })
+    if (task && status !== previousStatus) {
+      if (status === '完了') {
+        await sendDiscordNotification('completed', task.title, task.assignee, task.due_date, task.discord_channels)
+        if (task.due_date) {
+          const due = new Date(task.due_date)
+          due.setHours(23, 59, 59, 999)
+          const daysEarly = Math.floor((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+          let threshold = 3
+          try { threshold = parseInt(localStorage.getItem('early_completion_days') ?? '3', 10) || 3 } catch { /* noop */ }
+          if (daysEarly >= threshold) {
+            await sendDiscordNotification('early_completion', task.title, task.assignee, task.due_date, task.discord_channels, { daysEarly })
+          }
         }
+      } else {
+        await sendDiscordNotification('status_changed', task.title, task.assignee, task.due_date, task.discord_channels, { previousStatus, newStatus: status })
       }
     }
     return true
@@ -236,8 +239,12 @@ export function useTasks() {
     taskId: string,
     updates: { title: string; assignee: string; due_date: string | null; draft_due_date: string | null; description?: string; client_slug?: string | null }
   ) => {
+    const task = tasks.find((t) => t.id === taskId)
     const { error } = await supabase.from('tasks').update(updates).eq('id', taskId)
     if (error) { console.error('Error updating task:', error); return false }
+    if (task) {
+      await sendDiscordNotification('updated', updates.title, updates.assignee, updates.due_date, task.discord_channels)
+    }
     return true
   }
 

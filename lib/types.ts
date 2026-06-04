@@ -1,4 +1,4 @@
-export type TaskStatus = '未着手' | '進行中' | '初校提出' | '修正' | '修正対応完了' | '完了'
+export type TaskStatus = '未着手' | '制作要項待ち' | '制作要項受領' | '進行中' | '初校提出' | '修正' | '修正対応完了' | '完了'
 
 export interface TaskRevision {
   id: string

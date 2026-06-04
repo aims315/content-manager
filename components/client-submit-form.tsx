@@ -29,6 +29,8 @@ const CATEGORIES = ['デザイン', '動画', 'その他'] as const
 
 const statusColors: Record<TaskStatus, string> = {
   '未着手': 'bg-muted text-muted-foreground',
+  '制作要項待ち': 'bg-orange-100 text-orange-800',
+  '制作要項受領': 'bg-yellow-100 text-yellow-800',
   '進行中': 'bg-amber-100 text-amber-800',
   '初校提出': 'bg-violet-100 text-violet-800',
   '修正': 'bg-rose-100 text-rose-800',

@@ -54,12 +54,12 @@ export function SubmitForm() {
       .then(({ data }) => setTasks(data as Task[] || []))
   }, [supabase])
 
-  const sendDiscordNotification = async (type: string, taskTitle: string, taskAssignee: string, note?: string, modifiedBy?: string, clientSlug?: string) => {
+  const sendDiscordNotification = async (type: string, taskTitle: string, taskAssignee: string, note?: string, modifiedBy?: string, clientSlug?: string, description?: string, fileUrls?: string[]) => {
     try {
       await fetch('/api/discord/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, title: taskTitle, assignee: taskAssignee, note, modifiedBy, clientSlug }),
+        body: JSON.stringify({ type, title: taskTitle, assignee: taskAssignee, note, modifiedBy, clientSlug, description, fileUrls }),
       })
     } catch {}
   }
@@ -86,7 +86,7 @@ export function SubmitForm() {
       setIsSubmitting(false)
       return
     }
-    await sendDiscordNotification('created', title.trim(), category, undefined, undefined, clientSlug.trim() || undefined)
+    await sendDiscordNotification('created', title.trim(), category, undefined, undefined, clientSlug.trim() || undefined, description.trim() || undefined, newFiles.uploadedFiles.map((f) => f.url))
     setIsSubmitting(false)
     setNewSuccess(true)
     setTitle('')
