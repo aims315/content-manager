@@ -93,6 +93,7 @@ export function useTasks() {
         responseNote: draftNote,
         clientSlug: task.client_slug ?? undefined,
       })
+      await sendEmailNotification(task, '初校提出', { draftUrl })
     }
     return true
   }
@@ -117,6 +118,7 @@ export function useTasks() {
         responseNote,
         clientSlug: task.client_slug ?? undefined,
       })
+      await sendEmailNotification(task, '修正対応完了', { responseUrl })
     }
     return true
   }
@@ -183,6 +185,30 @@ export function useTasks() {
     }
   }
 
+  const sendEmailNotification = async (
+    task: Task,
+    status: Extract<TaskStatus, '初校提出' | '修正対応完了'>,
+    links?: { draftUrl?: string | null; responseUrl?: string | null }
+  ) => {
+    if (!task.client_slug) return
+
+    try {
+      await fetch('/api/email/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientSlug: task.client_slug,
+          taskTitle: task.title,
+          status,
+          draftUrl: links?.draftUrl ?? task.draft_url,
+          responseUrl: links?.responseUrl ?? task.response_url,
+        }),
+      })
+    } catch (err) {
+      console.error('Email notification failed:', err)
+    }
+  }
+
   const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
     const task = tasks.find((t) => t.id === taskId)
     const previousStatus = task?.status
@@ -217,6 +243,14 @@ export function useTasks() {
           responseNote: task.response_note ?? undefined,
           clientSlug: task.client_slug ?? undefined,
         })
+        await sendEmailNotification(task, '修正対応完了')
+      } else if (status === '初校提出') {
+        await sendDiscordNotification('status_changed', task.title, task.assignee, task.due_date, task.discord_channels, {
+          previousStatus,
+          newStatus: status,
+          clientSlug: task.client_slug ?? undefined,
+        })
+        await sendEmailNotification(task, '初校提出')
       } else {
         await sendDiscordNotification('status_changed', task.title, task.assignee, task.due_date, task.discord_channels, {
           previousStatus,

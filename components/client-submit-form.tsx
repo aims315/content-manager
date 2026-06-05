@@ -190,30 +190,12 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks.length])
 
-  const sendEmailNotification = async (task: Task) => {
-    try {
-      await fetch('/api/email/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientSlug,
-          taskTitle: task.title,
-          status: task.status,
-          draftUrl: task.draft_url,
-          responseUrl: task.response_url,
-        }),
-      })
-    } catch {}
-  }
-
   useEffect(() => {
     const taskChannel = supabase
       .channel(`client-tasks-${clientSlug}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, async (payload) => {
         const updated = payload.new as Task
-        if (updated.client_slug === clientSlug) {
-          await sendEmailNotification(updated)
-        }
+        if (updated.client_slug !== clientSlug) return
         fetchTasks()
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks' }, fetchTasks)
