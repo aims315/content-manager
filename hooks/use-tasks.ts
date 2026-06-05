@@ -134,13 +134,23 @@ export function useTasks() {
     }
   }, [fetchTasks, fetchAllRevisions, supabase])
 
+  type DiscordNotificationType =
+    | 'created'
+    | 'completed'
+    | 'early_completion'
+    | 'revision'
+    | 'response'
+    | 'draft'
+    | 'status_changed'
+    | 'updated'
+
   const sendDiscordNotification = async (
-    type: 'created' | 'completed' | 'early_completion' | 'revision' | 'response' | 'draft',
+    type: DiscordNotificationType,
     title: string,
     assignee: string,
     dueDate?: string | null,
     channels?: string[],
-    extra?: { note?: string; modifiedBy?: string; responseUrl?: string; responseNote?: string; daysEarly?: number }
+    extra?: { note?: string; modifiedBy?: string; responseUrl?: string; responseNote?: string; daysEarly?: number; previousStatus?: TaskStatus; newStatus?: TaskStatus }
   ) => {
     try {
       await fetch('/api/discord/notify', {
@@ -151,6 +161,8 @@ export function useTasks() {
           note: extra?.note, modifiedBy: extra?.modifiedBy,
           responseUrl: extra?.responseUrl, responseNote: extra?.responseNote,
           daysEarly: extra?.daysEarly,
+          previousStatus: extra?.previousStatus,
+          newStatus: extra?.newStatus,
         }),
       })
     } catch (err) {
