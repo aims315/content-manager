@@ -64,7 +64,11 @@ export function useTasks() {
     if (error) { console.error('Error adding revision:', error); return false }
     await fetchRevisions(taskId)
     if (task) {
-      await sendDiscordNotification('revision', task.title, task.assignee, task.due_date, task.discord_channels, { note, modifiedBy: createdBy })
+      await sendDiscordNotification('revision', task.title, task.assignee, task.due_date, task.discord_channels, {
+        note,
+        modifiedBy: createdBy,
+        clientSlug: task.client_slug ?? undefined,
+      })
     }
     return true
   }
@@ -84,7 +88,11 @@ export function useTasks() {
       .eq('id', taskId)
     if (error) { throw new Error(error.message) }
     if (task) {
-      await sendDiscordNotification('draft', task.title, task.assignee, task.due_date, task.discord_channels, { responseUrl: draftUrl, responseNote: draftNote })
+      await sendDiscordNotification('draft', task.title, task.assignee, task.due_date, task.discord_channels, {
+        responseUrl: draftUrl,
+        responseNote: draftNote,
+        clientSlug: task.client_slug ?? undefined,
+      })
     }
     return true
   }
@@ -104,7 +112,11 @@ export function useTasks() {
       .eq('id', taskId)
     if (error) { console.error('Error submitting response:', error); throw new Error(error.message) }
     if (task) {
-      await sendDiscordNotification('response', task.title, task.assignee, task.due_date, task.discord_channels, { responseUrl, responseNote })
+      await sendDiscordNotification('response', task.title, task.assignee, task.due_date, task.discord_channels, {
+        responseUrl,
+        responseNote,
+        clientSlug: task.client_slug ?? undefined,
+      })
     }
     return true
   }
@@ -150,7 +162,7 @@ export function useTasks() {
     assignee: string,
     dueDate?: string | null,
     channels?: string[],
-    extra?: { note?: string; modifiedBy?: string; responseUrl?: string; responseNote?: string; daysEarly?: number; previousStatus?: TaskStatus; newStatus?: TaskStatus }
+    extra?: { note?: string; modifiedBy?: string; responseUrl?: string; responseNote?: string; daysEarly?: number; previousStatus?: TaskStatus; newStatus?: TaskStatus; clientSlug?: string }
   ) => {
     try {
       await fetch('/api/discord/notify', {
@@ -163,6 +175,7 @@ export function useTasks() {
           daysEarly: extra?.daysEarly,
           previousStatus: extra?.previousStatus,
           newStatus: extra?.newStatus,
+          clientSlug: extra?.clientSlug,
         }),
       })
     } catch (err) {
@@ -182,7 +195,9 @@ export function useTasks() {
     if (error) { console.error('Error updating task:', error); return false }
     if (task && status !== previousStatus) {
       if (status === '完了') {
-        await sendDiscordNotification('completed', task.title, task.assignee, task.due_date, task.discord_channels)
+        await sendDiscordNotification('completed', task.title, task.assignee, task.due_date, task.discord_channels, {
+          clientSlug: task.client_slug ?? undefined,
+        })
         if (task.due_date) {
           const due = new Date(task.due_date)
           due.setHours(23, 59, 59, 999)
@@ -190,11 +205,24 @@ export function useTasks() {
           let threshold = 3
           try { threshold = parseInt(localStorage.getItem('early_completion_days') ?? '3', 10) || 3 } catch { /* noop */ }
           if (daysEarly >= threshold) {
-            await sendDiscordNotification('early_completion', task.title, task.assignee, task.due_date, task.discord_channels, { daysEarly })
+            await sendDiscordNotification('early_completion', task.title, task.assignee, task.due_date, task.discord_channels, {
+              daysEarly,
+              clientSlug: task.client_slug ?? undefined,
+            })
           }
         }
+      } else if (status === '修正対応完了') {
+        await sendDiscordNotification('response', task.title, task.assignee, task.due_date, task.discord_channels, {
+          responseUrl: task.response_url ?? undefined,
+          responseNote: task.response_note ?? undefined,
+          clientSlug: task.client_slug ?? undefined,
+        })
       } else {
-        await sendDiscordNotification('status_changed', task.title, task.assignee, task.due_date, task.discord_channels, { previousStatus, newStatus: status })
+        await sendDiscordNotification('status_changed', task.title, task.assignee, task.due_date, task.discord_channels, {
+          previousStatus,
+          newStatus: status,
+          clientSlug: task.client_slug ?? undefined,
+        })
       }
     }
     return true
@@ -242,7 +270,11 @@ export function useTasks() {
       .eq('id', taskId)
     if (error) { console.error('Error submitting modification:', error); return false }
     if (task) {
-      await sendDiscordNotification('revision', task.title, task.assignee, task.due_date, task.discord_channels, { note, modifiedBy })
+      await sendDiscordNotification('revision', task.title, task.assignee, task.due_date, task.discord_channels, {
+        note,
+        modifiedBy,
+        clientSlug: task.client_slug ?? undefined,
+      })
     }
     return true
   }
@@ -255,7 +287,9 @@ export function useTasks() {
     const { error } = await supabase.from('tasks').update(updates).eq('id', taskId)
     if (error) { console.error('Error updating task:', error); return false }
     if (task) {
-      await sendDiscordNotification('updated', updates.title, updates.assignee, updates.due_date, task.discord_channels)
+      await sendDiscordNotification('updated', updates.title, updates.assignee, updates.due_date, task.discord_channels, {
+        clientSlug: task.client_slug ?? undefined,
+      })
     }
     return true
   }
