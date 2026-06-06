@@ -23,8 +23,7 @@ async function getChannelForSlug(clientSlug: string): Promise<string | null> {
 }
 
 // 環境変数 DISCORD_WEBHOOKS に JSON を設定する
-// 例: {"一般":"https://discord.com/api/webhooks/...", "開発":"https://..."}
-function getWebhookMap(): Record<string, string> {
+function getEnvWebhookMap(): Record<string, string> {
   const raw = process.env.DISCORD_WEBHOOKS
   if (!raw) {
     const single = process.env.DISCORD_WEBHOOK_URL
@@ -38,14 +37,28 @@ function getWebhookMap(): Record<string, string> {
   }
 }
 
+async function getWebhookMap(): Promise<Record<string, string>> {
+  const base = getEnvWebhookMap()
+  try {
+    const supabase = getSupabase()
+    const { data } = await supabase.from('discord_webhooks').select('name, webhook_url')
+    if (data) {
+      for (const row of data) {
+        if (row.name && row.webhook_url) base[row.name] = row.webhook_url
+      }
+    }
+  } catch { /* テーブル未作成でも動作継続 */ }
+  return base
+}
+
 export async function GET() {
-  const map = getWebhookMap()
+  const map = await getWebhookMap()
   const channels = Object.keys(map)
   return NextResponse.json({ channels })
 }
 
 export async function POST(request: NextRequest) {
-  const webhookMap = getWebhookMap()
+  const webhookMap = await getWebhookMap()
 
   if (Object.keys(webhookMap).length === 0) {
     return NextResponse.json(

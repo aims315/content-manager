@@ -16,11 +16,11 @@ import {
 import { PlusIcon, Trash2Icon, CheckCircleIcon } from 'lucide-react'
 
 const NO_CHANNEL_VALUE = '__none__'
+const NEW_CHANNEL_VALUE = '__new__'
 
 interface ClientSetting {
   slug: string
   discord_channel: string
-  posted_ok_enabled?: boolean
 }
 
 export function ChannelSettingsForm() {
@@ -32,6 +32,14 @@ export function ChannelSettingsForm() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 新規Discordチャンネル追加
+  const [showNewWebhook, setShowNewWebhook] = useState(false)
+  const [newWebhookName, setNewWebhookName] = useState('')
+  const [newWebhookUrl, setNewWebhookUrl] = useState('')
+  const [webhookSaving, setWebhookSaving] = useState(false)
+  const [webhookSaved, setWebhookSaved] = useState(false)
+  const [webhookError, setWebhookError] = useState<string | null>(null)
 
   const fetchSettings = useCallback(async () => {
     const { data } = await supabase.from('client_settings').select('*').order('slug')
@@ -77,10 +85,42 @@ export function ChannelSettingsForm() {
     await fetchSettings()
   }
 
-  const handlePostedOkToggle = async (slug: string, enabled: boolean) => {
-    await supabase.from('client_settings').update({ posted_ok_enabled: enabled }).eq('slug', slug)
-    await fetchSettings()
+  const handleAddWebhook = async () => {
+    setWebhookError(null)
+    const name = newWebhookName.trim()
+    const url = newWebhookUrl.trim()
+    if (!name) { setWebhookError('チャンネル名を入力してください'); return }
+    if (!url.startsWith('https://discord.com/api/webhooks/')) { setWebhookError('正しいDiscord Webhook URLを入力してください'); return }
+    setWebhookSaving(true)
+    const { error: err } = await supabase.from('discord_webhooks').upsert({ name, webhook_url: url }, { onConflict: 'name' })
+    setWebhookSaving(false)
+    if (err) { setWebhookError('保存に失敗しました: ' + err.message); return }
+    setNewWebhookName('')
+    setNewWebhookUrl('')
+    setShowNewWebhook(false)
+    setWebhookSaved(true)
+    // チャンネル一覧を再取得
+    fetch('/api/discord/notify').then(r => r.json()).then(d => setChannels(d.channels || [])).catch(() => {})
+    setTimeout(() => setWebhookSaved(false), 2000)
   }
+
+  const ChannelSelect = ({ value, onValueChange }: { value: string, onValueChange: (v: string) => void }) => (
+    <Select value={value} onValueChange={(v) => {
+      if (v === NEW_CHANNEL_VALUE) { setShowNewWebhook(true); return }
+      onValueChange(v)
+    }}>
+      <SelectTrigger className="h-8 text-sm">
+        <SelectValue placeholder="通知しない" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NO_CHANNEL_VALUE}>通知しない</SelectItem>
+        {channels.map((ch) => (
+          <SelectItem key={ch} value={ch}>{ch}</SelectItem>
+        ))}
+        <SelectItem value={NEW_CHANNEL_VALUE}>＋ 新規チャンネルを追加...</SelectItem>
+      </SelectContent>
+    </Select>
+  )
 
   return (
     <div className="space-y-6">
@@ -91,12 +131,49 @@ export function ChannelSettingsForm() {
             設定がない場合はDiscord通知を送りません。
           </p>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           {saved && (
             <div className="flex items-center gap-1.5 text-sm text-emerald-700">
               <CheckCircleIcon className="size-4" /> 保存しました
+            </div>
+          )}
+          {webhookSaved && (
+            <div className="flex items-center gap-1.5 text-sm text-emerald-700">
+              <CheckCircleIcon className="size-4" /> Discordチャンネルを追加しました
+            </div>
+          )}
+
+          {/* 新規Discordチャンネル追加フォーム */}
+          {showNewWebhook && (
+            <div className="border rounded-md p-3 space-y-3 bg-muted/40">
+              <p className="text-sm font-medium">新しいDiscordチャンネルを追加</p>
+              {webhookError && <p className="text-xs text-destructive">{webhookError}</p>}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">チャンネル名（ラベル）</p>
+                <Input
+                  value={newWebhookName}
+                  onChange={(e) => setNewWebhookName(e.target.value)}
+                  placeholder="例: 山田商事"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Webhook URL</p>
+                <Input
+                  value={newWebhookUrl}
+                  onChange={(e) => setNewWebhookUrl(e.target.value)}
+                  placeholder="https://discord.com/api/webhooks/..."
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-8 text-xs" onClick={handleAddWebhook} disabled={webhookSaving}>
+                  {webhookSaving ? '保存中...' : '追加する'}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowNewWebhook(false); setWebhookError(null) }}>
+                  キャンセル
+                </Button>
+              </div>
             </div>
           )}
 
@@ -111,32 +188,11 @@ export function ChannelSettingsForm() {
                   </code>
                   <span className="text-muted-foreground text-sm">→</span>
                   <div className="flex-1">
-                    {channels.length > 0 ? (
-                      <Select
-                        value={s.discord_channel || NO_CHANNEL_VALUE}
-                        onValueChange={(val) => handleChannelChange(s.slug, val)}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NO_CHANNEL_VALUE}>通知しない</SelectItem>
-                          {channels.map((ch) => (
-                            <SelectItem key={ch} value={ch}>{ch}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span className="text-sm">{s.discord_channel || '通知しない'}</span>
-                    )}
+                    <ChannelSelect
+                      value={s.discord_channel || NO_CHANNEL_VALUE}
+                      onValueChange={(val) => handleChannelChange(s.slug, val)}
+                    />
                   </div>
-                  <button
-                    onClick={() => handlePostedOkToggle(s.slug, !s.posted_ok_enabled)}
-                    className={`text-xs px-2 py-1 rounded border shrink-0 transition-colors ${s.posted_ok_enabled ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'border-muted-foreground/30 text-muted-foreground hover:border-emerald-400 hover:text-emerald-600'}`}
-                    title="投稿OKボタンをクライアントポータルに表示"
-                  >
-                    投稿OK
-                  </button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -159,35 +215,16 @@ export function ChannelSettingsForm() {
                 <Input
                   value={newSlug}
                   onChange={(e) => setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                  placeholder="例: alsok"
+                  placeholder="例: sample"
                   className="h-8 text-sm font-mono"
                 />
               </div>
               <div className="flex-1 space-y-1">
                 <p className="text-xs text-muted-foreground">Discordチャンネル</p>
-                {channels.length > 0 ? (
-                  <Select
-                    value={newChannel || NO_CHANNEL_VALUE}
-                    onValueChange={(val) => setNewChannel(val === NO_CHANNEL_VALUE ? '' : val)}
-                  >
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue placeholder="通知しない" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_CHANNEL_VALUE}>通知しない</SelectItem>
-                      {channels.map((ch) => (
-                        <SelectItem key={ch} value={ch}>{ch}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    value={newChannel}
-                    onChange={(e) => setNewChannel(e.target.value)}
-                    placeholder="チャンネル名"
-                    className="h-8 text-sm"
-                  />
-                )}
+                <ChannelSelect
+                  value={newChannel || NO_CHANNEL_VALUE}
+                  onValueChange={(val) => setNewChannel(val === NO_CHANNEL_VALUE ? '' : val)}
+                />
               </div>
               <Button
                 size="sm"

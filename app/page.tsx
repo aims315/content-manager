@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { TaskList } from '@/components/task-list'
+import { TaskListClient } from '@/components/task-list-client'
 import { Button } from '@/components/ui/button'
 import { PlusIcon, ClipboardListIcon } from 'lucide-react'
 
@@ -33,7 +33,7 @@ export default function HomePage() {
           </div>
         </header>
 
-        <TaskList />
+        <TaskListClient />
       </div>
     </main>
   )

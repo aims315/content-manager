@@ -35,6 +35,7 @@ const statusColors: Record<TaskStatus, string> = {
   '初校提出': 'bg-violet-100 text-violet-800',
   '修正': 'bg-rose-100 text-rose-800',
   '修正対応完了': 'bg-blue-100 text-blue-800',
+  '投稿OK': 'bg-teal-100 text-teal-800',
   '完了': 'bg-emerald-100 text-emerald-800',
 }
 
@@ -85,9 +86,9 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
     setTimeout(() => setHighlightedId(null), 1800)
   }, [])
 
-  // ソート＆フィルター後のタスク一覧
+  // ソート＆フィルター後のタスク一覧（完了は別セクションで表示）
   const displayTasks = tasks
-    .filter(t => statusFilter === 'all' || t.status === statusFilter)
+    .filter(t => (statusFilter === 'all' ? t.status !== '完了' : t.status === statusFilter))
     .sort((a, b) => {
       let diff = 0
       if (sortKey === 'due') {
@@ -101,6 +102,14 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
     })
 
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [postedOkEnabled, setPostedOkEnabled] = useState(false)
+  const [postedOkTaskId, setPostedOkTaskId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('client_settings').select('posted_ok_enabled').eq('slug', clientSlug).single()
+      .then(({ data }) => { if (data?.posted_ok_enabled) setPostedOkEnabled(true) })
+  }, [clientSlug, supabase])
 
   // Supabase Storage のURLからパスを抽出するヘルパー
   const extractStoragePath = (url: string): string | null => {
@@ -114,20 +123,12 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
     }
   }
 
-  // タスクに紐づくファイルをStorageから全削除
-  const deleteTaskFiles = async (task: Task, taskRevisions: TaskRevision[]) => {
+  // タスク本体のファイルのみ削除（修正履歴のファイルは保持）
+  const deleteTaskFiles = async (task: Task) => {
     const paths: string[] = []
-    // タスク本体のファイル
     for (const url of task.file_urls ?? []) {
       const p = extractStoragePath(url)
       if (p) paths.push(p)
-    }
-    // 修正指示のファイル
-    for (const rev of taskRevisions) {
-      for (const url of rev.file_urls ?? []) {
-        const p = extractStoragePath(url)
-        if (p) paths.push(p)
-      }
     }
     if (paths.length > 0) {
       await supabase.storage.from('task-files').remove(paths)
@@ -137,12 +138,11 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
   // タスクを完了にする（ステータス更新 + ファイル削除）
   const handleCompleteTask = async (task: Task) => {
     setCompletingTaskId(task.id)
-    const taskRevisions = revisions[task.id] ?? []
     await supabase.from('tasks').update({
       status: '完了',
       completed_at: new Date().toISOString(),
     }).eq('id', task.id)
-    await deleteTaskFiles(task, taskRevisions)
+    await deleteTaskFiles(task)
     await sendDiscordNotification('completed', task.title, task.assignee)
     setCompletingTaskId(null)
     await fetchTasks()
@@ -534,6 +534,7 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                   <option value="初校提出">初校提出</option>
                   <option value="修正">修正</option>
                   <option value="修正対応完了">修正対応完了</option>
+                  <option value="投稿OK">投稿OK</option>
                   <option value="完了">完了</option>
                 </select>
                 <select
@@ -608,7 +609,24 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                               <Badge className={statusColors[task.status]} variant="secondary">
                                 {task.status}
                               </Badge>
-                              {task.status !== '完了' && (
+                              {task.status === '修正対応完了' && (
+                                <button
+                                  type="button"
+                                  className="text-xs font-bold px-2 py-0.5 rounded-full border border-teal-400 text-teal-700 hover:bg-teal-50 transition-colors disabled:opacity-50"
+                                  disabled={completingTaskId === task.id}
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    setCompletingTaskId(task.id)
+                                    await supabase.from('tasks').update({ status: '投稿OK' }).eq('id', task.id)
+                                    setCompletingTaskId(null)
+                                    await fetchTasks()
+                                  }}
+                                  title="投稿OKにする"
+                                >
+                                  投稿OK
+                                </button>
+                              )}
+                              {task.status !== '完了' && task.status !== '投稿OK' && (
                                 <button
                                   type="button"
                                   className="p-1 rounded hover:bg-emerald-100 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50"
@@ -808,6 +826,63 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                   )
                 })
               )}
+            {/* 完了済みタスク */}
+            {tasks.filter(t => t.status === '完了' || t.status === '投稿OK').length > 0 && (
+              <div className="mt-6 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCompleted(v => !v)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full text-left"
+                >
+                  <CheckCircleIcon className="size-4 text-emerald-500" />
+                  完了したタスク（{tasks.filter(t => t.status === '完了' || t.status === '投稿OK').length}件）
+                  <span className="ml-auto text-xs">{showCompleted ? '▲ 閉じる' : '▼ 見る'}</span>
+                </button>
+                {showCompleted && (
+                  <div className="mt-3 space-y-2">
+                    {tasks
+                      .filter(t => t.status === '完了' || t.status === '投稿OK')
+                      .sort((a, b) => (b.completed_at ?? b.created_at) > (a.completed_at ?? a.created_at) ? 1 : -1)
+                      .map(task => (
+                        <div key={task.id} className="rounded-md border bg-muted/30 p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{task.title}</p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{task.assignee}</span>
+                                {task.completed_at && (
+                                  <span className="text-xs text-muted-foreground">
+                                    完了: {format(new Date(task.completed_at), 'M/d HH:mm', { locale: ja })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Badge className={`${statusColors[task.status]} shrink-0 text-xs`} variant="secondary">
+                              {task.status}
+                            </Badge>
+                          </div>
+                          {task.description && (
+                            <p className="text-xs text-muted-foreground mt-2">{task.description}</p>
+                          )}
+                          {(task.draft_url || (task.draft_file_urls?.length > 0)) && (
+                            <div className="mt-2 text-xs">
+                              <span className="text-muted-foreground">初校: </span>
+                              {task.draft_url && <a href={task.draft_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">{task.draft_url}</a>}
+                            </div>
+                          )}
+                          {(task.response_url || (task.response_file_urls?.length > 0)) && (
+                            <div className="mt-1 text-xs">
+                              <span className="text-muted-foreground">納品: </span>
+                              {task.response_url && <a href={task.response_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">{task.response_url}</a>}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+              </div>
+            )}
             </div>
             </div>
           </TabsContent>

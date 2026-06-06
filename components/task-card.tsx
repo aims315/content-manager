@@ -89,6 +89,7 @@ const statusColors: Record<TaskStatus, string> = {
   '初校提出': 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
   '修正': 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
   '修正対応完了': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  '投稿OK': 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
   '完了': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
 }
 
@@ -708,6 +709,19 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
                   </div>
                 </div>
                 <p className="text-rose-700">{rev.note}</p>
+                {rev.file_urls?.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    {rev.file_urls.map((url, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <span className="flex-1 truncate text-rose-500">{getFilename(url, rev.file_names, i)}</span>
+                        <Button variant="ghost" size="icon" className="size-5 shrink-0"
+                          title="ダウンロード" onClick={() => downloadFile(url)}>
+                          <DownloadIcon className="size-3 text-rose-400" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
 
@@ -851,12 +865,13 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
               <SelectItem value="初校提出">初校提出</SelectItem>
               <SelectItem value="修正">修正</SelectItem>
               <SelectItem value="修正対応完了">修正対応完了</SelectItem>
+              <SelectItem value="投稿OK">投稿OK</SelectItem>
               <SelectItem value="完了">完了</SelectItem>
             </SelectContent>
           </Select>
 
           <div className="flex items-center gap-1">
-            {revisions.length > 0 && (
+            {(revisions.length > 0 || task.status === '修正') && (
               <Button
                 variant={revisionOpen ? 'secondary' : 'ghost'}
                 size="icon"

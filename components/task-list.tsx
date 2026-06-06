@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
+import { useLocalStorage } from '@/hooks/use-local-storage'
 import { useTasks } from '@/hooks/use-tasks'
 import { TaskCard } from '@/components/task-card'
 import { TaskCalendar } from '@/components/task-calendar'
@@ -39,6 +40,21 @@ export function TaskList() {
   const [reminderDaysEdit, setReminderDaysEdit] = useState(false)
   const [reminderDaysInput, setReminderDaysInput] = useState('')
   const [reminderSaving, setReminderSaving] = useState(false)
+
+  useLayoutEffect(() => {
+    try {
+      const savedKey = localStorage.getItem('sort_key') as SortKey
+      const savedAsc = localStorage.getItem('sort_asc')
+      const savedClient = localStorage.getItem('filter_client')
+      const savedStaff = localStorage.getItem('filter_staff')
+      const savedAssignee = localStorage.getItem('filter_assignee')
+      if (savedKey) setSortKey(savedKey)
+      if (savedAsc !== null) setSortAsc(savedAsc === 'true')
+      if (savedClient) setClientFilter(savedClient)
+      if (savedStaff) setStaffFilter(savedStaff)
+      if (savedAssignee) setAssigneeFilter(savedAssignee)
+    } catch {}
+  }, [])
 
   useEffect(() => {
     fetch('/api/settings?key=due_reminder_days')
@@ -201,7 +217,7 @@ export function TaskList() {
             {clientSlugs.length > 0 && (
               <>
                 <span className="text-xs text-muted-foreground">クライアント:</span>
-                <Select value={clientFilter} onValueChange={setClientFilter}>
+                <Select value={clientFilter} onValueChange={(v) => { setClientFilter(v); localStorage.setItem('filter_client', v) }}>
                   <SelectTrigger className="w-36 h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -219,7 +235,7 @@ export function TaskList() {
             {staffList.length > 0 && (
               <>
                 <span className="text-xs text-muted-foreground">担当者:</span>
-                <Select value={staffFilter} onValueChange={setStaffFilter}>
+                <Select value={staffFilter} onValueChange={(v) => { setStaffFilter(v); localStorage.setItem('filter_staff', v) }}>
                   <SelectTrigger className="w-32 h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -237,7 +253,7 @@ export function TaskList() {
             {assigneeList.length > 0 && (
               <>
                 <span className="text-xs text-muted-foreground">カテゴリ:</span>
-                <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                <Select value={assigneeFilter} onValueChange={(v) => { setAssigneeFilter(v); localStorage.setItem('filter_assignee', v) }}>
                   <SelectTrigger className="w-32 h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -252,7 +268,7 @@ export function TaskList() {
             )}
 
             <span className="text-xs text-muted-foreground ml-auto">ソート:</span>
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+            <Select value={sortKey} onValueChange={(v) => { setSortKey(v as SortKey); localStorage.setItem('sort_key', v) }}>
               <SelectTrigger className="w-28 h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -266,7 +282,7 @@ export function TaskList() {
               variant="outline"
               size="icon"
               className="h-8 w-8"
-              onClick={() => setSortAsc((v) => !v)}
+              onClick={() => { const next = !sortAsc; setSortAsc(next); localStorage.setItem('sort_asc', String(next)) }}
               title={sortAsc ? '昇順' : '降順'}
             >
               {sortAsc ? <ArrowUpIcon className="size-3.5" /> : <ArrowDownIcon className="size-3.5" />}
@@ -371,6 +387,7 @@ export function TaskList() {
                 {filterByStatus('修正').length > 0 && <span className="ml-1 inline-flex size-1.5 rounded-full bg-rose-500" />}
               </TabsTrigger>
               <TabsTrigger value="修正対応完了" className="text-xs">修正対応完了 ({filterByStatus('修正対応完了').length})</TabsTrigger>
+              <TabsTrigger value="投稿OK" className="text-xs">投稿OK ({filterByStatus('投稿OK').length})</TabsTrigger>
               <TabsTrigger value="完了" className="text-xs">完了 ({filterByStatus('完了').length})</TabsTrigger>
               <TabsTrigger value="trash" className="text-xs text-muted-foreground">
                 🗑️ ゴミ箱 {deletedTasks.length > 0 && `(${deletedTasks.length})`}
@@ -384,6 +401,7 @@ export function TaskList() {
             <TabsContent value="初校提出">{renderTasks('初校提出')}</TabsContent>
             <TabsContent value="修正">{renderTasks('修正')}</TabsContent>
             <TabsContent value="修正対応完了">{renderTasks('修正対応完了')}</TabsContent>
+            <TabsContent value="投稿OK">{renderTasks('投稿OK')}</TabsContent>
             <TabsContent value="完了">{renderTasks('完了')}</TabsContent>
             <TabsContent value="trash">
               {deletedTasks.length === 0 ? (

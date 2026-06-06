@@ -15,16 +15,21 @@ export async function POST(request: NextRequest) {
   try {
     const { clientSlug, taskTitle, status, draftUrl, responseUrl } = await request.json()
 
-    // client_settings からメールアドレスを取得
+    // client_settings からメールアドレスを取得（複数対応）
     const supabase = getSupabase()
     const { data } = await supabase
       .from('client_settings')
-      .select('notification_email')
+      .select('notification_email, notification_emails')
       .eq('slug', clientSlug)
       .single()
 
-    const email = data?.notification_email
-    if (!email) return NextResponse.json({ skipped: true })
+    // 新しい配列 + 旧単体メールをまとめる
+    const emails: string[] = [
+      ...(data?.notification_emails || []),
+      ...(data?.notification_email ? [data.notification_email] : []),
+    ].filter((e, i, arr) => e && arr.indexOf(e) === i)
+
+    if (emails.length === 0) return NextResponse.json({ skipped: true })
 
     const statusLabels: Record<string, string> = {
       '進行中': '進行中',
@@ -61,7 +66,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         from: 'タスク管理 <onboarding@resend.dev>',
-        to: [email],
+        to: emails,
         subject: `【進捗更新】${taskTitle} - ${label}`,
         html,
       }),
