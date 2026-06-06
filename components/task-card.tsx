@@ -54,6 +54,24 @@ function downloadFile(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+function TextWithLinks({ text, className }: { text: string; className?: string }) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+  return (
+    <span className={className}>
+      {parts.map((part, i) =>
+        urlRegex.test(part) ? (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+            className="text-primary underline break-all hover:opacity-80"
+            onClick={(e) => e.stopPropagation()}>
+            {part}
+          </a>
+        ) : part
+      )}
+    </span>
+  )
+}
+
 function getFilename(url: string, names?: string[], index?: number) {
   if (names && index !== undefined && names[index]) return names[index]
   const raw = decodeURIComponent(url.split('/').pop()?.split('?')[0] ?? '')
@@ -375,8 +393,8 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
       </CardHeader>
       <CardContent className="space-y-3">
         {task.description && (
-          <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
-            {task.description}
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            <TextWithLinks text={task.description} />
           </p>
         )}
 
