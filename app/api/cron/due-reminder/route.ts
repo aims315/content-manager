@@ -45,11 +45,6 @@ async function sendToDiscord(content: string, channels: string[], clientSlug: st
     if (ch && webhookMap[ch]) urls = [webhookMap[ch]]
   }
 
-  // 3. それでもなければ default チャンネルのみ（全送信しない）
-  if (urls.length === 0 && webhookMap['default']) {
-    urls = [webhookMap['default']]
-  }
-
   // チャンネルが特定できない場合は送信しない
   if (urls.length === 0) return
 

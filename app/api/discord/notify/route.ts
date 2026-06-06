@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid notification type' }, { status: 400 })
     }
 
-    // チャンネル選択：channels指定 > DBのclient_slug設定 > default のみ（全送信しない）
+    // チャンネル選択：channels指定 > DBのclient_slug設定。未指定なら送信しない。
     let webhookUrls: string[] = []
     if (channels && channels.length > 0) {
       webhookUrls = channels.filter((ch: string) => webhookMap[ch]).map((ch: string) => webhookMap[ch])
@@ -88,10 +88,7 @@ export async function POST(request: NextRequest) {
         webhookUrls = [webhookMap[ch]]
       }
     }
-    if (webhookUrls.length === 0 && webhookMap['default']) {
-      webhookUrls = [webhookMap['default']]
-    }
-    // チャンネルが特定できない場合は送信しない（全チャンネル送信を防ぐ）
+    // チャンネルが特定できない場合は送信しない
     if (webhookUrls.length === 0) {
       return NextResponse.json({ success: true, skipped: true, reason: 'no channel resolved' })
     }
