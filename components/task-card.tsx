@@ -410,7 +410,7 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
               </span>
             </div>
           )}
-          {task.client_slug === 'task_aims' && task.amount != null && (
+          {task.amount != null && (
             <div className="flex items-center gap-1">
               <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-xs font-medium">
                 {formatAmount(task.amount)}
