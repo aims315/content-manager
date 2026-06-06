@@ -152,11 +152,14 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
   const responseFiles = useFileUpload()
 
   // 金額インライン編集
+  const [amountError, setAmountError] = useState<string | null>(null)
   const saveAmount = async () => {
     const trimmed = amountInput.trim()
     const value = trimmed === '' ? null : Number(trimmed.replace(/,/g, ''))
-    if (trimmed !== '' && !Number.isFinite(value)) return
-    await supabase.from('tasks').update({ amount: value }).eq('id', task.id)
+    if (trimmed !== '' && !Number.isFinite(value)) { setAmountError('数値で入力してください'); return }
+    setAmountError(null)
+    const { error } = await supabase.from('tasks').update({ amount: value }).eq('id', task.id)
+    if (error) { setAmountError('保存失敗: ' + error.message); return }
     setAmountEdit(false)
   }
 
@@ -434,21 +437,24 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
               <PencilIcon className="size-2.5 opacity-50" />
             </button>
           ) : (
-            <div className="flex items-center gap-1">
-              <input
-                autoFocus
-                type="text"
-                inputMode="numeric"
-                value={amountInput}
-                onChange={(e) => setAmountInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') saveAmount(); if (e.key === 'Escape') setAmountEdit(false) }}
-                placeholder="例: 50000"
-                className="h-6 w-28 text-xs rounded border border-input bg-background px-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-              <button type="button" onClick={saveAmount} className="text-xs text-emerald-600 hover:underline">保存</button>
-              <button type="button" onClick={() => setAmountEdit(false)} className="text-muted-foreground hover:text-foreground">
-                <XIcon className="size-3" />
-              </button>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  type="text"
+                  inputMode="numeric"
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveAmount(); if (e.key === 'Escape') setAmountEdit(false) }}
+                  placeholder="例: 50000"
+                  className="h-6 w-28 text-xs rounded border border-input bg-background px-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <button type="button" onClick={saveAmount} className="text-xs text-emerald-600 hover:underline">保存</button>
+                <button type="button" onClick={() => setAmountEdit(false)} className="text-muted-foreground hover:text-foreground">
+                  <XIcon className="size-3" />
+                </button>
+              </div>
+              {amountError && <p className="text-xs text-red-500">{amountError}</p>}
             </div>
           )}
           {task.draft_due_date && (
