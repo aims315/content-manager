@@ -106,7 +106,7 @@ export function TaskForm() {
     }
 
     const normalizedClientSlug = clientSlug.trim()
-    const amountValue = normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? parseAmount(amount) : null
+    const amountValue = parseAmount(amount)
     if (Number.isNaN(amountValue)) {
       setError('金額は数値で入力してください')
       return
@@ -123,7 +123,7 @@ export function TaskForm() {
       file_urls: files.uploadedFiles.map((f) => f.url),
       discord_channels: selectedChannels,
       client_slug: normalizedClientSlug || null,
-      ...(normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? { amount: amountValue } : {}),
+      amount: amountValue,
     })
 
     if (insertError) {
@@ -223,18 +223,16 @@ export function TaskForm() {
             )}
           </div>
 
-          {clientSlug.trim() === TASK_AIMS_CLIENT_CODE && (
-            <div className="space-y-2">
-              <Label htmlFor="amount">金額</Label>
-              <Input
-                id="amount"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="例: 50000"
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="amount">金額</Label>
+            <Input
+              id="amount"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="例: 50000"
+            />
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="description">内容・備考</Label>

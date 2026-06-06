@@ -110,7 +110,7 @@ export function SubmitForm() {
       return
     }
     const normalizedClientSlug = clientSlug.trim()
-    const amountValue = normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? parseAmount(amount) : null
+    const amountValue = parseAmount(amount)
     if (Number.isNaN(amountValue)) {
       setNewError('金額は数値で入力してください')
       return
@@ -124,7 +124,7 @@ export function SubmitForm() {
       file_urls: newFiles.uploadedFiles.map((f) => f.url),
       file_names: newFiles.uploadedFiles.map((f) => f.name),
       client_slug: normalizedClientSlug || null,
-      ...(normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? { amount: amountValue } : {}),
+      amount: amountValue,
     })
     if (error) {
       setNewError('送信に失敗しました')
@@ -240,18 +240,16 @@ export function SubmitForm() {
                   </p>
                 )}
               </div>
-              {clientSlug.trim() === TASK_AIMS_CLIENT_CODE && (
-                <div className="space-y-2">
-                  <Label htmlFor="amount">金額</Label>
-                  <Input
-                    id="amount"
-                    inputMode="numeric"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="例: 50000"
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="amount">金額</Label>
+                <Input
+                  id="amount"
+                  inputMode="numeric"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="例: 50000"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="description">内容・備考</Label>
                 <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="詳細を入力（任意）" rows={3} />
