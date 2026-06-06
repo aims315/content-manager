@@ -100,7 +100,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
     if (!task || !title.trim() || !category) return
     setIsSaving(true)
     const normalizedClientSlug = clientSlug.trim()
-    const amountValue = normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? parseAmount(amount) : null
+    const amountValue = parseAmount(amount)
     if (Number.isNaN(amountValue)) {
       setIsSaving(false)
       return
@@ -112,7 +112,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
       draft_due_date: draftDueDate ? format(draftDueDate, 'yyyy-MM-dd') : null,
       client_slug: normalizedClientSlug || null,
-      ...(normalizedClientSlug === TASK_AIMS_CLIENT_CODE || task.amount != null ? { amount: amountValue } : {}),
+      amount: amountValue,
     })
     setIsSaving(false)
     if (success) onOpenChange(false)
@@ -188,18 +188,16 @@ export function TaskEditDialog({ task, open, onOpenChange, onSave }: TaskEditDia
             )}
           </div>
 
-          {clientSlug.trim() === TASK_AIMS_CLIENT_CODE && (
-            <div className="space-y-2">
-              <Label htmlFor="edit-amount">金額</Label>
-              <Input
-                id="edit-amount"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="例: 50000"
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="edit-amount">金額</Label>
+            <Input
+              id="edit-amount"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="例: 50000"
+            />
+          </div>
 
           <div className="space-y-2">
             <Label>初校締切日</Label>
