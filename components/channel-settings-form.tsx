@@ -15,9 +15,12 @@ import {
 } from '@/components/ui/select'
 import { PlusIcon, Trash2Icon, CheckCircleIcon } from 'lucide-react'
 
+const NO_CHANNEL_VALUE = '__none__'
+
 interface ClientSetting {
   slug: string
   discord_channel: string
+  posted_ok_enabled?: boolean
 }
 
 export function ChannelSettingsForm() {
@@ -47,14 +50,14 @@ export function ChannelSettingsForm() {
   const handleAdd = async () => {
     setError(null)
     const slug = newSlug.trim().toLowerCase()
-    if (!slug || !newChannel) {
-      setError('クライアントコードとチャンネルを入力してください')
+    if (!slug) {
+      setError('クライアントコードを入力してください')
       return
     }
     setSaving(true)
     const { error: err } = await supabase
       .from('client_settings')
-      .upsert({ slug, discord_channel: newChannel }, { onConflict: 'slug' })
+      .upsert({ slug, discord_channel: newChannel || '' }, { onConflict: 'slug' })
     setSaving(false)
     if (err) { setError('保存に失敗しました'); return }
     setNewSlug('')
@@ -70,7 +73,12 @@ export function ChannelSettingsForm() {
   }
 
   const handleChannelChange = async (slug: string, channel: string) => {
-    await supabase.from('client_settings').update({ discord_channel: channel }).eq('slug', slug)
+    await supabase.from('client_settings').update({ discord_channel: channel === NO_CHANNEL_VALUE ? '' : channel }).eq('slug', slug)
+    await fetchSettings()
+  }
+
+  const handlePostedOkToggle = async (slug: string, enabled: boolean) => {
+    await supabase.from('client_settings').update({ posted_ok_enabled: enabled }).eq('slug', slug)
     await fetchSettings()
   }
 
@@ -80,7 +88,7 @@ export function ChannelSettingsForm() {
         <CardContent className="pt-6 space-y-4">
           <p className="text-sm text-muted-foreground">
             クライアントコードごとに通知先のDiscordチャンネルを設定します。<br />
-            設定がない場合は <code className="bg-muted px-1 rounded">default</code> チャンネルに通知されます。
+            設定がない場合はDiscord通知を送りません。
           </p>
 
           {error && (
@@ -105,22 +113,30 @@ export function ChannelSettingsForm() {
                   <div className="flex-1">
                     {channels.length > 0 ? (
                       <Select
-                        value={s.discord_channel}
+                        value={s.discord_channel || NO_CHANNEL_VALUE}
                         onValueChange={(val) => handleChannelChange(s.slug, val)}
                       >
                         <SelectTrigger className="h-8 text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value={NO_CHANNEL_VALUE}>通知しない</SelectItem>
                           {channels.map((ch) => (
                             <SelectItem key={ch} value={ch}>{ch}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     ) : (
-                      <span className="text-sm">{s.discord_channel}</span>
+                      <span className="text-sm">{s.discord_channel || '通知しない'}</span>
                     )}
                   </div>
+                  <button
+                    onClick={() => handlePostedOkToggle(s.slug, !s.posted_ok_enabled)}
+                    className={`text-xs px-2 py-1 rounded border shrink-0 transition-colors ${s.posted_ok_enabled ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'border-muted-foreground/30 text-muted-foreground hover:border-emerald-400 hover:text-emerald-600'}`}
+                    title="投稿OKボタンをクライアントポータルに表示"
+                  >
+                    投稿OK
+                  </button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -150,11 +166,15 @@ export function ChannelSettingsForm() {
               <div className="flex-1 space-y-1">
                 <p className="text-xs text-muted-foreground">Discordチャンネル</p>
                 {channels.length > 0 ? (
-                  <Select value={newChannel} onValueChange={setNewChannel}>
+                  <Select
+                    value={newChannel || NO_CHANNEL_VALUE}
+                    onValueChange={(val) => setNewChannel(val === NO_CHANNEL_VALUE ? '' : val)}
+                  >
                     <SelectTrigger className="h-8 text-sm">
-                      <SelectValue placeholder="チャンネルを選択" />
+                      <SelectValue placeholder="通知しない" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={NO_CHANNEL_VALUE}>通知しない</SelectItem>
                       {channels.map((ch) => (
                         <SelectItem key={ch} value={ch}>{ch}</SelectItem>
                       ))}
