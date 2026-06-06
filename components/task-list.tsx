@@ -13,7 +13,7 @@ import { Spinner } from '@/components/ui/spinner'
 import type { Task, TaskStatus } from '@/lib/types'
 import { isSameDay, parseISO, format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { ArrowUpIcon, ArrowDownIcon, Trash2Icon, RotateCcwIcon, BellIcon } from 'lucide-react'
+import { ArrowUpIcon, ArrowDownIcon, Trash2Icon, RotateCcwIcon, BellIcon, DownloadIcon } from 'lucide-react'
 
 type SortKey = 'created_at' | 'due_date' | 'staff'
 
@@ -141,6 +141,30 @@ export function TaskList() {
 
   // フィルター済みタスク（ステータス問わず・削除なし）
   const filteredTasksAll = applyFilters(tasks)
+
+  const exportCSV = () => {
+    const headers = ['タイトル', 'カテゴリ', 'クライアント', 'ステータス', '担当者', '期限', '初校期限', '金額', '内容', '作成日', '完了日']
+    const rows = tasks.map(t => [
+      t.title,
+      t.assignee,
+      t.client_slug ?? '',
+      t.status,
+      t.staff ?? '',
+      t.due_date ?? '',
+      (t as any).draft_due_date ?? '',
+      t.amount != null ? String(t.amount) : '',
+      t.description ?? '',
+      t.created_at ? format(parseISO(t.created_at), 'yyyy/MM/dd') : '',
+      t.completed_at ? format(parseISO(t.completed_at), 'yyyy/MM/dd') : '',
+    ])
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `tasks_${format(new Date(), 'yyyyMMdd')}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   const getTasksForDate = (date: Date) =>
     filteredTasksAll.filter((task) => task.due_date && isSameDay(parseISO(task.due_date), date))
@@ -286,6 +310,11 @@ export function TaskList() {
               title={sortAsc ? '昇順' : '降順'}
             >
               {sortAsc ? <ArrowUpIcon className="size-3.5" /> : <ArrowDownIcon className="size-3.5" />}
+            </Button>
+
+            {/* CSVエクスポート */}
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={exportCSV}>
+              <DownloadIcon className="size-3" /> CSV出力
             </Button>
 
             {/* 通知設定エリア */}

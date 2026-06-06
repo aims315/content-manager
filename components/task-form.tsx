@@ -71,19 +71,8 @@ export function TaskForm() {
 
   useEffect(() => {
     async function fetchClientSlugs() {
-      const [{ data: taskRows }, { data: settingRows }] = await Promise.all([
-        supabase.from('tasks').select('client_slug').not('client_slug', 'is', null),
-        supabase.from('client_settings').select('slug'),
-      ])
-
-      const slugs = new Set<string>()
-      taskRows?.forEach((row) => {
-        if (row.client_slug) slugs.add(row.client_slug)
-      })
-      settingRows?.forEach((row) => {
-        if (row.slug) slugs.add(row.slug)
-      })
-      setExistingClientSlugs([...slugs].sort())
+      const { data } = await supabase.from('client_settings').select('slug').order('slug')
+      setExistingClientSlugs((data || []).map((r) => r.slug).filter(Boolean).sort())
     }
 
     fetchClientSlugs()

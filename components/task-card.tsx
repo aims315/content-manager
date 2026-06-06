@@ -580,8 +580,8 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
           </div>
         )}
 
-        {/* 初校提出フォーム（進行中のとき） */}
-        {task.status === '進行中' && onSubmitDraft && (
+        {/* 初校提出フォーム（全ステータス） */}
+        {onSubmitDraft && task.status !== '完了' && (
           <div className="space-y-2 rounded-md border border-violet-200 bg-violet-50 p-2.5 dark:border-violet-800 dark:bg-violet-950">
             <p className="text-xs font-medium text-violet-800 dark:text-violet-200">初校を提出する</p>
             {draftSuccess && (

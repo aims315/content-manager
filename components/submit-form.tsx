@@ -60,34 +60,20 @@ export function SubmitForm() {
   const revisionFiles = useFileUpload()
 
   useEffect(() => {
+    // タスク一覧取得
     supabase
       .from('tasks')
       .select('id, title, assignee, status, client_slug')
       .neq('status', '完了')
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setTasks(data as Task[] || [])
-        const slugs = new Set<string>()
-        data?.forEach((task) => {
-          if (task.client_slug) slugs.add(task.client_slug)
-        })
-        setExistingClientSlugs([...slugs].sort())
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
+      .then(({ data }) => setTasks(data as Task[] || []))
+    // クライアントコードは client_settings のみから取得（削除したら選択肢からも消える）
     supabase
       .from('client_settings')
       .select('slug')
+      .order('slug')
       .then(({ data }) => {
-        setExistingClientSlugs((prev) => {
-          const slugs = new Set(prev)
-          data?.forEach((row) => {
-            if (row.slug) slugs.add(row.slug)
-          })
-          return [...slugs].sort()
-        })
+        setExistingClientSlugs((data || []).map((r) => r.slug).filter(Boolean).sort())
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
