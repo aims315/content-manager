@@ -145,9 +145,20 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
   const [flash, setFlash] = useState(false)
   const [editingDraft, setEditingDraft] = useState(false)
   const [editingResponse, setEditingResponse] = useState(false)
+  const [amountEdit, setAmountEdit] = useState(false)
+  const [amountInput, setAmountInput] = useState('')
   const supabase = createClient()
   const draftFiles = useFileUpload()
   const responseFiles = useFileUpload()
+
+  // 金額インライン編集
+  const saveAmount = async () => {
+    const trimmed = amountInput.trim()
+    const value = trimmed === '' ? null : Number(trimmed.replace(/,/g, ''))
+    if (trimmed !== '' && !Number.isFinite(value)) return
+    await supabase.from('tasks').update({ amount: value }).eq('id', task.id)
+    setAmountEdit(false)
+  }
 
   // 修正指示削除
   const [deletingRevisionId, setDeletingRevisionId] = useState<string | null>(null)
@@ -410,11 +421,34 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
               </span>
             </div>
           )}
-          {task.amount != null && (
+          {/* 金額インライン編集 */}
+          {!amountEdit ? (
+            <button
+              type="button"
+              onClick={() => { setAmountInput(task.amount != null ? String(task.amount) : ''); setAmountEdit(true) }}
+              className="flex items-center gap-1 text-xs rounded px-1.5 py-0.5 border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-emerald-500 hover:text-emerald-600 transition-colors"
+            >
+              {task.amount != null
+                ? <span className="font-medium text-emerald-700">{formatAmount(task.amount)}</span>
+                : <span>金額を設定</span>}
+              <PencilIcon className="size-2.5 opacity-50" />
+            </button>
+          ) : (
             <div className="flex items-center gap-1">
-              <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-xs font-medium">
-                {formatAmount(task.amount)}
-              </span>
+              <input
+                autoFocus
+                type="text"
+                inputMode="numeric"
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveAmount(); if (e.key === 'Escape') setAmountEdit(false) }}
+                placeholder="例: 50000"
+                className="h-6 w-28 text-xs rounded border border-input bg-background px-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+              <button type="button" onClick={saveAmount} className="text-xs text-emerald-600 hover:underline">保存</button>
+              <button type="button" onClick={() => setAmountEdit(false)} className="text-muted-foreground hover:text-foreground">
+                <XIcon className="size-3" />
+              </button>
             </div>
           )}
           {task.draft_due_date && (
