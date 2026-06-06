@@ -26,22 +26,6 @@ import { cn } from '@/lib/utils'
 import type { Task, TaskRevision, TaskStatus } from '@/lib/types'
 
 const CATEGORIES = ['デザイン', '動画', 'その他'] as const
-const TASK_AIMS_CLIENT_CODE = 'task_aims'
-
-function parseAmount(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  const parsed = Number(trimmed.replace(/,/g, ''))
-  return Number.isFinite(parsed) ? parsed : NaN
-}
-
-function formatAmount(amount: number) {
-  return new Intl.NumberFormat('ja-JP', {
-    style: 'currency',
-    currency: 'JPY',
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
 
 const statusColors: Record<TaskStatus, string> = {
   '未着手': 'bg-muted text-muted-foreground',
@@ -76,7 +60,6 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
   const [newDueDate, setNewDueDate] = useState<Date | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [newSuccess, setNewSuccess] = useState(false)
@@ -245,8 +228,6 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
     e.preventDefault()
     setNewError(null)
     if (!title.trim() || !category) { setNewError('タイトルとカテゴリは必須です'); return }
-    const amountValue = clientSlug === TASK_AIMS_CLIENT_CODE ? parseAmount(amount) : null
-    if (Number.isNaN(amountValue)) { setNewError('金額は数値で入力してください'); return }
     setIsSubmitting(true)
     const { error } = await supabase.from('tasks').insert({
       title: title.trim(), assignee: category,
@@ -255,12 +236,11 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
       file_urls: newFiles.uploadedFiles.map((f) => f.url),
       file_names: newFiles.uploadedFiles.map((f) => f.name),
       client_slug: clientSlug,
-      ...(clientSlug === TASK_AIMS_CLIENT_CODE ? { amount: amountValue } : {}),
     })
     if (error) { setNewError('送信に失敗しました'); setIsSubmitting(false); return }
     await sendDiscordNotification('created', title.trim(), category)
     setIsSubmitting(false); setNewSuccess(true)
-    setTitle(''); setCategory(''); setDescription(''); setAmount(''); setNewDueDate(undefined); newFiles.reset()
+    setTitle(''); setCategory(''); setDescription(''); setNewDueDate(undefined); newFiles.reset()
     await fetchTasks()
     setTimeout(() => setNewSuccess(false), 3000)
   }
@@ -373,18 +353,6 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                   <Label htmlFor="description">内容・備考</Label>
                   <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="詳細を入力（任意）" rows={3} />
                 </div>
-                {clientSlug === TASK_AIMS_CLIENT_CODE && (
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">金額</Label>
-                    <Input
-                      id="amount"
-                      inputMode="numeric"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="例: 50000"
-                    />
-                  </div>
-                )}
                 <div className="space-y-2">
                   <Label>希望納期</Label>
                   <Popover>
@@ -632,11 +600,6 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                                   <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                                     <ClockIcon className="size-3" />
                                     最終 {format(new Date(task.due_date), 'yyyy/MM/dd', { locale: ja })}
-                                  </span>
-                                )}
-                                {task.client_slug === 'task_aims' && task.amount != null && (
-                                  <span className="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                    {formatAmount(task.amount)}
                                   </span>
                                 )}
                               </div>
