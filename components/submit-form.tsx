@@ -20,6 +20,18 @@ import { cn } from '@/lib/utils'
 import type { Task } from '@/lib/types'
 
 const CATEGORIES = ['デザイン', '動画', 'その他'] as const
+const TASK_AIMS_CLIENT_CODE = 'task_aims'
+
+function normalizeClientSlug(value: string) {
+  return value.toLowerCase().replace(/\s+/g, '-')
+}
+
+function parseAmount(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const parsed = Number(trimmed.replace(/,/g, ''))
+  return Number.isFinite(parsed) ? parsed : NaN
+}
 
 export function SubmitForm() {
   const supabase = createClient()
@@ -29,7 +41,9 @@ export function SubmitForm() {
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [clientSlug, setClientSlug] = useState('')
+  const [amount, setAmount] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>()
+  const [existingClientSlugs, setExistingClientSlugs] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [newSuccess, setNewSuccess] = useState(false)
   const [newError, setNewError] = useState<string | null>(null)
@@ -48,11 +62,35 @@ export function SubmitForm() {
   useEffect(() => {
     supabase
       .from('tasks')
-      .select('id, title, assignee, status')
+      .select('id, title, assignee, status, client_slug')
       .neq('status', '完了')
       .order('created_at', { ascending: false })
-      .then(({ data }) => setTasks(data as Task[] || []))
-  }, [supabase])
+      .then(({ data }) => {
+        setTasks(data as Task[] || [])
+        const slugs = new Set<string>()
+        data?.forEach((task) => {
+          if (task.client_slug) slugs.add(task.client_slug)
+        })
+        setExistingClientSlugs([...slugs].sort())
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    supabase
+      .from('client_settings')
+      .select('slug')
+      .then(({ data }) => {
+        setExistingClientSlugs((prev) => {
+          const slugs = new Set(prev)
+          data?.forEach((row) => {
+            if (row.slug) slugs.add(row.slug)
+          })
+          return [...slugs].sort()
+        })
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const sendDiscordNotification = async (type: string, taskTitle: string, taskAssignee: string, note?: string, modifiedBy?: string, clientSlug?: string, description?: string, fileUrls?: string[]) => {
     try {
@@ -71,6 +109,12 @@ export function SubmitForm() {
       setNewError('タイトルとカテゴリは必須です')
       return
     }
+    const normalizedClientSlug = clientSlug.trim()
+    const amountValue = normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? parseAmount(amount) : null
+    if (Number.isNaN(amountValue)) {
+      setNewError('金額は数値で入力してください')
+      return
+    }
     setIsSubmitting(true)
     const { error } = await supabase.from('tasks').insert({
       title: title.trim(),
@@ -79,20 +123,22 @@ export function SubmitForm() {
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
       file_urls: newFiles.uploadedFiles.map((f) => f.url),
       file_names: newFiles.uploadedFiles.map((f) => f.name),
-      client_slug: clientSlug.trim() || null,
+      client_slug: normalizedClientSlug || null,
+      ...(normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? { amount: amountValue } : {}),
     })
     if (error) {
       setNewError('送信に失敗しました')
       setIsSubmitting(false)
       return
     }
-    await sendDiscordNotification('created', title.trim(), category, undefined, undefined, clientSlug.trim() || undefined, description.trim() || undefined, newFiles.uploadedFiles.map((f) => f.url))
+    await sendDiscordNotification('created', title.trim(), category, undefined, undefined, normalizedClientSlug || undefined, description.trim() || undefined, newFiles.uploadedFiles.map((f) => f.url))
     setIsSubmitting(false)
     setNewSuccess(true)
     setTitle('')
     setCategory('')
     setDescription('')
     setClientSlug('')
+    setAmount('')
     setDueDate(undefined)
     newFiles.reset()
     setTimeout(() => setNewSuccess(false), 3000)
@@ -167,11 +213,26 @@ export function SubmitForm() {
                   クライアントコード
                   <span className="ml-2 text-xs text-muted-foreground font-normal">任意・設定すると専用URLを発行</span>
                 </Label>
+                {existingClientSlugs.length > 0 && (
+                  <Select
+                    value={existingClientSlugs.includes(clientSlug.trim()) ? clientSlug.trim() : ''}
+                    onValueChange={setClientSlug}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="以前のコードから選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {existingClientSlugs.map((slug) => (
+                        <SelectItem key={slug} value={slug}>{slug}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Input
                   id="clientSlug"
                   value={clientSlug}
-                  onChange={(e) => setClientSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                  placeholder="例: yamada-sangyo（英数字・ハイフン）"
+                  onChange={(e) => setClientSlug(normalizeClientSlug(e.target.value))}
+                  placeholder="新しく入力: yamada-sangyo（英数字・ハイフン）"
                 />
                 {clientSlug.trim() && (
                   <p className="text-xs text-muted-foreground">
@@ -179,6 +240,18 @@ export function SubmitForm() {
                   </p>
                 )}
               </div>
+              {clientSlug.trim() === TASK_AIMS_CLIENT_CODE && (
+                <div className="space-y-2">
+                  <Label htmlFor="amount">金額</Label>
+                  <Input
+                    id="amount"
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="例: 50000"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="description">内容・備考</Label>
                 <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="詳細を入力（任意）" rows={3} />

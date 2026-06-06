@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
 
     const statusLabels: Record<string, string> = {
       '進行中': '進行中',
+      '制作要項待ち': '制作要項待ちになりました',
       '初校提出': '初校が提出されました',
       '修正': '修正依頼中',
       '修正対応完了': '修正対応が完了しました',

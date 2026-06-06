@@ -60,6 +60,14 @@ function getFilename(url: string, names?: string[], index?: number) {
   return raw || 'ファイル'
 }
 
+function formatAmount(amount: number) {
+  return new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency: 'JPY',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
 interface TaskCardProps {
   task: Task
   revisions?: TaskRevision[]
@@ -380,6 +388,13 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
             <div className="flex items-center gap-1">
               <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded text-xs font-mono">
                 {task.client_slug}
+              </span>
+            </div>
+          )}
+          {task.client_slug === 'task_aims' && task.amount != null && (
+            <div className="flex items-center gap-1">
+              <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-xs font-medium">
+                {formatAmount(task.amount)}
               </span>
             </div>
           )}

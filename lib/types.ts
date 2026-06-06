@@ -38,6 +38,7 @@ export interface Task {
   response_file_urls: string[]
   response_file_names: string[]
   client_slug: string | null
+  amount: number | null
   staff: string | null
   deleted_at: string | null
 }

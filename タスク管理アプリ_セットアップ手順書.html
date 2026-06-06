@@ -214,6 +214,7 @@
   file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
   file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
   client_slug TEXT,
+  amount INTEGER,
   staff TEXT,
   discord_channels TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>,
   modification_note TEXT,
@@ -550,6 +551,7 @@ RESEND_API_KEY=（ResendのAPIキー）</pre>
 <span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> response_file_urls TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>;
 <span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> response_file_names TEXT[] <span class="keyword">DEFAULT</span> <span class="string">'{}'</span>;
 <span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> draft_due_date DATE;
+<span class="keyword">ALTER TABLE</span> tasks <span class="keyword">ADD COLUMN IF NOT EXISTS</span> amount INTEGER;
 <span class="keyword">ALTER TABLE</span> client_settings <span class="keyword">ADD COLUMN IF NOT EXISTS</span> notification_email TEXT;
 
 <span class="comment">-- 締切リマインダー設定テーブル（Vercel Cron用）</span>
@@ -678,7 +680,8 @@ RESEND_API_KEY=（ResendのAPIキー）</pre>
   draft_note TEXT,
   draft_submitted_at TIMESTAMPTZ,
   draft_due_date DATE,
-  client_slug TEXT
+  client_slug TEXT,
+  amount INTEGER
 );
 
 <span class="comment">-- 修正指示テーブル</span>

@@ -26,6 +26,18 @@ import { CalendarIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const CATEGORIES = ['デザイン', '動画', 'その他'] as const
+const TASK_AIMS_CLIENT_CODE = 'task_aims'
+
+function normalizeClientSlug(value: string) {
+  return value.toLowerCase().replace(/\s+/g, '-')
+}
+
+function parseAmount(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const parsed = Number(trimmed.replace(/,/g, ''))
+  return Number.isFinite(parsed) ? parsed : NaN
+}
 
 export function TaskForm() {
   const router = useRouter()
@@ -34,9 +46,11 @@ export function TaskForm() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [clientSlug, setClientSlug] = useState('')
+  const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>()
   const [draftDueDate, setDraftDueDate] = useState<Date | undefined>()
+  const [existingClientSlugs, setExistingClientSlugs] = useState<string[]>([])
   const [availableChannels, setAvailableChannels] = useState<string[]>([])
   const [selectedChannels, setSelectedChannels] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -55,6 +69,27 @@ export function TaskForm() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    async function fetchClientSlugs() {
+      const [{ data: taskRows }, { data: settingRows }] = await Promise.all([
+        supabase.from('tasks').select('client_slug').not('client_slug', 'is', null),
+        supabase.from('client_settings').select('slug'),
+      ])
+
+      const slugs = new Set<string>()
+      taskRows?.forEach((row) => {
+        if (row.client_slug) slugs.add(row.client_slug)
+      })
+      settingRows?.forEach((row) => {
+        if (row.slug) slugs.add(row.slug)
+      })
+      setExistingClientSlugs([...slugs].sort())
+    }
+
+    fetchClientSlugs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const toggleChannel = (channel: string) => {
     setSelectedChannels((prev) =>
       prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel]
@@ -70,6 +105,13 @@ export function TaskForm() {
       return
     }
 
+    const normalizedClientSlug = clientSlug.trim()
+    const amountValue = normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? parseAmount(amount) : null
+    if (Number.isNaN(amountValue)) {
+      setError('金額は数値で入力してください')
+      return
+    }
+
     setIsSubmitting(true)
 
     const { error: insertError } = await supabase.from('tasks').insert({
@@ -80,7 +122,8 @@ export function TaskForm() {
       draft_due_date: draftDueDate ? format(draftDueDate, 'yyyy-MM-dd') : null,
       file_urls: files.uploadedFiles.map((f) => f.url),
       discord_channels: selectedChannels,
-      client_slug: clientSlug.trim() || null,
+      client_slug: normalizedClientSlug || null,
+      ...(normalizedClientSlug === TASK_AIMS_CLIENT_CODE ? { amount: amountValue } : {}),
     })
 
     if (insertError) {
@@ -152,11 +195,26 @@ export function TaskForm() {
                 （設定すると /submit/[コード] でクライアントに専用URLを発行）
               </span>
             </Label>
+            {existingClientSlugs.length > 0 && (
+              <Select
+                value={existingClientSlugs.includes(clientSlug.trim()) ? clientSlug.trim() : ''}
+                onValueChange={setClientSlug}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="以前のコードから選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {existingClientSlugs.map((slug) => (
+                    <SelectItem key={slug} value={slug}>{slug}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Input
               id="clientSlug"
               value={clientSlug}
-              onChange={(e) => setClientSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-              placeholder="例: yamada-sangyo（英数字・ハイフン）"
+              onChange={(e) => setClientSlug(normalizeClientSlug(e.target.value))}
+              placeholder="新しく入力: yamada-sangyo（英数字・ハイフン）"
             />
             {clientSlug.trim() && (
               <p className="text-xs text-muted-foreground">
@@ -164,6 +222,19 @@ export function TaskForm() {
               </p>
             )}
           </div>
+
+          {clientSlug.trim() === TASK_AIMS_CLIENT_CODE && (
+            <div className="space-y-2">
+              <Label htmlFor="amount">金額</Label>
+              <Input
+                id="amount"
+                inputMode="numeric"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="例: 50000"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="description">内容・備考</Label>

@@ -187,7 +187,7 @@ export function useTasks() {
 
   const sendEmailNotification = async (
     task: Task,
-    status: Extract<TaskStatus, '初校提出' | '修正対応完了'>,
+    status: Extract<TaskStatus, '制作要項待ち' | '初校提出' | '修正対応完了'>,
     links?: { draftUrl?: string | null; responseUrl?: string | null }
   ) => {
     if (!task.client_slug) return
@@ -251,6 +251,13 @@ export function useTasks() {
           clientSlug: task.client_slug ?? undefined,
         })
         await sendEmailNotification(task, '初校提出')
+      } else if (status === '制作要項待ち') {
+        await sendDiscordNotification('status_changed', task.title, task.assignee, task.due_date, task.discord_channels, {
+          previousStatus,
+          newStatus: status,
+          clientSlug: task.client_slug ?? undefined,
+        })
+        await sendEmailNotification(task, '制作要項待ち')
       } else {
         await sendDiscordNotification('status_changed', task.title, task.assignee, task.due_date, task.discord_channels, {
           previousStatus,
@@ -315,7 +322,7 @@ export function useTasks() {
 
   const updateTask = async (
     taskId: string,
-    updates: { title: string; assignee: string; due_date: string | null; draft_due_date: string | null; description?: string; client_slug?: string | null }
+    updates: { title: string; assignee: string; due_date: string | null; draft_due_date: string | null; description?: string; client_slug?: string | null; amount?: number | null }
   ) => {
     const task = tasks.find((t) => t.id === taskId)
     const { error } = await supabase.from('tasks').update(updates).eq('id', taskId)
