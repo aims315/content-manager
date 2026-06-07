@@ -21,12 +21,13 @@ function formatAmount(amount: number | null) {
 }
 
 function csvCell(value: string) {
-  // 改行・タブをスペースに置換してからCSVエスケープ
-  const cleaned = String(value ?? '')
+  // 改行・タブ・カンマ・ダブルクォートを除去してシンプルなCSVに
+  return String(value ?? '')
     .replace(/\r?\n/g, ' ')
     .replace(/\t/g, ' ')
+    .replace(/,/g, '、')
+    .replace(/"/g, '')
     .trim()
-  return `"${cleaned.replace(/"/g, '""')}"`
 }
 
 export async function GET(request: NextRequest) {
@@ -74,14 +75,14 @@ export async function GET(request: NextRequest) {
       task.staff ?? '',
       formatDate(task.due_date),
       formatAmount(task.amount),
-    ].map(csvCell).join(',')
+    ].map(csvCell).join('\t')
   })
 
-  const csv = [cols.map(csvCell).join(','), ...rows].join('\r\n')
+  const csv = [cols.map(csvCell).join('\t'), ...rows].join('\n')
 
   return new NextResponse(csv, {
     headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'no-cache',
       'Access-Control-Allow-Origin': '*',
     },
