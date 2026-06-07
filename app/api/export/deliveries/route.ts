@@ -20,8 +20,9 @@ function formatAmount(amount: number | null) {
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount)
 }
 
-function csvCell(value: string) {
-  return `"${String(value ?? '').replace(/"/g, '""')}"`
+function tsvCell(value: string) {
+  // タブ・改行を除去してタブ区切りに対応
+  return String(value ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ')
 }
 
 export async function GET(request: NextRequest) {
@@ -69,15 +70,15 @@ export async function GET(request: NextRequest) {
       task.response_url ?? '',
       task.response_note ?? '',
       responseFiles,
-    ].map(csvCell).join(',')
+    ].map(tsvCell).join('\t')
   })
 
-  // IMPORTDATA用：BOMなし・\r\n改行
-  const csv = [cols.map(csvCell).join(','), ...rows].join('\r\n')
+  // IMPORTDATA用：タブ区切り・改行
+  const tsv = [cols.map(tsvCell).join('\t'), ...rows].join('\n')
 
-  return new NextResponse(csv, {
+  return new NextResponse(tsv, {
     headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'no-cache',
       'Access-Control-Allow-Origin': '*',
     },
