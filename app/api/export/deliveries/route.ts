@@ -43,10 +43,10 @@ export async function GET(request: NextRequest) {
   if (error) return new NextResponse('Error', { status: 500 })
 
   const cols = [
-    '登録日', '完了日', 'タイトル', 'クライアント', 'カテゴリ', 'ステータス', '担当者',
-    '期限', '金額', '内容',
+    '登録日', 'タイトル', 'クライアント', 'カテゴリ', 'ステータス', '内容',
     '初校URL', '初校備考', '初校ファイル',
     '納品URL', '納品備考', '納品ファイル',
+    '完了日', '担当者', '期限', '金額',
   ]
 
   const rows = (tasks || []).map(task => {
@@ -55,14 +55,10 @@ export async function GET(request: NextRequest) {
 
     return [
       formatDate(task.created_at),
-      formatDate(task.completed_at),
       task.title,
       task.client_slug ?? '',
       task.assignee,
       task.status,
-      task.staff ?? '',
-      formatDate(task.due_date),
-      formatAmount(task.amount),
       task.description ?? '',
       task.draft_url ?? '',
       task.draft_note ?? '',
@@ -70,6 +66,10 @@ export async function GET(request: NextRequest) {
       task.response_url ?? '',
       task.response_note ?? '',
       responseFiles,
+      formatDate(task.completed_at),
+      task.staff ?? '',
+      formatDate(task.due_date),
+      formatAmount(task.amount),
     ].map(tsvCell).join('\t')
   })
 
