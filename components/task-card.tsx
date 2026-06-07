@@ -598,7 +598,7 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
                   className="inline-flex items-center gap-1 text-xs text-violet-600 hover:underline">
                   <ExternalLinkIcon className="size-3" /> 提出データを見る
                 </a>
-                {task.draft_note && <p className="text-xs text-violet-600">{task.draft_note}</p>}
+                {task.draft_note && <p className="text-xs text-violet-600"><TextWithLinks text={task.draft_note} /></p>}
               </div>
             )}
             <div className="space-y-2">
@@ -652,7 +652,7 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
                     <ExternalLinkIcon className="size-3" /> 提出データを見る
                   </a>
                 )}
-                {task.draft_note && <p className="text-xs text-violet-600">{task.draft_note}</p>}
+                {task.draft_note && <p className="text-xs text-violet-600"><TextWithLinks text={task.draft_note} /></p>}
                 {task.draft_file_urls?.map((url, i) => (
                   <div key={i} className="flex items-center gap-2 rounded bg-violet-100 px-2 py-1">
                     <FileIcon className="size-3 shrink-0 text-violet-500" />
@@ -818,7 +818,7 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
                           </a>
                         )}
                         {task.response_note && (
-                          <p className="text-xs text-blue-600">{task.response_note}</p>
+                          <p className="text-xs text-blue-600"><TextWithLinks text={task.response_note} /></p>
                         )}
                         {task.response_file_urls?.map((url, i) => (
                           <div key={i} className="flex items-center gap-2 rounded bg-blue-100 px-2 py-1">

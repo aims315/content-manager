@@ -1,6 +1,23 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+
+function TextWithLinks({ text, className }: { text: string; className?: string }) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+  return (
+    <span className={className}>
+      {parts.map((part, i) =>
+        urlRegex.test(part) ? (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+            className="underline break-all hover:opacity-80" onClick={(e) => e.stopPropagation()}>
+            {part}
+          </a>
+        ) : part
+      )}
+    </span>
+  )
+}
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -703,7 +720,7 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                                     <ExternalLinkIcon className="size-4" /> 初校を確認する
                                   </a>
                                 )}
-                                {task.draft_note && <p className="text-xs text-violet-600">{task.draft_note}</p>}
+                                {task.draft_note && <p className="text-xs text-violet-600"><TextWithLinks text={task.draft_note} /></p>}
                                 {task.draft_file_urls?.map((url, i) => {
                                   const name = task.draft_file_names?.[i] || `ファイル${i + 1}`
                                   return (
@@ -732,7 +749,7 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                                   </a>
                                 )}
                                 {task.response_note && (
-                                  <p className={`text-xs ${task.status === '完了' ? 'text-emerald-600' : 'text-blue-600'}`}>{task.response_note}</p>
+                                  <p className={`text-xs ${task.status === '完了' ? 'text-emerald-600' : 'text-blue-600'}`}><TextWithLinks text={task.response_note} /></p>
                                 )}
                                 {task.response_file_urls?.map((url, i) => {
                                   const name = task.response_file_names?.[i] || `ファイル${i + 1}`
