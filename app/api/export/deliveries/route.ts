@@ -20,9 +20,13 @@ function formatAmount(amount: number | null) {
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount)
 }
 
-function tsvCell(value: string) {
-  // タブ・改行を除去してタブ区切りに対応
-  return String(value ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ')
+function csvCell(value: string) {
+  // 改行・タブをスペースに置換してからCSVエスケープ
+  const cleaned = String(value ?? '')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\t/g, ' ')
+    .trim()
+  return `"${cleaned.replace(/"/g, '""')}"`
 }
 
 export async function GET(request: NextRequest) {
@@ -70,15 +74,14 @@ export async function GET(request: NextRequest) {
       task.staff ?? '',
       formatDate(task.due_date),
       formatAmount(task.amount),
-    ].map(tsvCell).join('\t')
+    ].map(csvCell).join(',')
   })
 
-  // IMPORTDATA用：タブ区切り・改行
-  const tsv = [cols.map(tsvCell).join('\t'), ...rows].join('\n')
+  const csv = [cols.map(csvCell).join(','), ...rows].join('\r\n')
 
-  return new NextResponse(tsv, {
+  return new NextResponse(csv, {
     headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Type': 'text/csv; charset=utf-8',
       'Cache-Control': 'no-cache',
       'Access-Control-Allow-Origin': '*',
     },
