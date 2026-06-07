@@ -17,7 +17,7 @@ function formatDate(str: string | null) {
 
 function formatAmount(amount: number | null) {
   if (amount == null) return ''
-  return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount)
+  return `¥${amount}` // カンマなし（CSV分割に影響しないよう）
 }
 
 function csvCell(value: string) {
@@ -75,15 +75,15 @@ export async function GET(request: NextRequest) {
       task.staff ?? '',
       formatDate(task.due_date),
       formatAmount(task.amount),
-    ].map(csvCell).join('\t')
+    ].map(csvCell).join(',')
   })
 
-  const csv = [cols.map(csvCell).join('\t'), ...rows].join('\n')
+  const csv = [cols.map(csvCell).join(','), ...rows].join('\n')
 
   return new NextResponse(csv, {
     headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-cache',
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store',
       'Access-Control-Allow-Origin': '*',
     },
   })
