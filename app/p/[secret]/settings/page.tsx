@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import { ChannelSettingsForm } from '@/components/channel-settings-form'
 import { CalendarFeedSection } from '@/components/calendar-feed-section'
+import { DeliveryExportSection } from '@/components/delivery-export-section'
 
 interface Props {
   params: Promise<{ secret: string }>
@@ -33,6 +34,10 @@ export default async function SettingsPage({ params }: Props) {
           <div>
             <h2 className="text-lg font-semibold mb-4">Googleカレンダー連携</h2>
             <CalendarFeedSection calendarUrl={calendarUrl} />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold mb-4">納品データ一覧（Googleスプレッドシート連携）</h2>
+            <DeliveryExportSection exportUrl={`${baseUrl}/api/export/deliveries?token=${secret}`} />
           </div>
         </div>
       </div>
