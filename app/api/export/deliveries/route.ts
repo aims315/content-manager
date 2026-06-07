@@ -35,25 +35,26 @@ export async function GET(request: NextRequest) {
   const { data: tasks, error } = await supabase
     .from('tasks')
     .select('*')
-    .in('status', ['投稿OK', '完了'])
+    .in('status', ['初校提出', '修正対応完了', '投稿OK', '完了'])
     .is('deleted_at', null)
-    .order('completed_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (error) return new NextResponse('Error', { status: 500 })
 
-  const headers = [
-    'タイトル', 'クライアント', 'カテゴリ', 'ステータス', '担当者',
+  const cols = [
+    '登録日', '完了日', 'タイトル', 'クライアント', 'カテゴリ', 'ステータス', '担当者',
     '期限', '金額', '内容',
     '初校URL', '初校備考', '初校ファイル',
     '納品URL', '納品備考', '納品ファイル',
-    '完了日', '登録日'
   ]
 
   const rows = (tasks || []).map(task => {
-    const draftFiles = (task.draft_file_urls ?? []).join(' / ')
-    const responseFiles = (task.response_file_urls ?? []).join(' / ')
+    const draftFiles = (task.draft_file_urls ?? []).join(' | ')
+    const responseFiles = (task.response_file_urls ?? []).join(' | ')
 
     return [
+      formatDate(task.created_at),
+      formatDate(task.completed_at),
       task.title,
       task.client_slug ?? '',
       task.assignee,
@@ -68,14 +69,13 @@ export async function GET(request: NextRequest) {
       task.response_url ?? '',
       task.response_note ?? '',
       responseFiles,
-      formatDate(task.completed_at),
-      formatDate(task.created_at),
     ].map(csvCell).join(',')
   })
 
-  const csv = [headers.map(csvCell).join(','), ...rows].join('\n')
+  // IMPORTDATA用：BOMなし・\r\n改行
+  const csv = [cols.map(csvCell).join(','), ...rows].join('\r\n')
 
-  return new NextResponse('﻿' + csv, {
+  return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
       'Cache-Control': 'no-cache',
