@@ -11,7 +11,7 @@ interface Props {
 
 export function DeliveryExportSection({ exportUrl }: Props) {
   const [copied, setCopied] = useState(false)
-  const formula = `=IMPORTDATA("${exportUrl}","\\t")`
+  const formula = `=IMPORTDATA("${exportUrl}")`
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(formula)
