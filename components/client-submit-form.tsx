@@ -343,6 +343,7 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="deliveries" className="flex-1">納品物一覧</TabsTrigger>
           </TabsList>
 
           {/* 新規依頼 */}
@@ -901,6 +902,83 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
               </div>
             )}
             </div>
+            </div>
+          </TabsContent>
+
+          {/* 納品物一覧 */}
+          <TabsContent value="deliveries">
+            <div className="space-y-4">
+              {(() => {
+                const delivered = tasks.filter(t =>
+                  ['初校提出', '修正対応完了', '投稿OK', '完了'].includes(t.status)
+                )
+                if (delivered.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-muted-foreground text-sm">
+                      納品物はまだありません
+                    </div>
+                  )
+                }
+                return delivered.map(task => (
+                  <div key={task.id} className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-medium text-sm">{task.title}</h3>
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        task.status === '完了' ? 'bg-emerald-100 text-emerald-700' :
+                        task.status === '投稿OK' ? 'bg-blue-100 text-blue-700' :
+                        task.status === '修正対応完了' ? 'bg-blue-100 text-blue-700' :
+                        'bg-violet-100 text-violet-700'
+                      }`}>{task.status}</span>
+                    </div>
+                    {task.description && (
+                      <p className="text-xs text-muted-foreground">
+                        <TextWithLinks text={task.description} />
+                      </p>
+                    )}
+                    {/* 初校データ */}
+                    {(task.draft_url || (task.draft_file_urls?.length > 0)) && (
+                      <div className="rounded-md bg-violet-50 border border-violet-200 p-3 space-y-2">
+                        <p className="text-xs font-medium text-violet-700">📎 初校データ</p>
+                        {task.draft_url && (
+                          <a href={task.draft_url} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-violet-600 hover:underline break-all">
+                            🔗 初校を確認する
+                          </a>
+                        )}
+                        {task.draft_note && <p className="text-xs text-violet-600"><TextWithLinks text={task.draft_note} /></p>}
+                        {task.draft_file_urls?.map((url: string, i: number) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-violet-600 hover:underline">
+                            📄 {task.draft_file_names?.[i] ?? `ファイル${i + 1}`}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {/* 納品データ */}
+                    {(task.response_url || (task.response_file_urls?.length > 0)) && (
+                      <div className={`rounded-md border p-3 space-y-2 ${task.status === '完了' || task.status === '投稿OK' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'}`}>
+                        <p className={`text-xs font-medium ${task.status === '完了' || task.status === '投稿OK' ? 'text-emerald-700' : 'text-blue-700'}`}>✅ 納品データ</p>
+                        {task.response_url && (
+                          <a href={task.response_url} target="_blank" rel="noopener noreferrer"
+                            className={`inline-flex items-center gap-1 text-sm hover:underline break-all ${task.status === '完了' || task.status === '投稿OK' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                            🔗 納品ファイルを確認する
+                          </a>
+                        )}
+                        {task.response_note && <p className={`text-xs ${task.status === '完了' || task.status === '投稿OK' ? 'text-emerald-600' : 'text-blue-600'}`}><TextWithLinks text={task.response_note} /></p>}
+                        {task.response_file_urls?.map((url: string, i: number) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                            className={`flex items-center gap-1 text-xs hover:underline ${task.status === '完了' || task.status === '投稿OK' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                            📄 {task.response_file_names?.[i] ?? `ファイル${i + 1}`}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {task.due_date && (
+                      <p className="text-xs text-muted-foreground">期限：{task.due_date}</p>
+                    )}
+                  </div>
+                ))
+              })()}
             </div>
           </TabsContent>
         </Tabs>
