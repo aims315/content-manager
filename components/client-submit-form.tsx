@@ -686,7 +686,7 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                         <CollapsibleContent>
                           <div className="border-t px-4 pb-4 pt-3 space-y-3">
                             {task.description && (
-                              <p className="text-sm text-muted-foreground">{task.description}</p>
+                              <p className="text-sm text-muted-foreground"><TextWithLinks text={task.description} /></p>
                             )}
 
                             {/* 依頼時の添付ファイル */}
@@ -879,7 +879,7 @@ export function ClientSubmitForm({ clientSlug }: ClientSubmitFormProps) {
                             </Badge>
                           </div>
                           {task.description && (
-                            <p className="text-xs text-muted-foreground mt-2">{task.description}</p>
+                            <p className="text-xs text-muted-foreground mt-2"><TextWithLinks text={task.description} /></p>
                           )}
                           {(task.draft_url || (task.draft_file_urls?.length > 0)) && (
                             <div className="mt-2 text-xs">
