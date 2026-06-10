@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useProjects } from '@/hooks/use-projects'
+import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { ProjectCard } from '@/components/project-card'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,6 +20,7 @@ const TYPE_FILTERS = [
 
 export function ProjectListClient() {
   const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, updateStepProvider, updateStepDueDate } = useProjects()
+  const { labels: providerLabels } = useProviderLabels()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
 
@@ -112,6 +114,7 @@ export function ProjectListClient() {
               onStepProviderChange={handleStepProviderChange}
               onStepDueDateChange={handleStepDueDateChange}
               onDelete={deleteProject}
+              providerLabels={providerLabels}
             />
           ))}
         </div>

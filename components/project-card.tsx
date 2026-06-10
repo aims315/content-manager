@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { FileUpload } from '@/components/file-upload'
 import type { Project, ProjectStep, StepStatus, StepKey, ProviderType } from '@/lib/types'
+import type { ProviderLabels } from '@/hooks/use-provider-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -136,13 +137,14 @@ interface StepRowProps {
   step: ProjectStep
   allSteps: ProjectStep[]
   projectType: string
+  providerLabels: ProviderLabels
   onStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
   onDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
 }
 
-function StepRow({ step, allSteps, projectType, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
+function StepRow({ step, allSteps, projectType, providerLabels, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
@@ -157,7 +159,7 @@ function StepRow({ step, allSteps, projectType, onStatusChange, onSubmit, onProv
   const hasContent = step.url || step.note || (step.file_urls?.length > 0)
 
   const prov = providerBadge[step.provider_type]
-  const provLabel = step.provider_name || prov.label
+  const provLabel = step.provider_name || providerLabels[step.provider_type] || prov.label
 
   const submitUrl = step.provider_type !== 'self'
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/submit/step/${step.id}`
@@ -276,7 +278,7 @@ function StepRow({ step, allSteps, projectType, onStatusChange, onSubmit, onProv
                         : 'border-border text-muted-foreground hover:border-muted-foreground'
                     )}
                   >
-                    {opt.icon}{opt.label}
+                    {opt.icon}{providerLabels[opt.value] || opt.label}
                   </button>
                 ))}
                 <Input
@@ -445,6 +447,7 @@ function StepRow({ step, allSteps, projectType, onStatusChange, onSubmit, onProv
 interface ProjectCardProps {
   project: Project
   steps: ProjectStep[]
+  providerLabels: ProviderLabels
   onStepStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onStepSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onStepProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
@@ -452,7 +455,7 @@ interface ProjectCardProps {
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -560,6 +563,7 @@ export function ProjectCard({ project, steps, onStepStatusChange, onStepSubmit, 
                 step={step}
                 allSteps={steps}
                 projectType={project.project_type}
+                providerLabels={providerLabels}
                 onStatusChange={onStepStatusChange}
                 onSubmit={onStepSubmit}
                 onProviderChange={onStepProviderChange}
