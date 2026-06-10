@@ -33,12 +33,15 @@ export function ProjectListClient() {
   const findProjectId = (stepId: string) =>
     Object.keys(steps).find((pid) => steps[pid].some((s) => s.id === stepId))
 
-  // プロジェクトが「完了」かどうか：ステップが1つ以上あり全部isDone
+  // ステータス更新の完了判定ラベル（自動ロック解除用）
   const doneLabels = statusDefs.filter((s) => s.isDone).map((s) => s.label)
+
+  // プロジェクトが「完了」かどうか：ステップが1つ以上あり、全ステップが isDone:true のステータス
   const isProjectDone = (projectId: string) => {
     const ps = steps[projectId]
     if (!ps || ps.length === 0) return false
-    return ps.every((s) => doneLabels.includes(s.status))
+    // ステップが1件も isDone でないものがなければ完了
+    return ps.length > 0 && ps.every((s) => doneLabels.includes(s.status))
   }
 
   const handleStepStatusChange = async (stepId: string, status: StepStatus) => {

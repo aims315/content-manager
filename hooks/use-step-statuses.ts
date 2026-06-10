@@ -66,10 +66,10 @@ export function useStepStatuses() {
       try {
         const parsed = JSON.parse(data.value) as StepStatusDef[]
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // isDone が未設定の古いデータを補完（dim:true なら isDone:true にマイグレーション）
+          // isDone が未設定の古いデータを補完（ラベルが '完了' のものだけ isDone:true）
           const migrated = parsed.map((s) => ({
             ...s,
-            isDone: s.isDone !== undefined ? s.isDone : (s.dim === true),
+            isDone: s.isDone !== undefined ? s.isDone : (s.label === '完了'),
           }))
           setStatuses(migrated)
         }
