@@ -277,7 +277,7 @@ export function ProjectListClient() {
       )}
 
       {/* コードフィルター（URLなし時のみ手動選択可） */}
-      {!urlCode && uniqueCodes.length > 1 && (
+      {!urlCode && uniqueCodes.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground shrink-0">コード:</span>
           <button onClick={() => setCodeFilter('')}
