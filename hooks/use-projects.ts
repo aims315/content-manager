@@ -299,11 +299,17 @@ export function useProjects() {
   }
 
   const deleteProject = async (projectId: string) => {
+    // 楽観的更新：即座にUIから削除
+    setProjects((prev) => prev.filter((p) => p.id !== projectId))
     const { error } = await supabase
       .from('projects')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', projectId)
-    if (error) { console.error('Error deleting project:', error); return false }
+    if (error) {
+      console.error('Error deleting project:', error)
+      await fetchProjects() // 失敗時は再取得して戻す
+      return false
+    }
     return true
   }
 
