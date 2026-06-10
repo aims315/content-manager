@@ -37,7 +37,7 @@ export function ProjectListClient() {
     await updateStepStatus(stepId, status, {
       projectTitle: project?.title,
       stepLabel: step?.label,
-    })
+    }, projectId)
   }
 
   const handleStepSubmit = async (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => {

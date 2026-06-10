@@ -152,6 +152,7 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [statusChanging, setStatusChanging] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editingProvider, setEditingProvider] = useState(false)
   const [newProviderType, setNewProviderType] = useState<string>(step.provider_type)
@@ -168,6 +169,12 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
   const submitUrl = step.provider_type !== 'self'
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/submit/step/${step.id}`
     : null
+
+  const handleStatusChange = async (v: string) => {
+    setStatusChanging(true)
+    await onStatusChange(step.id, v as StepStatus)
+    setStatusChanging(false)
+  }
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -212,9 +219,9 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
   return (
     <div className={cn(
       'rounded-md border transition-all',
-      isLocked && 'opacity-50',
       step.status === '完了' && 'border-emerald-200 bg-emerald-50/50'
     )}>
+      {/* ── 上段：アイコン・ラベル・担当者・[▼] ── */}
       <div className="flex items-center gap-2 px-3 py-2">
         {isLocked
           ? <LockIcon className="size-3 shrink-0 text-muted-foreground" />
@@ -241,27 +248,35 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
           {provLabel}
         </button>
 
-        {/* 提出URLコピー */}
-        {!isLocked && submitUrl && (
-          <CopyUrlButton url={submitUrl} />
-        )}
-
-        <Badge className={cn(stepStatusColors[step.status], 'text-[10px] px-1.5 py-0 shrink-0')} variant="secondary">
-          {step.status}
-        </Badge>
-
-        {!isLocked && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-muted-foreground hover:text-foreground shrink-0"
-          >
-            {expanded ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
-          </button>
-        )}
+        {/* 展開ボタン（常に表示） */}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-muted-foreground hover:text-foreground shrink-0"
+        >
+          {expanded ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
+        </button>
       </div>
 
-      {expanded && !isLocked && (
+      {/* ── ステータス変更行：常時表示 ── */}
+      <div className="flex items-center gap-2 px-3 pb-2">
+        <Select value={step.status} onValueChange={handleStatusChange} disabled={statusChanging}>
+          <SelectTrigger className={cn('h-7 text-xs flex-1', statusChanging && 'opacity-60')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STEP_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* 提出URLコピー */}
+        {submitUrl && <CopyUrlButton url={submitUrl} />}
+      </div>
+
+      {/* ── 展開パネル：担当者編集・締め切り・ファイル提出 ── */}
+      {expanded && (
         <div className="px-3 pb-3 space-y-3 border-t pt-2">
 
           {/* 担当者編集 */}
@@ -287,8 +302,8 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
                 <Input
                   value={newProviderName}
                   onChange={(e) => setNewProviderName(e.target.value)}
-                  placeholder={newProviderType === 'client' ? 'クライアント名（例: フォレスト出版）' : newProviderType === 'freelancer' ? '外注先の名前（例: チアプロ）' : 'チーム名（例: 山中チーム）'}
-                  className="h-7 text-xs w-48"
+                  placeholder="名前（任意）"
+                  className="h-7 text-xs w-40"
                 />
               </div>
               <div className="flex gap-2">
@@ -297,21 +312,6 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
               </div>
             </div>
           )}
-
-          {/* ステータス変更 */}
-          <div className="flex items-center gap-2">
-            <Label className="text-xs shrink-0 text-muted-foreground">ステータス</Label>
-            <Select value={step.status} onValueChange={(v) => onStatusChange(step.id, v as StepStatus)}>
-              <SelectTrigger className="h-7 text-xs flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STEP_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* 締め切り編集（イベントのみ） */}
           {projectType === 'event' && (

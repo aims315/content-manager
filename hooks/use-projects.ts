@@ -56,12 +56,28 @@ export function useProjects() {
     setSteps((prev) => ({ ...prev, [projectId]: data || [] }))
   }, [supabase])
 
-  const updateStepStatus = async (stepId: string, status: StepStatus, context?: { projectTitle?: string; stepLabel?: string }) => {
+  const updateStepStatus = async (stepId: string, status: StepStatus, context?: { projectTitle?: string; stepLabel?: string }, projectId?: string) => {
+    // 楽観的更新：UIをすぐに反映
+    if (projectId) {
+      setSteps((prev) => ({
+        ...prev,
+        [projectId]: (prev[projectId] ?? []).map((s) => s.id === stepId ? { ...s, status } : s),
+      }))
+    }
+
     const { error } = await supabase
       .from('project_steps')
       .update({ status })
       .eq('id', stepId)
-    if (error) { console.error('Error updating step:', error); return false }
+    if (error) {
+      console.error('Error updating step:', error)
+      // エラー時はロールバック
+      if (projectId) await fetchStepsForProject(projectId)
+      return false
+    }
+
+    // DB反映後に再取得
+    if (projectId) await fetchStepsForProject(projectId)
 
     // Chatwork通知
     if (context?.projectTitle && context?.stepLabel) {
