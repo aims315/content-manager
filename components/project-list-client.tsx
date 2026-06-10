@@ -276,9 +276,9 @@ export function ProjectListClient() {
         </div>
       )}
 
-      {/* コードフィルター（URLなし時のみ手動選択可） */}
-      {!urlCode && uniqueCodes.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* コードフィルター */}
+      {!urlCode && (
+        <div className="flex items-center gap-2 flex-wrap min-h-[28px]">
           <span className="text-xs text-muted-foreground shrink-0">コード:</span>
           <button onClick={() => setCodeFilter('')}
             className={cn('text-xs px-2.5 py-1 rounded-full border transition-all',
