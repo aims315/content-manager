@@ -65,7 +65,7 @@ export function ProviderSettingsModal() {
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <p className="text-xs text-muted-foreground">
-            「クライアント」「外注」「自分」の表示名を変更できます。
+            3つの役割の表示名を変更できます。空欄の場合はデフォルト名が使われます。
           </p>
           {PROVIDER_META.map(({ type, icon, defaultPlaceholder }) => (
             <div key={type} className="space-y-1.5">

@@ -199,7 +199,7 @@ export function ProjectForm() {
                 <div className="flex gap-2 text-[10px] text-muted-foreground">
                   {PROVIDER_OPTIONS.map((p) => (
                     <span key={p.value} className={cn('px-1.5 py-0.5 rounded border flex items-center gap-1', p.color)}>
-                      {p.icon}{p.label}
+                      {p.icon}{providerLabels[p.value] || p.label}
                     </span>
                   ))}
                 </div>
@@ -242,8 +242,8 @@ export function ProjectForm() {
                         <Input
                           value={cfg?.providerName ?? ''}
                           onChange={(e) => updateStepProvider(def.key, 'providerName', e.target.value)}
-                          placeholder={cfg?.providerType === 'client' ? 'フォレスト出版など' : cfg?.providerType === 'freelancer' ? 'チアプロなど' : '山中チームなど'}
-                          className="h-7 text-xs w-36"
+                          placeholder="custom name (optional)"
+                          className="h-7 text-xs w-44"
                         />
                       </div>
                       {/* イベント制作はステップごとの締め切り */}
