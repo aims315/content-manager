@@ -200,7 +200,7 @@ export function CsvImportDialog() {
           step_key: 'text',
           step_order: i,
           label: s.label,
-          status: s.provider === 'client' || s.provider === 'freelancer' ? '素材待ち' : '未着手',
+          status: '未着手',
           provider_type: s.provider,
           provider_name: s.providerName,
           file_urls: [],
