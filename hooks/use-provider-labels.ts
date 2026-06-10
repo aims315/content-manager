@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export interface ProviderRole {
@@ -28,7 +28,8 @@ export const COLOR_STYLES: Record<ProviderRole['color'], { badge: string; button
 export type ProviderLabels = Record<string, string>
 
 export function useProviderLabels() {
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const [roles, setRoles] = useState<ProviderRole[]>(DEFAULT_ROLES)
   const [loading, setLoading] = useState(true)
 
@@ -98,7 +99,16 @@ export function useProviderLabels() {
   const labels: ProviderLabels = {}
   roles.forEach((r) => { labels[r.id] = r.label })
 
-  useEffect(() => { fetchRoles() }, [fetchRoles])
+  useEffect(() => {
+    fetchRoles()
+    const channel = supabase
+      .channel('provider_roles_watch')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.provider_roles'
+      }, () => { fetchRoles() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchRoles, supabase])
 
   return { roles, labels, loading, addRole, updateRole, deleteRole, saveRoles }
 }
