@@ -50,22 +50,49 @@ const PROVIDER_MAP: Record<string, string> = {
   'クライアント': 'client', 'client': 'client',
 }
 
-function parseCSV(text: string): CsvRow[] {
-  const lines = text.trim().split('\n').map((l) => l.trim()).filter(Boolean)
-  if (lines.length < 2) return []
-  return lines.slice(1).map((line) => {
-    const cols = line.split(',').map((c) => c.trim())
-    return {
-      title: cols[0] ?? '',
-      type: cols[1] ?? '',
-      code: cols[2] ?? '',
-      dueDate: cols[3] ?? '',
-      stepLabel: cols[4] ?? '',
-      provider: cols[5] ?? '',
-      stepDueDate: cols[6] ?? '',
-      note: cols[7] ?? '',
+// カンマ・改行・ダブルクォートを正しく扱うCSVパーサー
+function parseCsvLine(text: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuote = false
+  let i = 0
+  while (i < text.length) {
+    const ch = text[i]
+    if (inQuote) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue } // escaped quote
+        inQuote = false; i++; continue
+      }
+      field += ch; i++
+    } else {
+      if (ch === '"') { inQuote = true; i++; continue }
+      if (ch === ',') { row.push(field.trim()); field = ''; i++; continue }
+      if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i + 1] === '\n') i++
+        row.push(field.trim()); rows.push(row); row = []; field = ''; i++; continue
+      }
+      field += ch; i++
     }
-  })
+  }
+  row.push(field.trim())
+  if (row.some(Boolean)) rows.push(row)
+  return rows
+}
+
+function parseCSV(text: string): CsvRow[] {
+  const rows = parseCsvLine(text)
+  if (rows.length < 2) return []
+  return rows.slice(1).map((cols) => ({
+    title: cols[0] ?? '',
+    type: cols[1] ?? '',
+    code: cols[2] ?? '',
+    dueDate: cols[3] ?? '',
+    stepLabel: cols[4] ?? '',
+    provider: cols[5] ?? '',
+    stepDueDate: cols[6] ?? '',
+    note: cols[7] ?? '',
+  }))
 }
 
 function groupRows(rows: CsvRow[]): ParsedProject[] {
