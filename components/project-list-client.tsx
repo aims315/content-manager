@@ -36,10 +36,11 @@ export function ProjectListClient() {
     const projectId = findProjectId(stepId)
     const project = projects.find((p) => p.id === projectId)
     const step = projectId ? steps[projectId]?.find((s) => s.id === stepId) : undefined
+    const doneLabels = statusDefs.filter((s) => s.isDone).map((s) => s.label)
     await updateStepStatus(stepId, status, {
       projectTitle: project?.title,
       stepLabel: step?.label,
-    }, projectId)
+    }, projectId, doneLabels)
   }
 
   const handleStepSubmit = async (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => {

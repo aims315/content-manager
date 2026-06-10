@@ -56,7 +56,13 @@ export function useProjects() {
     setSteps((prev) => ({ ...prev, [projectId]: data || [] }))
   }, [supabase])
 
-  const updateStepStatus = async (stepId: string, status: StepStatus, context?: { projectTitle?: string; stepLabel?: string }, projectId?: string) => {
+  const updateStepStatus = async (
+    stepId: string,
+    status: StepStatus,
+    context?: { projectTitle?: string; stepLabel?: string },
+    projectId?: string,
+    doneStatusLabels?: string[]   // 完了扱いのステータスラベル一覧
+  ) => {
     // 楽観的更新：UIをすぐに反映
     if (projectId) {
       setSteps((prev) => ({
@@ -71,13 +77,51 @@ export function useProjects() {
       .eq('id', stepId)
     if (error) {
       console.error('Error updating step:', error)
-      // エラー時はロールバック
       if (projectId) await fetchStepsForProject(projectId)
       return false
     }
 
-    // DB反映後に再取得
-    if (projectId) await fetchStepsForProject(projectId)
+    // DB反映後に再取得してから自動ロック解除チェック
+    if (projectId) {
+      await fetchStepsForProject(projectId)
+
+      // このステップが完了扱いになった場合、依存している「ロック中」ステップを自動解除
+      const doneLabels = doneStatusLabels ?? ['完了']
+      if (doneLabels.includes(status)) {
+        const { data: allProjectSteps } = await supabase
+          .from('project_steps')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('step_order', { ascending: true })
+
+        if (allProjectSteps) {
+          const stepsMap: Record<string, typeof allProjectSteps[0]> = {}
+          allProjectSteps.forEach((s) => { stepsMap[s.id] = s })
+
+          for (const s of allProjectSteps) {
+            if (s.status !== 'ロック中') continue
+            const deps: string[] = s.depends_on ?? []
+            if (deps.length === 0) continue
+
+            // 全依存が完了扱いか確認
+            const allDone = deps.every((depId) => {
+              const dep = stepsMap[depId]
+              return dep && doneLabels.includes(dep.status)
+            })
+
+            if (allDone) {
+              await supabase
+                .from('project_steps')
+                .update({ status: '未着手' })
+                .eq('id', s.id)
+            }
+          }
+
+          // 自動変更後に再取得
+          await fetchStepsForProject(projectId)
+        }
+      }
+    }
 
     // Chatwork通知
     if (context?.projectTitle && context?.stepLabel) {
