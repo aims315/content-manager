@@ -16,13 +16,14 @@ import { Settings2Icon, BuildingIcon, UserIcon, WrenchIcon, CheckIcon } from 'lu
 import type { ProviderType } from '@/lib/types'
 
 const PROVIDER_META: { type: ProviderType; icon: React.ReactNode; defaultPlaceholder: string }[] = [
-  { type: 'client', icon: <BuildingIcon className="size-4 text-amber-600" />, defaultPlaceholder: 'クライアント' },
-  { type: 'freelancer', icon: <UserIcon className="size-4 text-violet-600" />, defaultPlaceholder: '外注' },
-  { type: 'self', icon: <WrenchIcon className="size-4 text-sky-600" />, defaultPlaceholder: '自分' },
+  { type: 'client', icon: <BuildingIcon className="size-4 text-amber-600" />, defaultPlaceholder: 'Role A' },
+  { type: 'freelancer', icon: <UserIcon className="size-4 text-violet-600" />, defaultPlaceholder: 'Role B' },
+  { type: 'self', icon: <WrenchIcon className="size-4 text-sky-600" />, defaultPlaceholder: 'Role C' },
 ]
 
 export function ProviderSettingsModal() {
   const { labels, updateLabel } = useProviderLabels()
+
   const [values, setValues] = useState<Record<ProviderType, string>>({
     client: '',
     freelancer: '',
@@ -61,17 +62,17 @@ export function ProviderSettingsModal() {
       </DialogTrigger>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>担当者ラベルの設定</DialogTitle>
+          <DialogTitle>役割ラベルの設定</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <p className="text-xs text-muted-foreground">
-            3つの役割の表示名を変更できます。空欄の場合はデフォルト名が使われます。
+            3つの役割の表示名を変更できます。
           </p>
           {PROVIDER_META.map(({ type, icon, defaultPlaceholder }) => (
             <div key={type} className="space-y-1.5">
-              <Label className="flex items-center gap-2 text-sm">
+              <Label className="flex items-center gap-2 text-sm text-muted-foreground">
                 {icon}
-                {defaultPlaceholder}
+                {labels[type] || defaultPlaceholder}
               </Label>
               <Input
                 value={values[type]}
