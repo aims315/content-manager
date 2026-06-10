@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STEPS_CONFIG } from '@/lib/steps-config'
 import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
+import { useProjectTypes } from '@/hooks/use-project-types'
 import { sendChatworkNotification } from '@/hooks/use-notify'
 import type { ProjectType, ProviderType } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -41,8 +42,9 @@ export function ProjectForm() {
   const router = useRouter()
   const supabase = createClient()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
+  const { customTypes } = useProjectTypes()
 
-  const [projectType, setProjectType] = useState<ProjectType | ''>('')
+  const [projectType, setProjectType] = useState<string>('')
   const [title, setTitle] = useState('')
   const [assignee, setAssignee] = useState('')
   const [existingAssignees, setExistingAssignees] = useState<string[]>([])
@@ -70,8 +72,13 @@ export function ProjectForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const isBuiltinType = (t: string) => t === 'instagram' || t === 'twitter' || t === 'event'
+
   useEffect(() => {
-    if (!projectType) return
+    if (!projectType || !isBuiltinType(projectType)) {
+      setStepProviders({})
+      return
+    }
     const defs = STEPS_CONFIG[projectType as ProjectType]
     const initial: Record<string, StepProviderConfig> = {}
     defs.forEach((def) => {
@@ -119,7 +126,7 @@ export function ProjectForm() {
       return
     }
 
-    const stepDefs = STEPS_CONFIG[projectType as ProjectType]
+    const stepDefs = isBuiltinType(projectType) ? STEPS_CONFIG[projectType as ProjectType] : []
     const stepsToInsert = stepDefs.map((def, index) => {
       const cfg = stepProviders[def.key]
       const providerType: ProviderType = cfg?.providerType ?? def.defaultProvider
@@ -151,7 +158,9 @@ export function ProjectForm() {
     }
 
     // Chatwork通知
-    const typeLabel = { instagram: 'Instagram投稿', twitter: 'X（Twitter）投稿', event: 'イベント制作' }[projectType as ProjectType]
+    const builtinLabel: Record<string, string> = { instagram: 'Instagram投稿', twitter: 'X（Twitter）投稿', event: 'イベント制作' }
+    const customType = customTypes.find((t) => t.id === projectType)
+    const typeLabel = builtinLabel[projectType] ?? (customType ? `${customType.emoji} ${customType.label}` : projectType)
     sendChatworkNotification(`[コンテンツ制作管理]\n🆕 新規プロジェクト作成\nタイトル: ${title.trim()}\n種別: ${typeLabel}\nコード: ${assignee.trim()}${dueDate ? `\n納期: ${format(dueDate, 'M/d')}` : ''}`)
 
     router.push('/')
@@ -173,26 +182,39 @@ export function ProjectForm() {
             <Label>制作種別 *</Label>
             <div className="grid grid-cols-3 gap-2">
               {PROJECT_TYPES.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => setProjectType(type.value)}
+                <button key={type.value} type="button" onClick={() => setProjectType(type.value)}
                   className={cn(
                     'flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-xs font-medium transition-all',
-                    projectType === type.value
+                    projectType === type.value ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:border-muted-foreground'
+                  )}>
+                  {type.icon}
+                  <span className="text-center leading-tight">{type.label}</span>
+                </button>
+              ))}
+              {customTypes.map((type) => (
+                <button key={type.id} type="button" onClick={() => setProjectType(type.id)}
+                  className={cn(
+                    'flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-xs font-medium transition-all',
+                    projectType === type.id
                       ? 'border-primary bg-primary/5 text-primary'
                       : 'border-border hover:border-muted-foreground'
-                  )}
-                >
-                  {type.icon}
+                  )}>
+                  <span className="text-2xl leading-none">{type.emoji}</span>
                   <span className="text-center leading-tight">{type.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* ステップごとの担当者設定 */}
-          {projectType && (
+          {/* カスタムジャンルはステップなし案内 */}
+          {projectType && !isBuiltinType(projectType) && (
+            <div className="rounded-md bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
+              作成後に「ステップ管理」からステップを追加できます。
+            </div>
+          )}
+
+          {/* ステップごとの担当者設定（組み込みタイプのみ） */}
+          {projectType && isBuiltinType(projectType) && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>各ステップの担当者{projectType === 'event' ? '・締め切り' : ''}</Label>

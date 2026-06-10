@@ -6,6 +6,7 @@ import { FileUpload } from '@/components/file-upload'
 import type { Project, ProjectStep, StepStatus, StepKey, ProviderType } from '@/lib/types'
 import type { ProviderLabels, ProviderRole } from '@/hooks/use-provider-labels'
 import { COLOR_STYLES } from '@/hooks/use-provider-labels'
+import type { CustomProjectType } from '@/hooks/use-project-types'
 import type { StepStatusDef } from '@/hooks/use-step-statuses'
 import { STATUS_COLOR_STYLES } from '@/hooks/use-step-statuses'
 import { ProjectEditDialog } from '@/components/project-edit-dialog'
@@ -549,6 +550,7 @@ interface ProjectCardProps {
   providerLabels: ProviderLabels
   providerRoles: ProviderRole[]
   statusDefs: StepStatusDef[]
+  customProjectTypes?: CustomProjectType[]
   onProjectUpdated: () => void
   onStepStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onStepSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
@@ -559,12 +561,18 @@ interface ProjectCardProps {
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
 
-  const typeConfig = projectTypeConfig[project.project_type]
+  const builtinConfig = projectTypeConfig[project.project_type as keyof typeof projectTypeConfig]
+  const customConfig = !builtinConfig ? customProjectTypes?.find((t) => t.id === project.project_type) : null
+  const typeConfig = builtinConfig ?? (customConfig ? {
+    label: customConfig.label,
+    icon: <span className="text-sm leading-none">{customConfig.emoji}</span>,
+    color: customConfig.color,
+  } : { label: project.project_type, icon: null, color: 'text-muted-foreground' })
   const totalSteps = steps.length
   const completedSteps = steps.filter((s) => s.status === '完了').length
   const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0

@@ -5,6 +5,7 @@ import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
 import type { ProviderRole } from '@/hooks/use-provider-labels'
 import { useStepStatuses, STATUS_COLOR_STYLES, STATUS_COLOR_OPTIONS, STATUS_COLOR_LABELS } from '@/hooks/use-step-statuses'
 import type { StepStatusDef, StatusColorKey } from '@/hooks/use-step-statuses'
+import { useProjectTypes, TYPE_COLOR_OPTIONS, EMOJI_PRESETS } from '@/hooks/use-project-types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -23,14 +24,19 @@ const ROLE_COLOR_LABELS: Record<ProviderRole['color'], string> = {
   emerald: 'グリーン', rose: 'ピンク', orange: 'オレンジ',
 }
 
-type Tab = 'roles' | 'statuses'
+type Tab = 'roles' | 'statuses' | 'genres'
 
 export function ProviderSettingsModal() {
   const { roles, addRole, updateRole, deleteRole } = useProviderLabels()
   const { statuses, addStatus, updateStatus, renameStatus, deleteStatus, reorder } = useStepStatuses()
+  const { customTypes, addType, updateType, deleteType } = useProjectTypes()
 
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('roles')
+  // ジャンル追加フォーム用
+  const [newGenreLabel, setNewGenreLabel] = useState('')
+  const [newGenreEmoji, setNewGenreEmoji] = useState('📝')
+  const [newGenreColorIdx, setNewGenreColorIdx] = useState(0)
   const [saved, setSaved] = useState(false)
   const [roleColorEditId, setRoleColorEditId] = useState<string | null>(null)
   const [statusColorEditId, setStatusColorEditId] = useState<string | null>(null)
@@ -69,20 +75,15 @@ export function ProviderSettingsModal() {
 
         {/* タブ */}
         <div className="flex rounded-md border overflow-hidden">
-          <button
-            onClick={() => setTab('roles')}
-            className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
-              tab === 'roles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
-          >
-            役割
-          </button>
-          <button
-            onClick={() => setTab('statuses')}
-            className={cn('flex-1 py-1.5 text-xs font-medium transition-colors border-l',
-              tab === 'statuses' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
-          >
-            ステータス
-          </button>
+          {(['roles', 'statuses', 'genres'] as Tab[]).map((t, i) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
+                i > 0 && 'border-l',
+                tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+              )}>
+              {t === 'roles' ? '役割' : t === 'statuses' ? 'ステータス' : 'ジャンル'}
+            </button>
+          ))}
         </div>
 
         {/* ── 役割タブ ── */}
@@ -249,6 +250,146 @@ export function ProviderSettingsModal() {
             <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addStatus}>
               <PlusIcon className="size-3.5" />ステータスを追加
             </Button>
+          </div>
+        )}
+
+        {/* ── ジャンルタブ ── */}
+        {tab === 'genres' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Instagram・X・イベント以外のジャンルを追加できます。
+            </p>
+
+            {/* 既存カスタムジャンル一覧 */}
+            {customTypes.length > 0 && (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {customTypes.map((t) => (
+                  <div key={t.id} className="flex items-center gap-2">
+                    {/* 絵文字 */}
+                    <Input
+                      value={t.emoji}
+                      onChange={(e) => updateType(t.id, { emoji: e.target.value })}
+                      className="h-8 w-12 text-center text-base p-1"
+                      maxLength={2}
+                    />
+                    {/* 名前 */}
+                    <Input
+                      value={t.label}
+                      onChange={(e) => updateType(t.id, { label: e.target.value })}
+                      className="h-8 text-sm flex-1"
+                      placeholder="ジャンル名"
+                    />
+                    {/* 色 */}
+                    <div className="flex gap-0.5">
+                      {TYPE_COLOR_OPTIONS.map((c, i) => (
+                        <button key={i} type="button"
+                          onClick={() => updateType(t.id, { color: c.color, bgColor: c.bgColor })}
+                          className={cn('size-4 rounded-full border-2 transition-transform hover:scale-110',
+                            c.bgColor,
+                            t.color === c.color ? 'border-foreground' : 'border-transparent'
+                          )}
+                          title={c.label}
+                        />
+                      ))}
+                    </div>
+                    {/* 削除 */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button type="button" className="text-muted-foreground hover:text-destructive shrink-0">
+                          <Trash2Icon className="size-3.5" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>「{t.emoji} {t.label}」を削除しますか？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            このジャンルを削除します。既存のプロジェクトはそのまま残ります。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteType(t.id)}>削除</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 追加フォーム */}
+            <div className="rounded-md border border-dashed p-3 space-y-2 bg-muted/30">
+              <p className="text-xs font-medium text-muted-foreground">新しいジャンルを追加</p>
+              <div className="flex gap-2">
+                {/* 絵文字入力 */}
+                <Input
+                  value={newGenreEmoji}
+                  onChange={(e) => setNewGenreEmoji(e.target.value)}
+                  className="h-8 w-12 text-center text-base p-1"
+                  maxLength={2}
+                />
+                <Input
+                  value={newGenreLabel}
+                  onChange={(e) => setNewGenreLabel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newGenreLabel.trim()) {
+                      addType(newGenreLabel.trim(), newGenreEmoji, newGenreColorIdx)
+                      setNewGenreLabel('')
+                    }
+                  }}
+                  placeholder="ジャンル名（例：コラム、動画）"
+                  className="h-8 text-sm flex-1"
+                />
+              </div>
+
+              {/* 絵文字プリセット */}
+              <div className="flex flex-wrap gap-1">
+                {EMOJI_PRESETS.map((e) => (
+                  <button key={e} type="button"
+                    onClick={() => setNewGenreEmoji(e)}
+                    className={cn('size-7 text-base rounded hover:bg-muted transition-colors flex items-center justify-center',
+                      newGenreEmoji === e && 'bg-muted ring-1 ring-primary'
+                    )}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+
+              {/* 色選択 */}
+              <div className="flex gap-1">
+                {TYPE_COLOR_OPTIONS.map((c, i) => (
+                  <button key={i} type="button"
+                    onClick={() => setNewGenreColorIdx(i)}
+                    className={cn('size-5 rounded-full border-2 transition-transform hover:scale-110',
+                      c.bgColor,
+                      newGenreColorIdx === i ? 'border-foreground' : 'border-transparent'
+                    )}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+
+              {/* プレビュー＋追加ボタン */}
+              <div className="flex items-center gap-2">
+                {newGenreLabel && (
+                  <span className={cn('flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full',
+                    TYPE_COLOR_OPTIONS[newGenreColorIdx]?.bgColor,
+                    TYPE_COLOR_OPTIONS[newGenreColorIdx]?.color
+                  )}>
+                    {newGenreEmoji} {newGenreLabel}
+                  </span>
+                )}
+                <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1 ml-auto"
+                  onClick={() => {
+                    if (!newGenreLabel.trim()) return
+                    addType(newGenreLabel.trim(), newGenreEmoji, newGenreColorIdx)
+                    setNewGenreLabel('')
+                  }}
+                  disabled={!newGenreLabel.trim()}>
+                  <PlusIcon className="size-3" />追加
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { useStepStatuses } from '@/hooks/use-step-statuses'
+import { useProjectTypes } from '@/hooks/use-project-types'
 import { ProjectCard } from '@/components/project-card'
 import { ScheduleView } from '@/components/schedule-view'
 import type { StepStatus, ProviderType } from '@/lib/types'
@@ -24,6 +25,7 @@ export function ProjectListClient() {
   const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, refetch } = useProjects()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
+  const { customTypes: customProjectTypes } = useProjectTypes()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
@@ -170,6 +172,14 @@ export function ProjectListClient() {
               {f.icon}{f.label}
             </Button>
           ))}
+          {customProjectTypes.map((t) => (
+            <Button key={t.id} size="sm"
+              variant={typeFilter === t.id ? 'default' : 'outline'}
+              className="h-9 gap-1 text-xs"
+              onClick={() => setTypeFilter(typeFilter === t.id ? '' : t.id)}>
+              <span>{t.emoji}</span>{t.label}
+            </Button>
+          ))}
           <div className="flex rounded-md border overflow-hidden ml-1">
             <button onClick={() => setView('list')}
               title="制作管理"
@@ -222,6 +232,7 @@ export function ProjectListClient() {
                   providerLabels={providerLabels}
                   providerRoles={providerRoles}
                   statusDefs={statusDefs}
+                  customProjectTypes={customProjectTypes}
                 />
               </div>
             ))}
