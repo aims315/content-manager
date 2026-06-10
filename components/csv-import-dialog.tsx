@@ -18,6 +18,7 @@ interface CsvRow {
   stepLabel: string
   provider: string
   stepDueDate: string
+  note: string
 }
 
 interface ParsedProject {
@@ -25,16 +26,16 @@ interface ParsedProject {
   type: string
   code: string
   dueDate: string
-  steps: { label: string; provider: string; stepDueDate: string }[]
+  steps: { label: string; provider: string; stepDueDate: string; note: string }[]
   error?: string
 }
 
-const SAMPLE_CSV = `タイトル,種別,コード,納期,ステップ名,担当,ステップ期日
-A社6月Instagram投稿,instagram,client-a,2026-06-30,企画・構成,自分,2026-06-10
-A社6月Instagram投稿,instagram,client-a,2026-06-30,デザイン制作,外注,2026-06-20
-A社6月Instagram投稿,instagram,client-a,2026-06-30,投稿,自分,2026-06-30
-B社イベント企画,event,client-b,2026-07-15,会場手配,自分,2026-06-15
-B社イベント企画,event,client-b,2026-07-15,告知画像作成,外注,2026-06-25
+const SAMPLE_CSV = `タイトル,種別,コード,納期,ステップ名,担当,ステップ期日,備考
+A社6月Instagram投稿,instagram,client-a,2026-06-30,企画・構成,自分,2026-06-10,
+A社6月Instagram投稿,instagram,client-a,2026-06-30,デザイン制作,外注,2026-06-20,参考URL: https://example.com
+A社6月Instagram投稿,instagram,client-a,2026-06-30,投稿,自分,2026-06-30,
+B社イベント企画,event,client-b,2026-07-15,会場手配,自分,2026-06-15,
+B社イベント企画,event,client-b,2026-07-15,告知画像作成,外注,2026-06-25,サイズ: 1080x1080
 `
 
 const TYPE_MAP: Record<string, string> = {
@@ -62,6 +63,7 @@ function parseCSV(text: string): CsvRow[] {
       stepLabel: cols[4] ?? '',
       provider: cols[5] ?? '',
       stepDueDate: cols[6] ?? '',
+      note: cols[7] ?? '',
     }
   })
 }
@@ -86,6 +88,7 @@ function groupRows(rows: CsvRow[]): ParsedProject[] {
         label: row.stepLabel,
         provider: PROVIDER_MAP[row.provider] ?? 'self',
         stepDueDate: row.stepDueDate,
+        note: row.note,
       })
     }
   }
@@ -153,6 +156,7 @@ export function CsvImportDialog() {
           file_names: [],
           is_client_step: s.provider !== 'self',
           step_due_date: s.stepDueDate || null,
+          note: s.note || null,
         }))
         await supabase.from('project_steps').insert(stepsToInsert)
         ok++
@@ -193,7 +197,7 @@ export function CsvImportDialog() {
           {/* サンプルダウンロード */}
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
             <p className="text-xs text-muted-foreground">
-              形式: <code className="text-xs bg-muted px-1 rounded">タイトル, 種別, コード, 納期, ステップ名, 担当, ステップ期日</code>
+              形式: <code className="text-xs bg-muted px-1 rounded">タイトル, 種別, コード, 納期, ステップ名, 担当, ステップ期日, 備考</code>
             </p>
             <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={downloadSample}>
               <DownloadIcon className="size-3" />サンプルCSV
@@ -252,6 +256,7 @@ export function CsvImportDialog() {
                           <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                             {s.label}
                             {s.stepDueDate && <span className="ml-1 text-[9px]">({s.stepDueDate})</span>}
+                            {s.note && <span className="ml-1 text-[9px] text-blue-500">📝</span>}
                           </span>
                         ))}
                       </div>
