@@ -197,6 +197,18 @@ export function ProviderSettingsModal() {
                     className="h-8 text-sm flex-1"
                   />
 
+                  {/* 完了扱いトグル（依存関係に使用） */}
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(st.id, { isDone: !st.isDone })}
+                    title={st.isDone ? '依存完了扱いON（クリックでOFF）' : '依存完了扱いOFF（クリックでON）'}
+                    className={cn('text-[10px] px-1.5 py-0.5 rounded border shrink-0 transition-colors',
+                      st.isDone ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'text-muted-foreground border-border hover:border-muted-foreground'
+                    )}
+                  >
+                    完了
+                  </button>
+
                   {/* グレーアウトトグル */}
                   <button
                     type="button"

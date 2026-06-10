@@ -9,7 +9,8 @@ export interface StepStatusDef {
   id: string          // 安定したキー（変更不可）
   label: string       // 表示名 = DBに保存される値
   color: StatusColorKey
-  dim?: boolean       // trueのとき該当ステップをグレーアウト
+  dim?: boolean       // trueのとき該当ステップをグレーアウト（見た目のみ）
+  isDone?: boolean    // trueのとき依存関係で「完了扱い」にする
 }
 
 export const STATUS_COLOR_STYLES: Record<StatusColorKey, { badge: string; select: string; dot: string }> = {
@@ -41,13 +42,13 @@ export const STATUS_COLOR_LABELS: Record<StatusColorKey, string> = {
 }
 
 export const DEFAULT_STATUSES: StepStatusDef[] = [
-  { id: 'status_pending',     label: '未着手',   color: 'slate',   dim: false },
-  { id: 'status_locked',      label: 'ロック中', color: 'slate',   dim: true  },
-  { id: 'status_waiting',     label: '素材待ち', color: 'amber',   dim: false },
-  { id: 'status_received',    label: '素材受領', color: 'yellow',  dim: false },
-  { id: 'status_inprogress',  label: '進行中',   color: 'blue',    dim: false },
-  { id: 'status_review',      label: '確認待ち', color: 'violet',  dim: false },
-  { id: 'status_done',        label: '完了',     color: 'emerald', dim: true  },
+  { id: 'status_pending',     label: '未着手',   color: 'slate',   dim: false, isDone: false },
+  { id: 'status_locked',      label: 'ロック中', color: 'slate',   dim: true,  isDone: false },
+  { id: 'status_waiting',     label: '素材待ち', color: 'amber',   dim: false, isDone: false },
+  { id: 'status_received',    label: '素材受領', color: 'yellow',  dim: false, isDone: false },
+  { id: 'status_inprogress',  label: '進行中',   color: 'blue',    dim: false, isDone: false },
+  { id: 'status_review',      label: '確認待ち', color: 'violet',  dim: false, isDone: false },
+  { id: 'status_done',        label: '完了',     color: 'emerald', dim: true,  isDone: true  },
 ]
 
 export function useStepStatuses() {
@@ -64,7 +65,14 @@ export function useStepStatuses() {
     if (data?.value) {
       try {
         const parsed = JSON.parse(data.value) as StepStatusDef[]
-        if (Array.isArray(parsed) && parsed.length > 0) setStatuses(parsed)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // isDone が未設定の古いデータを補完（dim:true なら isDone:true にマイグレーション）
+          const migrated = parsed.map((s) => ({
+            ...s,
+            isDone: s.isDone !== undefined ? s.isDone : (s.dim === true),
+          }))
+          setStatuses(migrated)
+        }
       } catch { /* ignore */ }
     }
     setLoading(false)

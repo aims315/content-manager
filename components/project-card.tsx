@@ -226,8 +226,15 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, s
   // 依存ステップの計算
   const dependsOnIds: string[] = step.depends_on ?? []
   const depSteps = allSteps.filter((s) => dependsOnIds.includes(s.id))
-  const doneStatusLabels = statusDefs.filter((s) => s.dim).map((s) => s.label)
-  const blockedBy = depSteps.filter((s) => !doneStatusLabels.includes(s.status))
+
+  // 「完了扱い」判定: isDone:true のステータス。なければ dim:true にフォールバック
+  const isDepSatisfied = (depStep: ProjectStep) => {
+    const def = statusDefs.find((sd) => sd.label === depStep.status)
+    if (def) return def.isDone === true
+    // statusDefsに見つからない場合は '完了' リテラルで判定
+    return depStep.status === '完了'
+  }
+  const blockedBy = depSteps.filter((s) => !isDepSatisfied(s))
   const isBlocked = blockedBy.length > 0
 
   const toggleDependency = async (targetId: string) => {
