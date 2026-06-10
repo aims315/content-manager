@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STEPS_CONFIG } from '@/lib/steps-config'
 import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
-import { useProjectTypes } from '@/hooks/use-project-types'
+import { useProjectTypes, TYPE_COLOR_OPTIONS, EMOJI_PRESETS } from '@/hooks/use-project-types'
 import { sendChatworkNotification } from '@/hooks/use-notify'
 import type { ProjectType, ProviderType } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { CalendarIcon, InstagramIcon, TwitterIcon, CalendarDaysIcon, LockIcon, UserIcon, BuildingIcon, WrenchIcon } from 'lucide-react'
+import { CalendarIcon, InstagramIcon, TwitterIcon, CalendarDaysIcon, LockIcon, UserIcon, BuildingIcon, WrenchIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const PROJECT_TYPES: { value: ProjectType; label: string; icon: React.ReactNode }[] = [
@@ -42,9 +42,14 @@ export function ProjectForm() {
   const router = useRouter()
   const supabase = createClient()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
-  const { customTypes } = useProjectTypes()
+  const { customTypes, addType, deleteType } = useProjectTypes()
 
   const [projectType, setProjectType] = useState<string>('')
+  // 種別追加フォーム
+  const [showAddType, setShowAddType] = useState(false)
+  const [newTypeLabel, setNewTypeLabel] = useState('')
+  const [newTypeEmoji, setNewTypeEmoji] = useState('📝')
+  const [newTypeColorIdx, setNewTypeColorIdx] = useState(0)
   const [title, setTitle] = useState('')
   const [assignee, setAssignee] = useState('')
   const [existingAssignees, setExistingAssignees] = useState<string[]>([])
@@ -192,18 +197,118 @@ export function ProjectForm() {
                 </button>
               ))}
               {customTypes.map((type) => (
-                <button key={type.id} type="button" onClick={() => setProjectType(type.id)}
-                  className={cn(
-                    'flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-xs font-medium transition-all',
-                    projectType === type.id
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border hover:border-muted-foreground'
-                  )}>
-                  <span className="text-2xl leading-none">{type.emoji}</span>
-                  <span className="text-center leading-tight">{type.label}</span>
-                </button>
+                <div key={type.id} className="relative group">
+                  <button type="button" onClick={() => setProjectType(type.id)}
+                    className={cn(
+                      'w-full flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-xs font-medium transition-all',
+                      projectType === type.id
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border hover:border-muted-foreground'
+                    )}>
+                    <span className="text-2xl leading-none">{type.emoji}</span>
+                    <span className="text-center leading-tight">{type.label}</span>
+                  </button>
+                  {/* 削除ボタン（ホバーで表示） */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); deleteType(type.id) }}
+                    className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="削除"
+                  >
+                    <Trash2Icon className="size-3" />
+                  </button>
+                </div>
               ))}
+              {/* 種別を追加ボタン */}
+              <button
+                type="button"
+                onClick={() => setShowAddType((v) => !v)}
+                className={cn(
+                  'flex flex-col items-center gap-1.5 rounded-lg border-2 border-dashed p-3 text-xs font-medium transition-all',
+                  showAddType ? 'border-primary text-primary bg-primary/5' : 'border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground hover:text-foreground'
+                )}>
+                <PlusIcon className="size-4" />
+                <span className="text-center leading-tight">種別を追加</span>
+              </button>
             </div>
+
+            {/* インライン追加フォーム */}
+            {showAddType && (
+              <div className="rounded-lg border border-dashed bg-muted/30 p-3 space-y-2.5 mt-1">
+                <p className="text-xs font-medium text-muted-foreground">新しい種別を追加</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={newTypeEmoji}
+                    onChange={(e) => setNewTypeEmoji(e.target.value)}
+                    className="h-8 w-12 text-center text-base p-1 shrink-0"
+                    maxLength={2}
+                  />
+                  <Input
+                    value={newTypeLabel}
+                    onChange={(e) => setNewTypeLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newTypeLabel.trim()) {
+                        addType(newTypeLabel.trim(), newTypeEmoji, newTypeColorIdx).then((id) => {
+                          setProjectType(id)
+                          setNewTypeLabel('')
+                          setShowAddType(false)
+                        })
+                      }
+                    }}
+                    placeholder="種別名（例：コラム、動画）"
+                    className="h-8 text-sm flex-1"
+                    autoFocus
+                  />
+                </div>
+                {/* 絵文字プリセット */}
+                <div className="flex flex-wrap gap-1">
+                  {EMOJI_PRESETS.map((em) => (
+                    <button key={em} type="button"
+                      onClick={() => setNewTypeEmoji(em)}
+                      className={cn('size-7 text-base rounded hover:bg-muted transition-colors flex items-center justify-center',
+                        newTypeEmoji === em && 'bg-muted ring-1 ring-primary'
+                      )}>
+                      {em}
+                    </button>
+                  ))}
+                </div>
+                {/* 色選択 */}
+                <div className="flex gap-1">
+                  {TYPE_COLOR_OPTIONS.map((c, i) => (
+                    <button key={i} type="button"
+                      onClick={() => setNewTypeColorIdx(i)}
+                      className={cn('size-5 rounded-full border-2 transition-transform hover:scale-110',
+                        c.bgColor,
+                        newTypeColorIdx === i ? 'border-foreground' : 'border-transparent'
+                      )}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  {newTypeLabel && (
+                    <span className={cn('flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full',
+                      TYPE_COLOR_OPTIONS[newTypeColorIdx]?.bgColor,
+                      TYPE_COLOR_OPTIONS[newTypeColorIdx]?.color
+                    )}>
+                      {newTypeEmoji} {newTypeLabel}
+                    </span>
+                  )}
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1 ml-auto"
+                    disabled={!newTypeLabel.trim()}
+                    onClick={() => {
+                      if (!newTypeLabel.trim()) return
+                      addType(newTypeLabel.trim(), newTypeEmoji, newTypeColorIdx).then((id) => {
+                        setProjectType(id)
+                        setNewTypeLabel('')
+                        setShowAddType(false)
+                      })
+                    }}>
+                    <PlusIcon className="size-3" />追加して選択
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* カスタムジャンルはステップなし案内 */}
