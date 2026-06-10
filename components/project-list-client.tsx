@@ -9,7 +9,7 @@ import { ProjectCard } from '@/components/project-card'
 import { ScheduleView } from '@/components/schedule-view'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon } from 'lucide-react'
+import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,7 @@ export function ProjectListClient() {
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
   const [statusTab, setStatusTab] = useState<'active' | 'done' | 'all'>('active')
+  const [sortOrder, setSortOrder] = useState<'created' | 'due'>('created')
   const [highlightId] = useState<string | null>(null)
 
   const findProjectId = (stepId: string) =>
@@ -85,10 +86,23 @@ export function ProjectListClient() {
     .filter((p) => !typeFilter || p.project_type === typeFilter)
     .filter((p) => !query.trim() || p.title.includes(query) || p.assignee.includes(query) || p.client_slug?.includes(query))
 
+  // ソート
+  const sortProjects = (list: typeof projects) => [...list].sort((a, b) => {
+    if (sortOrder === 'due') {
+      // 納期あり → 昇順、納期なし → 末尾
+      if (!a.due_date && !b.due_date) return 0
+      if (!a.due_date) return 1
+      if (!b.due_date) return -1
+      return a.due_date.localeCompare(b.due_date)
+    }
+    // 登録順（新しい順）
+    return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+  })
+
   // 進行中 / 完了 に分類
-  const activeProjects = baseFiltered.filter((p) => !isProjectDone(p.id))
-  const doneProjects   = baseFiltered.filter((p) => isProjectDone(p.id))
-  const filtered = statusTab === 'active' ? activeProjects : statusTab === 'done' ? doneProjects : baseFiltered
+  const activeProjects = sortProjects(baseFiltered.filter((p) => !isProjectDone(p.id)))
+  const doneProjects   = sortProjects(baseFiltered.filter((p) => isProjectDone(p.id)))
+  const filtered = statusTab === 'active' ? activeProjects : statusTab === 'done' ? doneProjects : sortProjects(baseFiltered)
 
   if (loading) {
     return (
@@ -180,6 +194,22 @@ export function ProjectListClient() {
               <span>{t.emoji}</span>{t.label}
             </Button>
           ))}
+          {/* ソート */}
+          <div className="flex rounded-md border overflow-hidden">
+            <button onClick={() => setSortOrder('created')}
+              title="登録順"
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors', sortOrder === 'created' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <ArrowUpDownIcon className="size-3.5" />
+              <span className="hidden sm:inline">登録順</span>
+            </button>
+            <button onClick={() => setSortOrder('due')}
+              title="締切順"
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors border-l', sortOrder === 'due' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <CalendarIcon className="size-3.5" />
+              <span className="hidden sm:inline">締切順</span>
+            </button>
+          </div>
+
           <div className="flex rounded-md border overflow-hidden ml-1">
             <button onClick={() => setView('list')}
               title="制作管理"
