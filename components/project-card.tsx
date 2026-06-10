@@ -86,13 +86,24 @@ function TextWithLinks({ text }: { text: string }) {
 }
 
 const stepStatusColors: Record<StepStatus, string> = {
-  '未着手': 'bg-muted text-muted-foreground',
+  '未着手':  'bg-slate-100 text-slate-500',
   'ロック中': 'bg-slate-100 text-slate-400',
-  '素材待ち': 'bg-amber-100 text-amber-800',
-  '素材受領': 'bg-yellow-100 text-yellow-800',
-  '進行中': 'bg-blue-100 text-blue-800',
-  '確認待ち': 'bg-violet-100 text-violet-800',
-  '完了': 'bg-emerald-100 text-emerald-800',
+  '素材待ち': 'bg-amber-100 text-amber-700 font-semibold',
+  '素材受領': 'bg-yellow-100 text-yellow-700 font-semibold',
+  '進行中':  'bg-blue-100 text-blue-700 font-semibold',
+  '確認待ち': 'bg-violet-100 text-violet-700 font-semibold',
+  '完了':    'bg-emerald-100 text-emerald-700',
+}
+
+// セレクトトリガーの背景色（ステータスによって変える）
+const stepStatusSelectStyle: Record<StepStatus, string> = {
+  '未着手':  'bg-slate-50 border-slate-200 text-slate-500',
+  'ロック中': 'bg-slate-50 border-slate-200 text-slate-400',
+  '素材待ち': 'bg-amber-50 border-amber-300 text-amber-800',
+  '素材受領': 'bg-yellow-50 border-yellow-300 text-yellow-800',
+  '進行中':  'bg-blue-50 border-blue-300 text-blue-800',
+  '確認待ち': 'bg-violet-50 border-violet-300 text-violet-800',
+  '完了':    'bg-slate-50 border-slate-200 text-slate-400',
 }
 
 const providerBadge: Record<ProviderType, { label: string; icon: React.ReactNode; className: string }> = {
@@ -216,10 +227,12 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
     setEditingProvider(false)
   }
 
+  const isDimmed = isLocked || step.status === '完了'
+
   return (
     <div className={cn(
       'rounded-md border transition-all',
-      step.status === '完了' && 'border-emerald-200 bg-emerald-50/50'
+      isDimmed ? 'opacity-50 bg-slate-50/60' : 'bg-card'
     )}>
       {/* ── 上段：アイコン・ラベル・担当者・[▼] ── */}
       <div className="flex items-center gap-2 px-3 py-2">
@@ -229,7 +242,7 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
           ? <CheckCircleIcon className="size-3 shrink-0 text-emerald-500" />
           : <div className="size-3 shrink-0 rounded-full border-2 border-muted-foreground" />
         }
-        <span className={cn('text-xs font-medium flex-1 min-w-0 truncate', isLocked && 'text-muted-foreground')}>
+        <span className={cn('text-xs font-medium flex-1 min-w-0 truncate', isDimmed && 'text-muted-foreground')}>
           {step.label}
           {step.step_due_date && (
             <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
@@ -261,7 +274,11 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
       {/* ── ステータス変更行：常時表示 ── */}
       <div className="flex items-center gap-2 px-3 pb-2">
         <Select value={step.status} onValueChange={handleStatusChange} disabled={statusChanging}>
-          <SelectTrigger className={cn('h-7 text-xs flex-1', statusChanging && 'opacity-60')}>
+          <SelectTrigger className={cn(
+            'h-7 text-xs flex-1 font-medium transition-colors',
+            stepStatusSelectStyle[step.status],
+            statusChanging && 'opacity-60'
+          )}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
