@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useMemo, useEffect } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { useStepStatuses } from '@/hooks/use-step-statuses'
@@ -23,8 +22,11 @@ const TYPE_FILTERS = [
 ]
 
 export function ProjectListClient() {
-  const searchParams = useSearchParams()
-  const urlCode = searchParams.get('code') // URLパラメータによるアクセス制限
+  const [urlCode, setUrlCode] = useState<string | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setUrlCode(params.get('code'))
+  }, [])
 
   const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, refetch } = useProjects()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()

@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Suspense } from 'react'
 import { ProjectListClient } from '@/components/project-list-client'
 import { ProviderSettingsModal } from '@/components/provider-settings-modal'
 import { Button } from '@/components/ui/button'
@@ -33,9 +32,7 @@ export default function HomePage() {
           </div>
         </header>
 
-        <Suspense>
-          <ProjectListClient />
-        </Suspense>
+        <ProjectListClient />
       </div>
     </main>
   )
