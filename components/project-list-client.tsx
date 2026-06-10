@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { ProjectCard } from '@/components/project-card'
+import { ProjectCalendar } from '@/components/project-calendar'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon } from 'lucide-react'
+import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,10 +20,15 @@ const TYPE_FILTERS = [
 ]
 
 export function ProjectListClient() {
-  const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, updateStepProvider, updateStepDueDate } = useProjects()
+  const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, updateStepProvider, updateStepDueDate, refetch } = useProjects()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
+  const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
+  const findProjectId = (stepId: string) =>
+    Object.keys(steps).find((pid) => steps[pid].some((s) => s.id === stepId))
 
   const handleStepStatusChange = async (stepId: string, status: StepStatus) => {
     const projectId = findProjectId(stepId)
@@ -34,18 +40,10 @@ export function ProjectListClient() {
     })
   }
 
-  const findProjectId = (stepId: string) =>
-    Object.keys(steps).find((pid) => steps[pid].some((s) => s.id === stepId))
-
   const handleStepSubmit = async (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => {
     const projectId = findProjectId(stepId)
     if (!projectId) return
-    await submitStep(stepId, projectId, {
-      url: data.url,
-      note: data.note,
-      fileUrls: data.fileUrls,
-      fileNames: data.fileNames,
-    })
+    await submitStep(stepId, projectId, { url: data.url, note: data.note, fileUrls: data.fileUrls, fileNames: data.fileNames })
   }
 
   const handleStepProviderChange = async (stepId: string, providerType: ProviderType, providerName: string | null) => {
@@ -60,6 +58,12 @@ export function ProjectListClient() {
     await updateStepDueDate(stepId, projectId, dueDate)
   }
 
+  const handleProjectSelect = (projectId: string) => {
+    setView('list')
+    setHighlightId(projectId)
+    setTimeout(() => setHighlightId(null), 3000)
+  }
+
   const filtered = projects
     .filter((p) => !typeFilter || p.project_type === typeFilter)
     .filter((p) => !query.trim() || p.title.includes(query) || p.assignee.includes(query) || p.client_slug?.includes(query))
@@ -67,64 +71,79 @@ export function ProjectListClient() {
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-48 rounded-lg" />
-        ))}
+        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-48 rounded-lg" />)}
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      {/* フィルター */}
+      {/* フィルター＋ビュー切替 */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="タイトル・クライアント名で検索"
-            className="pl-9 h-9"
-          />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="タイトル・コードで検索" className="pl-9 h-9" />
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap">
           {TYPE_FILTERS.map((f) => (
-            <Button
-              key={f.value}
-              size="sm"
+            <Button key={f.value} size="sm"
               variant={typeFilter === f.value ? 'default' : 'outline'}
               className="h-9 gap-1.5 text-xs"
-              onClick={() => setTypeFilter(f.value)}
-            >
-              {f.icon}
-              {f.label}
+              onClick={() => setTypeFilter(f.value)}>
+              {f.icon}{f.label}
             </Button>
           ))}
+          <div className="flex rounded-md border overflow-hidden ml-1">
+            <button onClick={() => setView('list')}
+              className={cn('px-2.5 py-1.5 transition-colors', view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <LayoutGridIcon className="size-4" />
+            </button>
+            <button onClick={() => setView('calendar')}
+              className={cn('px-2.5 py-1.5 transition-colors', view === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <CalendarIcon className="size-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <p className="text-sm">プロジェクトがありません</p>
-          <p className="text-xs mt-1">右上の「新規プロジェクト」から作成してください</p>
+      {/* カレンダービュー */}
+      {view === 'calendar' && (
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="lg:w-80 shrink-0">
+            <ProjectCalendar projects={filtered} allSteps={steps} onProjectSelect={handleProjectSelect} />
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              steps={steps[project.id] || []}
-              onStepStatusChange={handleStepStatusChange}
-              onStepSubmit={handleStepSubmit}
-              onStepProviderChange={handleStepProviderChange}
-              onStepDueDateChange={handleStepDueDateChange}
-              onDelete={deleteProject}
-              providerLabels={providerLabels}
-              providerRoles={providerRoles}
-            />
-          ))}
-        </div>
+      )}
+
+      {/* リストビュー */}
+      {view === 'list' && (
+        filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <p className="text-sm">プロジェクトがありません</p>
+            <p className="text-xs mt-1">右上の「新規プロジェクト」から作成してください</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((project) => (
+              <div key={project.id} id={`project-${project.id}`}
+                className={cn('rounded-lg transition-all', highlightId === project.id && 'ring-2 ring-primary ring-offset-2')}>
+                <ProjectCard
+                  project={project}
+                  steps={steps[project.id] || []}
+                  onProjectUpdated={refetch}
+                  onStepStatusChange={handleStepStatusChange}
+                  onStepSubmit={handleStepSubmit}
+                  onStepProviderChange={handleStepProviderChange}
+                  onStepDueDateChange={handleStepDueDateChange}
+                  onDelete={deleteProject}
+                  providerLabels={providerLabels}
+                  providerRoles={providerRoles}
+                />
+              </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   )

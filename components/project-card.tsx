@@ -6,6 +6,7 @@ import { FileUpload } from '@/components/file-upload'
 import type { Project, ProjectStep, StepStatus, StepKey, ProviderType } from '@/lib/types'
 import type { ProviderLabels, ProviderRole } from '@/hooks/use-provider-labels'
 import { COLOR_STYLES } from '@/hooks/use-provider-labels'
+import { ProjectEditDialog } from '@/components/project-edit-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -451,6 +452,7 @@ interface ProjectCardProps {
   steps: ProjectStep[]
   providerLabels: ProviderLabels
   providerRoles: ProviderRole[]
+  onProjectUpdated: () => void
   onStepStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onStepSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onStepProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
@@ -458,7 +460,7 @@ interface ProjectCardProps {
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -486,7 +488,10 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, onS
               {typeConfig.icon}
               <span className="text-xs font-medium">{typeConfig.label}</span>
             </div>
-            <CardTitle className="text-sm font-semibold leading-tight">{project.title}</CardTitle>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <CardTitle className="text-sm font-semibold leading-tight">{project.title}</CardTitle>
+              <ProjectEditDialog project={project} onUpdated={onProjectUpdated} />
+            </div>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
