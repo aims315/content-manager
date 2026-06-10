@@ -66,12 +66,32 @@ export function useStepStatuses() {
       try {
         const parsed = JSON.parse(data.value) as StepStatusDef[]
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // isDone が未設定の古いデータを補完（ラベルが '完了' のものだけ isDone:true）
-          const migrated = parsed.map((s) => ({
-            ...s,
-            isDone: s.isDone !== undefined ? s.isDone : (s.label === '完了'),
-          }))
+          // isDone を正しく補正
+          // - isDone未設定 → ラベルが '完了' のときだけ true
+          // - status_locked (ロック中) は必ず false（旧バグで true になっていた場合も修正）
+          let needsResave = false
+          const migrated = parsed.map((s) => {
+            let isDone: boolean
+            if (s.id === 'status_locked' || s.label === 'ロック中') {
+              isDone = false
+              if (s.isDone !== false) needsResave = true
+            } else if (s.isDone !== undefined) {
+              isDone = s.isDone
+            } else {
+              isDone = s.label === '完了'
+              needsResave = true
+            }
+            return { ...s, isDone }
+          })
           setStatuses(migrated)
+          // 補正が必要だった場合は app_settings を上書き保存
+          if (needsResave) {
+            await supabase.from('app_settings').upsert({
+              key: 'step_statuses',
+              value: JSON.stringify(migrated),
+              updated_at: new Date().toISOString(),
+            })
+          }
         }
       } catch { /* ignore */ }
     }
