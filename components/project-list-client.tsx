@@ -27,7 +27,7 @@ export function ProjectListClient() {
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
-  const [statusTab, setStatusTab] = useState<'active' | 'done'>('active')
+  const [statusTab, setStatusTab] = useState<'active' | 'done' | 'all'>('active')
   const [highlightId] = useState<string | null>(null)
 
   const findProjectId = (stepId: string) =>
@@ -83,7 +83,7 @@ export function ProjectListClient() {
   // 進行中 / 完了 に分類
   const activeProjects = baseFiltered.filter((p) => !isProjectDone(p.id))
   const doneProjects   = baseFiltered.filter((p) => isProjectDone(p.id))
-  const filtered = statusTab === 'active' ? activeProjects : doneProjects
+  const filtered = statusTab === 'active' ? activeProjects : statusTab === 'done' ? doneProjects : baseFiltered
 
   if (loading) {
     return (
@@ -132,6 +132,23 @@ export function ProjectListClient() {
             {doneProjects.length}
           </span>
         </button>
+        <button
+          onClick={() => setStatusTab('all')}
+          className={cn(
+            'pb-2 text-sm font-medium transition-colors border-b-2 -mb-px',
+            statusTab === 'all'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          すべて
+          <span className={cn(
+            'ml-1.5 text-xs px-1.5 py-0.5 rounded-full',
+            statusTab === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}>
+            {baseFiltered.length}
+          </span>
+        </button>
       </div>
 
       {/* ── 検索・フィルター・ビュー切替 ── */}
@@ -177,7 +194,7 @@ export function ProjectListClient() {
         filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <p className="text-sm">
-              {statusTab === 'done' ? '完了したプロジェクトはありません' : 'プロジェクトがありません'}
+              {statusTab === 'done' ? '完了したプロジェクトはありません' : statusTab === 'all' ? 'プロジェクトがありません' : '進行中のプロジェクトはありません'}
             </p>
             {statusTab === 'active' && (
               <p className="text-xs mt-1">右上の「新規プロジェクト」から作成してください</p>
