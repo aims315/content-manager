@@ -1,45 +1,53 @@
-export type TaskStatus = '未着手' | '制作要項待ち' | '制作要項受領' | '進行中' | '初校提出' | '修正' | '修正対応完了' | '投稿OK' | '完了'
+export type ProjectType = 'instagram' | 'twitter' | 'event'
 
-export interface TaskRevision {
+export type StepStatus = '未着手' | 'ロック中' | '素材待ち' | '素材受領' | '進行中' | '確認待ち' | '完了'
+
+export type ProviderType = 'client' | 'freelancer' | 'self'
+
+export type StepKey =
+  | 'photo'
+  | 'text'
+  | 'design'
+  | 'post_ready'
+  | 'event_outline'
+  | 'announce_image'
+  | 'event_script'
+  | 'event_page'
+  | 'invite_email'
+  | 'thanks_email'
+  | 'thanks_line'
+
+export interface ProjectStep {
   id: string
-  task_id: string
-  note: string
-  created_by: string
+  project_id: string
+  step_key: StepKey
+  step_order: number
+  label: string
+  status: StepStatus
+  provider_type: ProviderType
+  provider_name: string | null
   file_urls: string[]
   file_names: string[]
+  url: string | null
+  note: string | null
+  submitted_by: string | null
+  submitted_at: string | null
+  is_client_step: boolean
   created_at: string
 }
 
-export interface Task {
+export interface Project {
   id: string
   title: string
-  description: string | null
+  project_type: ProjectType
   assignee: string
-  due_date: string | null
-  status: TaskStatus
-  file_urls: string[]
-  file_names: string[]
-  created_at: string
-  completed_at: string | null
-  modification_note: string | null
-  modification_files: string[]
-  modified_by: string | null
-  modified_at: string | null
-  discord_channels: string[]
-  response_url: string | null
-  response_note: string | null
-  responded_at: string | null
-  draft_url: string | null
-  draft_note: string | null
-  draft_submitted_at: string | null
-  draft_due_date: string | null
-  draft_file_urls: string[]
-  draft_file_names: string[]
-  response_file_urls: string[]
-  response_file_names: string[]
   client_slug: string | null
+  due_date: string | null
   amount: number | null
   staff: string | null
+  description: string | null
+  discord_channels: string[]
+  created_at: string
   deleted_at: string | null
-  posted_ok_at: string | null
+  steps?: ProjectStep[]
 }
