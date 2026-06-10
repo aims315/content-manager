@@ -20,15 +20,27 @@ interface ScheduleItem {
 
 const typeIcon: Record<string, React.ReactNode> = {
   instagram: <InstagramIcon className="size-3.5 text-pink-500 shrink-0" />,
-  twitter: <TwitterIcon className="size-3.5 text-sky-500 shrink-0" />,
-  event: <CalendarDaysIcon className="size-3.5 text-violet-500 shrink-0" />,
+  twitter:   <TwitterIcon className="size-3.5 text-sky-500 shrink-0" />,
+  event:     <CalendarDaysIcon className="size-3.5 text-violet-500 shrink-0" />,
 }
 
 const typeBorder: Record<string, string> = {
   instagram: 'border-l-pink-400',
-  twitter: 'border-l-sky-400',
-  event: 'border-l-violet-400',
+  twitter:   'border-l-sky-400',
+  event:     'border-l-violet-400',
 }
+
+// フィルター定義
+const TYPE_FILTERS = [
+  { key: 'instagram', label: 'Instagram', color: 'text-pink-600',   bg: 'bg-pink-50 border-pink-300' },
+  { key: 'twitter',   label: 'X',         color: 'text-sky-600',    bg: 'bg-sky-50 border-sky-300' },
+  { key: 'event',     label: 'イベント',  color: 'text-violet-600', bg: 'bg-violet-50 border-violet-300' },
+] as const
+
+const KIND_FILTERS = [
+  { key: 'due_date',      label: '納期' },
+  { key: 'step_due_date', label: 'ステップ締め切り' },
+] as const
 
 interface ScheduleViewProps {
   projects: Project[]
@@ -37,12 +49,33 @@ interface ScheduleViewProps {
 
 export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(
+    new Set(['instagram', 'twitter', 'event'])
+  )
+  const [kindFilter, setKindFilter] = useState<Set<string>>(
+    new Set(['due_date', 'step_due_date'])
+  )
 
-  // 全スケジュールアイテムを収集
-  const items: ScheduleItem[] = []
+  const toggleType = (key: string) => {
+    setTypeFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) { if (next.size > 1) next.delete(key) } else next.add(key)
+      return next
+    })
+  }
+  const toggleKind = (key: string) => {
+    setKindFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) { if (next.size > 1) next.delete(key) } else next.add(key)
+      return next
+    })
+  }
+
+  // 全スケジュールアイテムを収集（フィルター前）
+  const allItems: ScheduleItem[] = []
   projects.forEach((p) => {
-    if (p.due_date) {
-      items.push({
+    if (p.due_date && kindFilter.has('due_date') && typeFilter.has(p.project_type)) {
+      allItems.push({
         date: p.due_date,
         projectId: p.id,
         projectTitle: p.title,
@@ -52,26 +85,28 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
         isDone: false,
       })
     }
-    const steps = allSteps[p.id] ?? []
-    steps.forEach((s) => {
-      if (s.step_due_date) {
-        items.push({
-          date: s.step_due_date,
-          projectId: p.id,
-          projectTitle: p.title,
-          projectType: p.project_type,
-          label: s.label,
-          isStep: true,
-          isDone: s.status === '完了',
-        })
-      }
-    })
+    if (kindFilter.has('step_due_date') && typeFilter.has(p.project_type)) {
+      const steps = allSteps[p.id] ?? []
+      steps.forEach((s) => {
+        if (s.step_due_date) {
+          allItems.push({
+            date: s.step_due_date,
+            projectId: p.id,
+            projectTitle: p.title,
+            projectType: p.project_type,
+            label: s.label,
+            isStep: true,
+            isDone: s.status === '完了',
+          })
+        }
+      })
+    }
   })
 
-  const sorted = [...items].sort((a, b) => compareAsc(parseISO(a.date), parseISO(b.date)))
+  const sorted = [...allItems].sort((a, b) => compareAsc(parseISO(a.date), parseISO(b.date)))
 
   const hasItemOnDate = (date: Date) =>
-    items.some((d) => isSameDay(parseISO(d.date), date))
+    allItems.some((d) => isSameDay(parseISO(d.date), date))
 
   const displayed = selectedDate
     ? sorted.filter((d) => isSameDay(parseISO(d.date), selectedDate))
@@ -79,15 +114,15 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
-      {/* 左：カレンダー */}
-      <div className="shrink-0 lg:w-72">
+      {/* 左：カレンダー + フィルター */}
+      <div className="shrink-0 lg:w-72 space-y-3">
         <Calendar
           locale={ja}
           mode="single"
           selected={selectedDate}
           onSelect={(date) => {
             if (date && selectedDate && isSameDay(date, selectedDate)) {
-              setSelectedDate(undefined) // 同じ日クリックで解除
+              setSelectedDate(undefined)
             } else {
               setSelectedDate(date)
             }
@@ -108,14 +143,72 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
           }}
           className="rounded-md border w-full"
         />
+
         {selectedDate && (
           <button
             onClick={() => setSelectedDate(undefined)}
-            className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground text-center py-1"
+            className="w-full text-xs text-muted-foreground hover:text-foreground text-center py-1"
           >
             ← すべて表示
           </button>
         )}
+
+        {/* フィルターパネル */}
+        <div className="rounded-md border p-3 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground">表示フィルター</p>
+
+          <div className="space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">種別</p>
+            <div className="flex flex-wrap gap-1.5">
+              {TYPE_FILTERS.map((f) => {
+                const active = typeFilter.has(f.key)
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => toggleType(f.key)}
+                    className={cn(
+                      'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-all',
+                      active ? f.bg + ' ' + f.color : 'border-border text-muted-foreground opacity-40'
+                    )}
+                  >
+                    <span className={cn('size-1.5 rounded-full', active ? 'bg-current' : 'bg-muted-foreground')} />
+                    {f.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">内容</p>
+            <div className="flex flex-wrap gap-1.5">
+              {KIND_FILTERS.map((f) => {
+                const active = kindFilter.has(f.key)
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => toggleKind(f.key)}
+                    className={cn(
+                      'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-all',
+                      active
+                        ? 'bg-primary/10 border-primary/40 text-primary'
+                        : 'border-border text-muted-foreground opacity-40'
+                    )}
+                  >
+                    <span className={cn('size-1.5 rounded-full', active ? 'bg-primary' : 'bg-muted-foreground')} />
+                    {f.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            {allItems.length}件表示中
+          </p>
+        </div>
       </div>
 
       {/* 右：スリムカード一覧 */}
@@ -128,20 +221,16 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
         {displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">スケジュールがありません</p>
-            <p className="text-xs mt-1">プロジェクトの納期やステップの締め切りを設定してください</p>
+            <p className="text-xs mt-1">フィルターを変えるか、プロジェクトに日程を設定してください</p>
           </div>
         ) : (
           <div className="space-y-1.5">
-            {/* 日付ヘッダー付きグループ表示 */}
             {(() => {
               const grouped: { date: string; items: ScheduleItem[] }[] = []
               displayed.forEach((item) => {
                 const last = grouped[grouped.length - 1]
-                if (last && last.date === item.date) {
-                  last.items.push(item)
-                } else {
-                  grouped.push({ date: item.date, items: [item] })
-                }
+                if (last && last.date === item.date) last.items.push(item)
+                else grouped.push({ date: item.date, items: [item] })
               })
               return grouped.map(({ date, items: groupItems }) => {
                 const d = parseISO(date)
@@ -149,7 +238,6 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
                 const today = isToday(d)
                 return (
                   <div key={date}>
-                    {/* 日付ヘッダー */}
                     <div className={cn(
                       'flex items-center gap-2 px-1 py-1 text-xs font-semibold sticky top-0 bg-background',
                       today ? 'text-primary' : past ? 'text-muted-foreground' : 'text-foreground'
@@ -165,8 +253,6 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
                       </span>
                       {today && <span className="text-[10px] text-primary font-normal">今日</span>}
                     </div>
-
-                    {/* その日のカード */}
                     <div className="space-y-1 ml-2 mb-2">
                       {groupItems.map((item, i) => (
                         <div
@@ -185,6 +271,9 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
                             </p>
                             <p className="text-[11px] text-muted-foreground truncate">{item.label}</p>
                           </div>
+                          {!item.isStep && (
+                            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">納期</span>
+                          )}
                           {item.isDone && (
                             <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0">完了</span>
                           )}

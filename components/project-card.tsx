@@ -401,8 +401,8 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, s
             </div>
           )}
 
-          {/* 締め切り編集（イベントのみ） */}
-          {projectType === 'event' && (
+          {/* 締め切り編集（全種別） */}
+          {(
             <div className="flex items-center gap-2">
               <Label className="text-xs shrink-0 text-muted-foreground">締め切り</Label>
               <Popover>
