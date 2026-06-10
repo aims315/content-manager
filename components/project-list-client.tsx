@@ -27,16 +27,24 @@ export function ProjectListClient() {
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
+  const [statusTab, setStatusTab] = useState<'active' | 'done'>('active')
   const [highlightId] = useState<string | null>(null)
 
   const findProjectId = (stepId: string) =>
     Object.keys(steps).find((pid) => steps[pid].some((s) => s.id === stepId))
 
+  // プロジェクトが「完了」かどうか：ステップが1つ以上あり全部isDone
+  const doneLabels = statusDefs.filter((s) => s.isDone).map((s) => s.label)
+  const isProjectDone = (projectId: string) => {
+    const ps = steps[projectId]
+    if (!ps || ps.length === 0) return false
+    return ps.every((s) => doneLabels.includes(s.status))
+  }
+
   const handleStepStatusChange = async (stepId: string, status: StepStatus) => {
     const projectId = findProjectId(stepId)
     const project = projects.find((p) => p.id === projectId)
     const step = projectId ? steps[projectId]?.find((s) => s.id === stepId) : undefined
-    const doneLabels = statusDefs.filter((s) => s.isDone).map((s) => s.label)
     await updateStepStatus(stepId, status, {
       projectTitle: project?.title,
       stepLabel: step?.label,
@@ -67,13 +75,15 @@ export function ProjectListClient() {
     await updateStepDependencies(stepId, projectId, dependsOn)
   }
 
-  const handleProjectSelect = (_projectId: string) => {
-    // スケジュールビューではハイライト不要（そのまま表示）
-  }
-
-  const filtered = projects
+  // 検索・種別フィルター適用後のプロジェクト
+  const baseFiltered = projects
     .filter((p) => !typeFilter || p.project_type === typeFilter)
     .filter((p) => !query.trim() || p.title.includes(query) || p.assignee.includes(query) || p.client_slug?.includes(query))
+
+  // 進行中 / 完了 に分類
+  const activeProjects = baseFiltered.filter((p) => !isProjectDone(p.id))
+  const doneProjects   = baseFiltered.filter((p) => isProjectDone(p.id))
+  const filtered = statusTab === 'active' ? activeProjects : doneProjects
 
   if (loading) {
     return (
@@ -85,7 +95,46 @@ export function ProjectListClient() {
 
   return (
     <div className="space-y-4">
-      {/* フィルター＋ビュー切替 */}
+
+      {/* ── 進行中 / 完了 タブ ── */}
+      <div className="flex items-center gap-4 border-b pb-0">
+        <button
+          onClick={() => setStatusTab('active')}
+          className={cn(
+            'pb-2 text-sm font-medium transition-colors border-b-2 -mb-px',
+            statusTab === 'active'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          進行中
+          <span className={cn(
+            'ml-1.5 text-xs px-1.5 py-0.5 rounded-full',
+            statusTab === 'active' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}>
+            {activeProjects.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setStatusTab('done')}
+          className={cn(
+            'pb-2 text-sm font-medium transition-colors border-b-2 -mb-px',
+            statusTab === 'done'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          完了
+          <span className={cn(
+            'ml-1.5 text-xs px-1.5 py-0.5 rounded-full',
+            statusTab === 'done' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}>
+            {doneProjects.length}
+          </span>
+        </button>
+      </div>
+
+      {/* ── 検索・フィルター・ビュー切替 ── */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -127,8 +176,12 @@ export function ProjectListClient() {
       {view !== 'schedule' && (
         filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <p className="text-sm">プロジェクトがありません</p>
-            <p className="text-xs mt-1">右上の「新規プロジェクト」から作成してください</p>
+            <p className="text-sm">
+              {statusTab === 'done' ? '完了したプロジェクトはありません' : 'プロジェクトがありません'}
+            </p>
+            {statusTab === 'active' && (
+              <p className="text-xs mt-1">右上の「新規プロジェクト」から作成してください</p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
