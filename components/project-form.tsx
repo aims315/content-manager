@@ -232,14 +232,12 @@ export function ProjectForm() {
                             {opt.label}
                           </button>
                         ))}
-                        {cfg?.providerType === 'freelancer' && (
-                          <Input
-                            value={cfg.providerName}
-                            onChange={(e) => updateStepProvider(def.key, 'providerName', e.target.value)}
-                            placeholder="外注先の名前"
-                            className="h-7 text-xs w-32"
-                          />
-                        )}
+                        <Input
+                          value={cfg?.providerName ?? ''}
+                          onChange={(e) => updateStepProvider(def.key, 'providerName', e.target.value)}
+                          placeholder={cfg?.providerType === 'client' ? 'フォレスト出版など' : cfg?.providerType === 'freelancer' ? 'チアプロなど' : '山中チームなど'}
+                          className="h-7 text-xs w-36"
+                        />
                       </div>
                       {/* イベント制作はステップごとの締め切り */}
                       {projectType === 'event' && (

@@ -157,9 +157,7 @@ function StepRow({ step, allSteps, projectType, onStatusChange, onSubmit, onProv
   const hasContent = step.url || step.note || (step.file_urls?.length > 0)
 
   const prov = providerBadge[step.provider_type]
-  const provLabel = step.provider_type === 'freelancer' && step.provider_name
-    ? step.provider_name
-    : prov.label
+  const provLabel = step.provider_name || prov.label
 
   const submitUrl = step.provider_type !== 'self'
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/submit/step/${step.id}`
@@ -281,14 +279,12 @@ function StepRow({ step, allSteps, projectType, onStatusChange, onSubmit, onProv
                     {opt.icon}{opt.label}
                   </button>
                 ))}
-                {newProviderType === 'freelancer' && (
-                  <Input
-                    value={newProviderName}
-                    onChange={(e) => setNewProviderName(e.target.value)}
-                    placeholder="外注先の名前"
-                    className="h-7 text-xs w-32"
-                  />
-                )}
+                <Input
+                  value={newProviderName}
+                  onChange={(e) => setNewProviderName(e.target.value)}
+                  placeholder={newProviderType === 'client' ? 'クライアント名（例: フォレスト出版）' : newProviderType === 'freelancer' ? '外注先の名前（例: チアプロ）' : 'チーム名（例: 山中チーム）'}
+                  className="h-7 text-xs w-48"
+                />
               </div>
               <div className="flex gap-2">
                 <Button size="sm" className="h-7 text-xs" onClick={handleProviderSave}>保存</Button>
