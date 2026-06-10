@@ -7,6 +7,7 @@ import type { Project, ProjectStep, StepStatus, StepKey, ProviderType } from '@/
 import type { ProviderLabels, ProviderRole } from '@/hooks/use-provider-labels'
 import { COLOR_STYLES } from '@/hooks/use-provider-labels'
 import { ProjectEditDialog } from '@/components/project-edit-dialog'
+import { StepManagerDialog } from '@/components/step-manager-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -571,14 +572,22 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, onP
         )}
 
         {/* ステップ一覧トグル */}
-        <button
-          type="button"
-          onClick={() => setStepsOpen((v) => !v)}
-          className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground py-1 border-t"
-        >
-          <span className="font-medium">ステップを{stepsOpen ? '閉じる' : '表示'}</span>
-          {stepsOpen ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
-        </button>
+        <div className="flex items-center justify-between py-1 border-t">
+          <button
+            type="button"
+            onClick={() => setStepsOpen((v) => !v)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <span className="font-medium">ステップを{stepsOpen ? '閉じる' : '表示'}</span>
+            {stepsOpen ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
+          </button>
+          <StepManagerDialog
+            projectId={project.id}
+            steps={steps}
+            providerRoles={providerRoles}
+            onUpdated={onProjectUpdated}
+          />
+        </div>
 
         {stepsOpen && steps.length > 0 && (
           <div className="space-y-1.5">
