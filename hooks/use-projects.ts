@@ -350,7 +350,7 @@ export function useProjects() {
     projects, deletedProjects, steps, loading,
     updateStepStatus, submitStep, updateStep,
     deleteProject, restoreProject, permanentDeleteProject,
-    fetchStepsForProject, refetch: fetchProjects,
+    fetchStepsForProject, refetch: async () => { await fetchProjects(); await fetchAllSteps() },
     updateStepProvider, updateStepDueDate, updateStepDependencies, duplicateProject,
   }
 }
