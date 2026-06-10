@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { FileUpload } from '@/components/file-upload'
 import type { Project, ProjectStep, StepStatus, StepKey, ProviderType } from '@/lib/types'
-import type { ProviderLabels } from '@/hooks/use-provider-labels'
+import type { ProviderLabels, ProviderRole } from '@/hooks/use-provider-labels'
+import { COLOR_STYLES } from '@/hooks/use-provider-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -138,28 +139,30 @@ interface StepRowProps {
   allSteps: ProjectStep[]
   projectType: string
   providerLabels: ProviderLabels
+  providerRoles: ProviderRole[]
   onStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
   onDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
 }
 
-function StepRow({ step, allSteps, projectType, providerLabels, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
+function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editingProvider, setEditingProvider] = useState(false)
-  const [newProviderType, setNewProviderType] = useState<ProviderType>(step.provider_type)
+  const [newProviderType, setNewProviderType] = useState<string>(step.provider_type)
   const [newProviderName, setNewProviderName] = useState(step.provider_name ?? '')
   const files = useFileUpload()
 
   const isLocked = step.status === 'ロック中'
   const hasContent = step.url || step.note || (step.file_urls?.length > 0)
 
-  const prov = providerBadge[step.provider_type]
-  const provLabel = step.provider_name || providerLabels[step.provider_type] || prov.label
+  const currentRole = providerRoles.find((r) => r.id === step.provider_type)
+  const provBadgeClass = currentRole ? COLOR_STYLES[currentRole.color].badge : 'bg-muted text-muted-foreground'
+  const provLabel = step.provider_name || providerLabels[step.provider_type] || step.provider_type
 
   const submitUrl = step.provider_type !== 'self'
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/submit/step/${step.id}`
@@ -201,7 +204,7 @@ function StepRow({ step, allSteps, projectType, providerLabels, onStatusChange, 
   }
 
   const handleProviderSave = async () => {
-    await onProviderChange(step.id, newProviderType, newProviderName.trim() || null)
+    await onProviderChange(step.id, newProviderType as ProviderType, newProviderName.trim() || null)
     setEditingProvider(false)
   }
 
@@ -231,10 +234,9 @@ function StepRow({ step, allSteps, projectType, providerLabels, onStatusChange, 
         <button
           type="button"
           onClick={() => { setEditingProvider(true); setExpanded(true); setNewProviderType(step.provider_type); setNewProviderName(step.provider_name ?? '') }}
-          className={cn('flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded shrink-0 hover:opacity-75 transition-opacity', prov.className)}
+          className={cn('flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded shrink-0 hover:opacity-75 transition-opacity', provBadgeClass)}
           title="担当者を変更"
         >
-          {prov.icon}
           {provLabel}
         </button>
 
@@ -266,19 +268,19 @@ function StepRow({ step, allSteps, projectType, providerLabels, onStatusChange, 
             <div className="rounded-md border border-dashed p-2 space-y-2 bg-muted/30">
               <p className="text-xs font-medium text-muted-foreground">担当者を変更</p>
               <div className="flex gap-1.5 flex-wrap">
-                {PROVIDER_OPTIONS.map((opt) => (
+                {providerRoles.map((role) => (
                   <button
-                    key={opt.value}
+                    key={role.id}
                     type="button"
-                    onClick={() => setNewProviderType(opt.value)}
+                    onClick={() => setNewProviderType(role.id)}
                     className={cn(
                       'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                      newProviderType === opt.value
-                        ? opt.color + ' border-current'
+                      newProviderType === role.id
+                        ? COLOR_STYLES[role.color].button + ' border-current'
                         : 'border-border text-muted-foreground hover:border-muted-foreground'
                     )}
                   >
-                    {opt.icon}{providerLabels[opt.value] || opt.label}
+                    {role.label}
                   </button>
                 ))}
                 <Input
@@ -448,6 +450,7 @@ interface ProjectCardProps {
   project: Project
   steps: ProjectStep[]
   providerLabels: ProviderLabels
+  providerRoles: ProviderRole[]
   onStepStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onStepSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onStepProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
@@ -455,7 +458,7 @@ interface ProjectCardProps {
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, providerLabels, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -564,6 +567,7 @@ export function ProjectCard({ project, steps, providerLabels, onStepStatusChange
                 allSteps={steps}
                 projectType={project.project_type}
                 providerLabels={providerLabels}
+                providerRoles={providerRoles}
                 onStatusChange={onStepStatusChange}
                 onSubmit={onStepSubmit}
                 onProviderChange={onStepProviderChange}

@@ -20,7 +20,7 @@ const TYPE_FILTERS = [
 
 export function ProjectListClient() {
   const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, updateStepProvider, updateStepDueDate } = useProjects()
-  const { labels: providerLabels } = useProviderLabels()
+  const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
 
@@ -121,6 +121,7 @@ export function ProjectListClient() {
               onStepDueDateChange={handleStepDueDateChange}
               onDelete={deleteProject}
               providerLabels={providerLabels}
+              providerRoles={providerRoles}
             />
           ))}
         </div>

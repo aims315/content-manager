@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STEPS_CONFIG } from '@/lib/steps-config'
-import { useProviderLabels } from '@/hooks/use-provider-labels'
+import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
 import { sendChatworkNotification } from '@/hooks/use-notify'
 import type { ProjectType, ProviderType } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -40,7 +40,7 @@ interface StepProviderConfig {
 export function ProjectForm() {
   const router = useRouter()
   const supabase = createClient()
-  const { labels: providerLabels } = useProviderLabels()
+  const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
 
   const [projectType, setProjectType] = useState<ProjectType | ''>('')
   const [title, setTitle] = useState('')
@@ -196,10 +196,10 @@ export function ProjectForm() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>各ステップの担当者{projectType === 'event' ? '・締め切り' : ''}</Label>
-                <div className="flex gap-2 text-[10px] text-muted-foreground">
-                  {PROVIDER_OPTIONS.map((p) => (
-                    <span key={p.value} className={cn('px-1.5 py-0.5 rounded border flex items-center gap-1', p.color)}>
-                      {p.icon}{providerLabels[p.value] || p.label}
+                <div className="flex gap-2 text-[10px] flex-wrap">
+                  {providerRoles.map((r) => (
+                    <span key={r.id} className={cn('px-1.5 py-0.5 rounded border', COLOR_STYLES[r.color].button)}>
+                      {r.label}
                     </span>
                   ))}
                 </div>
@@ -223,20 +223,19 @@ export function ProjectForm() {
                         )}
                       </div>
                       <div className="pl-5 flex gap-2 items-center flex-wrap">
-                        {PROVIDER_OPTIONS.map((opt) => (
+                        {providerRoles.map((role) => (
                           <button
-                            key={opt.value}
+                            key={role.id}
                             type="button"
-                            onClick={() => updateStepProvider(def.key, 'providerType', opt.value)}
+                            onClick={() => updateStepProvider(def.key, 'providerType', role.id)}
                             className={cn(
                               'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                              cfg?.providerType === opt.value
-                                ? opt.color + ' border-current'
+                              cfg?.providerType === role.id
+                                ? COLOR_STYLES[role.color].button + ' border-current'
                                 : 'border-border text-muted-foreground hover:border-muted-foreground'
                             )}
                           >
-                            {opt.icon}
-                            {providerLabels[opt.value] || opt.label}
+                            {role.label}
                           </button>
                         ))}
                         <Input
