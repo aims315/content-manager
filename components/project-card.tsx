@@ -6,6 +6,8 @@ import { FileUpload } from '@/components/file-upload'
 import type { Project, ProjectStep, StepStatus, StepKey, ProviderType } from '@/lib/types'
 import type { ProviderLabels, ProviderRole } from '@/hooks/use-provider-labels'
 import { COLOR_STYLES } from '@/hooks/use-provider-labels'
+import type { StepStatusDef } from '@/hooks/use-step-statuses'
+import { STATUS_COLOR_STYLES } from '@/hooks/use-step-statuses'
 import { ProjectEditDialog } from '@/components/project-edit-dialog'
 import { StepManagerDialog } from '@/components/step-manager-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -86,25 +88,11 @@ function TextWithLinks({ text }: { text: string }) {
   )
 }
 
-const stepStatusColors: Record<StepStatus, string> = {
-  '未着手':  'bg-slate-100 text-slate-500',
-  'ロック中': 'bg-slate-100 text-slate-400',
-  '素材待ち': 'bg-amber-100 text-amber-700 font-semibold',
-  '素材受領': 'bg-yellow-100 text-yellow-700 font-semibold',
-  '進行中':  'bg-blue-100 text-blue-700 font-semibold',
-  '確認待ち': 'bg-violet-100 text-violet-700 font-semibold',
-  '完了':    'bg-emerald-100 text-emerald-700',
-}
-
-// セレクトトリガーの背景色（ステータスによって変える）
-const stepStatusSelectStyle: Record<StepStatus, string> = {
-  '未着手':  'bg-slate-50 border-slate-200 text-slate-500',
-  'ロック中': 'bg-slate-50 border-slate-200 text-slate-400',
-  '素材待ち': 'bg-amber-50 border-amber-300 text-amber-800',
-  '素材受領': 'bg-yellow-50 border-yellow-300 text-yellow-800',
-  '進行中':  'bg-blue-50 border-blue-300 text-blue-800',
-  '確認待ち': 'bg-violet-50 border-violet-300 text-violet-800',
-  '完了':    'bg-slate-50 border-slate-200 text-slate-400',
+// ステータス定義はprops経由で受け取り動的に扱う（後方互換フォールバック付き）
+function getStatusDef(statusDefs: StepStatusDef[], label: string): StepStatusDef {
+  return statusDefs.find((s) => s.label === label) ?? {
+    id: label, label, color: 'slate', dim: false,
+  }
 }
 
 const providerBadge: Record<ProviderType, { label: string; icon: React.ReactNode; className: string }> = {
@@ -118,8 +106,6 @@ const PROVIDER_OPTIONS: { value: ProviderType; label: string; icon: React.ReactN
   { value: 'freelancer', label: '外注', icon: <UserIcon className="size-3" />, color: 'bg-violet-100 text-violet-800 border-violet-300' },
   { value: 'self', label: '自分', icon: <WrenchIcon className="size-3" />, color: 'bg-sky-100 text-sky-800 border-sky-300' },
 ]
-
-const STEP_STATUSES: StepStatus[] = ['未着手', 'ロック中', '素材待ち', '素材受領', '進行中', '確認待ち', '完了']
 
 const projectTypeConfig = {
   instagram: { label: 'Instagram', icon: <InstagramIcon className="size-3.5" />, color: 'text-pink-600' },
@@ -153,13 +139,14 @@ interface StepRowProps {
   projectType: string
   providerLabels: ProviderLabels
   providerRoles: ProviderRole[]
+  statusDefs: StepStatusDef[]
   onStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
   onDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
 }
 
-function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
+function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, statusDefs, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
@@ -228,7 +215,10 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
     setEditingProvider(false)
   }
 
-  const isDimmed = isLocked || step.status === '完了'
+  const currentStatusDef = getStatusDef(statusDefs, step.status)
+  const isDimmed = currentStatusDef.dim ?? false
+  const statusBadgeClass = STATUS_COLOR_STYLES[currentStatusDef.color].badge
+  const statusSelectClass = STATUS_COLOR_STYLES[currentStatusDef.color].select
 
   return (
     <div className={cn(
@@ -277,14 +267,14 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, o
         <Select value={step.status} onValueChange={handleStatusChange} disabled={statusChanging}>
           <SelectTrigger className={cn(
             'h-7 text-xs flex-1 font-medium transition-colors',
-            stepStatusSelectStyle[step.status],
+            statusSelectClass,
             statusChanging && 'opacity-60'
           )}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {STEP_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
+            {statusDefs.map((s) => (
+              <SelectItem key={s.id} value={s.label}>{s.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -470,6 +460,7 @@ interface ProjectCardProps {
   steps: ProjectStep[]
   providerLabels: ProviderLabels
   providerRoles: ProviderRole[]
+  statusDefs: StepStatusDef[]
   onProjectUpdated: () => void
   onStepStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onStepSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
@@ -478,7 +469,7 @@ interface ProjectCardProps {
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -599,6 +590,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, onP
                 projectType={project.project_type}
                 providerLabels={providerLabels}
                 providerRoles={providerRoles}
+                statusDefs={statusDefs}
                 onStatusChange={onStepStatusChange}
                 onSubmit={onStepSubmit}
                 onProviderChange={onStepProviderChange}

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
+import { useStepStatuses } from '@/hooks/use-step-statuses'
 import { ProjectCard } from '@/components/project-card'
 import { ScheduleView } from '@/components/schedule-view'
 import type { StepStatus, ProviderType } from '@/lib/types'
@@ -22,6 +23,7 @@ const TYPE_FILTERS = [
 export function ProjectListClient() {
   const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, updateStepProvider, updateStepDueDate, refetch } = useProjects()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
+  const { statuses: statusDefs } = useStepStatuses()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
@@ -137,6 +139,7 @@ export function ProjectListClient() {
                   onDelete={deleteProject}
                   providerLabels={providerLabels}
                   providerRoles={providerRoles}
+                  statusDefs={statusDefs}
                 />
               </div>
             ))}
