@@ -183,20 +183,43 @@ export function CsvImportDialog() {
     for (const proj of projects) {
       if (proj.error) { fail++; continue }
       try {
-        const { data: projectData, error } = await supabase
+        // 同タイトルの既存プロジェクトを検索（deleted_at が null のもの）
+        const { data: existing } = await supabase
           .from('projects')
-          .insert({
-            title: proj.title,
+          .select('id')
+          .eq('title', proj.title)
+          .is('deleted_at', null)
+          .single()
+
+        let projectId: string
+
+        if (existing) {
+          // 上書き：プロジェクト情報を更新 + 既存ステップを全削除
+          await supabase.from('projects').update({
             project_type: proj.type,
             assignee: proj.code,
             due_date: proj.dueDate || null,
-            discord_channels: [],
-          })
-          .select().single()
-        if (error || !projectData) { fail++; continue }
+          }).eq('id', existing.id)
+          await supabase.from('project_steps').delete().eq('project_id', existing.id)
+          projectId = existing.id
+        } else {
+          // 新規作成
+          const { data: projectData, error } = await supabase
+            .from('projects')
+            .insert({
+              title: proj.title,
+              project_type: proj.type,
+              assignee: proj.code,
+              due_date: proj.dueDate || null,
+              discord_channels: [],
+            })
+            .select().single()
+          if (error || !projectData) { fail++; continue }
+          projectId = projectData.id
+        }
 
         const stepsToInsert = proj.steps.map((s, i) => ({
-          project_id: projectData.id,
+          project_id: projectId,
           step_key: 'text',
           step_order: i,
           label: s.label,
