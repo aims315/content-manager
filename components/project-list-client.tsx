@@ -326,9 +326,9 @@ export function ProjectListClient() {
                   <span className="text-xs text-muted-foreground">({list.length}件)</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
                   {list.map((project) => (
-                    <div key={project.id} id={`project-${project.id}`}>
+                    <div key={project.id} id={`project-${project.id}`} className="h-full">
                       <ProjectCard
                         project={project}
                         steps={steps[project.id] || []}
@@ -352,10 +352,10 @@ export function ProjectListClient() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {filtered.map((project) => (
               <div key={project.id} id={`project-${project.id}`}
-                className={cn('rounded-lg transition-all', highlightId === project.id && 'ring-2 ring-primary ring-offset-2')}>
+                className={cn('rounded-lg transition-all h-full', highlightId === project.id && 'ring-2 ring-primary ring-offset-2')}>
                 <ProjectCard
                   project={project}
                   steps={steps[project.id] || []}

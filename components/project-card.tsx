@@ -588,7 +588,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
   }
 
   return (
-    <Card className="relative">
+    <Card className="relative h-full flex flex-col">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -640,7 +640,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 flex-1">
         {project.description && (
           <p className="text-xs text-muted-foreground leading-relaxed">
             <TextWithLinks text={project.description} />
