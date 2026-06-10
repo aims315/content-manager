@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import type { ProviderRole } from '@/hooks/use-provider-labels'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -26,7 +27,7 @@ interface ParsedProject {
   type: string
   code: string
   dueDate: string
-  steps: { label: string; provider: string; stepDueDate: string; note: string }[]
+  steps: { label: string; provider: string; providerName: string | null; stepDueDate: string; note: string }[]
   error?: string
 }
 
@@ -95,7 +96,18 @@ function parseCSV(text: string): CsvRow[] {
   }))
 }
 
-function groupRows(rows: CsvRow[]): ParsedProject[] {
+function resolveProvider(value: string, roles: ProviderRole[]): { providerType: string; providerName: string | null } {
+  if (!value) return { providerType: 'self', providerName: null }
+  // 固定マッピング優先
+  if (PROVIDER_MAP[value]) return { providerType: PROVIDER_MAP[value], providerName: null }
+  // カスタム役割名でマッチング（部分一致も許容）
+  const matched = roles.find((r) => r.label === value || value.includes(r.label) || r.label.includes(value))
+  if (matched) return { providerType: matched.id, providerName: matched.label }
+  // マッチしなければ値をそのまま名前として保存
+  return { providerType: 'self', providerName: value }
+}
+
+function groupRows(rows: CsvRow[], roles: ProviderRole[]): ParsedProject[] {
   const map = new Map<string, ParsedProject>()
   for (const row of rows) {
     if (!row.title) continue
@@ -111,9 +123,11 @@ function groupRows(rows: CsvRow[]): ParsedProject[] {
     }
     const proj = map.get(row.title)!
     if (row.stepLabel) {
+      const { providerType, providerName } = resolveProvider(row.provider, roles)
       proj.steps.push({
         label: row.stepLabel,
-        provider: PROVIDER_MAP[row.provider] ?? 'self',
+        provider: providerType,
+        providerName,
         stepDueDate: row.stepDueDate,
         note: row.note,
       })
@@ -134,13 +148,23 @@ export function CsvImportDialog() {
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<{ ok: number; fail: number } | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [roles, setRoles] = useState<ProviderRole[]>([])
+
+  useEffect(() => {
+    supabase.from('app_settings').select('value').eq('key', 'provider_roles').single()
+      .then(({ data }) => {
+        if (data?.value) {
+          try { setRoles(JSON.parse(data.value)) } catch { /* ignore */ }
+        }
+      })
+  }, [])
 
   const handleFile = (file: File) => {
     const reader = new FileReader()
     reader.onload = (e) => {
       const text = e.target?.result as string
       const rows = parseCSV(text)
-      setProjects(groupRows(rows))
+      setProjects(groupRows(rows, roles))
       setResult(null)
     }
     reader.readAsText(file, 'utf-8')
@@ -178,7 +202,7 @@ export function CsvImportDialog() {
           label: s.label,
           status: s.provider === 'client' || s.provider === 'freelancer' ? '素材待ち' : '未着手',
           provider_type: s.provider,
-          provider_name: null,
+          provider_name: s.providerName,
           file_urls: [],
           file_names: [],
           is_client_step: s.provider !== 'self',
