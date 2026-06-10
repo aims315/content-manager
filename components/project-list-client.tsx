@@ -21,7 +21,7 @@ const TYPE_FILTERS = [
 ]
 
 export function ProjectListClient() {
-  const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, updateStepProvider, updateStepDueDate, updateStepDependencies, refetch } = useProjects()
+  const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, refetch } = useProjects()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
   const [typeFilter, setTypeFilter] = useState('')
@@ -144,6 +144,7 @@ export function ProjectListClient() {
                   onStepProviderChange={handleStepProviderChange}
                   onStepDueDateChange={handleStepDueDateChange}
                   onStepDependenciesChange={handleStepDependenciesChange}
+                  onDuplicate={duplicateProject}
                   onDelete={deleteProject}
                   providerLabels={providerLabels}
                   providerRoles={providerRoles}

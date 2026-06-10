@@ -219,6 +219,85 @@ export function useProjects() {
     return true
   }
 
+  const duplicateProject = async (projectId: string) => {
+    // 元プロジェクトを取得
+    const { data: origProject } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .single()
+    if (!origProject) return false
+
+    // 元ステップを取得
+    const { data: origSteps } = await supabase
+      .from('project_steps')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('step_order', { ascending: true })
+
+    // 新プロジェクトを作成
+    const { data: newProject, error: projErr } = await supabase
+      .from('projects')
+      .insert({
+        title: `${origProject.title}（コピー）`,
+        project_type: origProject.project_type,
+        assignee: origProject.assignee,
+        client_slug: origProject.client_slug,
+        due_date: origProject.due_date,
+        description: origProject.description,
+        project_code: origProject.project_code,
+        discord_channels: origProject.discord_channels ?? [],
+      })
+      .select()
+      .single()
+    if (projErr || !newProject) return false
+
+    // ステップをコピー（旧ID→新IDのマップを作りながら）
+    const idMap: Record<string, string> = {}
+    if (origSteps && origSteps.length > 0) {
+      for (const s of origSteps) {
+        const { data: newStep } = await supabase
+          .from('project_steps')
+          .insert({
+            project_id: newProject.id,
+            step_key: s.step_key,
+            step_order: s.step_order,
+            label: s.label,
+            status: '未着手',           // ステータスはリセット
+            provider_type: s.provider_type,
+            provider_name: s.provider_name,
+            file_urls: [],
+            file_names: [],
+            is_client_step: s.is_client_step,
+            step_due_date: s.step_due_date,
+            depends_on: [],             // 依存は後で再マップ
+          })
+          .select()
+          .single()
+        if (newStep) idMap[s.id] = newStep.id
+      }
+
+      // depends_on を新IDに置き換え
+      for (const s of origSteps) {
+        const newId = idMap[s.id]
+        if (!newId || !s.depends_on?.length) continue
+        const newDeps = (s.depends_on as string[])
+          .map((oldId: string) => idMap[oldId])
+          .filter(Boolean)
+        if (newDeps.length > 0) {
+          await supabase
+            .from('project_steps')
+            .update({ depends_on: newDeps })
+            .eq('id', newId)
+        }
+      }
+    }
+
+    await fetchProjects()
+    await fetchAllSteps()
+    return newProject.id
+  }
+
   const deleteProject = async (projectId: string) => {
     const { error } = await supabase
       .from('projects')
@@ -272,6 +351,6 @@ export function useProjects() {
     updateStepStatus, submitStep, updateStep,
     deleteProject, restoreProject, permanentDeleteProject,
     fetchStepsForProject, refetch: fetchProjects,
-    updateStepProvider, updateStepDueDate, updateStepDependencies,
+    updateStepProvider, updateStepDueDate, updateStepDependencies, duplicateProject,
   }
 }

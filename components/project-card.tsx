@@ -61,6 +61,7 @@ import {
   CheckIcon,
   Link2Icon,
   AlertTriangleIcon,
+  Copy as CopyProjectIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -554,12 +555,14 @@ interface ProjectCardProps {
   onStepProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
   onStepDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
   onStepDependenciesChange: (stepId: string, dependsOn: string[]) => Promise<void>
+  onDuplicate: (projectId: string) => Promise<string | false>
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
 
   const typeConfig = projectTypeConfig[project.project_type]
   const totalSteps = steps.length
@@ -590,9 +593,25 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
               <ProjectEditDialog project={project} onUpdated={onProjectUpdated} />
             </div>
           </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button
+              variant="ghost" size="icon" className="size-7"
+              disabled={isDuplicating}
+              title="このプロジェクトをコピー"
+              onClick={async () => {
+                setIsDuplicating(true)
+                await onDuplicate(project.id)
+                setIsDuplicating(false)
+              }}
+            >
+              {isDuplicating
+                ? <span className="size-3.5 animate-spin border-2 border-muted-foreground border-t-transparent rounded-full block" />
+                : <CopyProjectIcon className="size-3.5 text-muted-foreground" />
+              }
+            </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-7 shrink-0" disabled={isDeleting}>
+              <Button variant="ghost" size="icon" className="size-7" disabled={isDeleting}>
                 <Trash2Icon className="size-3.5 text-destructive" />
               </Button>
             </AlertDialogTrigger>
@@ -609,6 +628,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          </div>
         </div>
       </CardHeader>
 
