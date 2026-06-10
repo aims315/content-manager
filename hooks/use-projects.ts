@@ -148,6 +148,23 @@ export function useProjects() {
     return true
   }
 
+  const updateStepDependencies = async (stepId: string, projectId: string, dependsOn: string[]) => {
+    // 楽観的更新
+    setSteps((prev) => ({
+      ...prev,
+      [projectId]: (prev[projectId] ?? []).map((s) =>
+        s.id === stepId ? { ...s, depends_on: dependsOn } : s
+      ),
+    }))
+    const { error } = await supabase
+      .from('project_steps')
+      .update({ depends_on: dependsOn })
+      .eq('id', stepId)
+    if (error) { console.error('Error updating dependencies:', error); return false }
+    await fetchStepsForProject(projectId)
+    return true
+  }
+
   const updateStepDueDate = async (stepId: string, projectId: string, dueDate: string | null) => {
     const { error } = await supabase
       .from('project_steps')
@@ -211,6 +228,6 @@ export function useProjects() {
     updateStepStatus, submitStep, updateStep,
     deleteProject, restoreProject, permanentDeleteProject,
     fetchStepsForProject, refetch: fetchProjects,
-    updateStepProvider, updateStepDueDate,
+    updateStepProvider, updateStepDueDate, updateStepDependencies,
   }
 }

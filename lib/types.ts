@@ -34,6 +34,7 @@ export interface ProjectStep {
   submitted_at: string | null
   is_client_step: boolean
   step_due_date: string | null
+  depends_on: string[]
   created_at: string
 }
 

@@ -59,6 +59,8 @@ import {
   WrenchIcon,
   CopyIcon,
   CheckIcon,
+  Link2Icon,
+  AlertTriangleIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -144,9 +146,10 @@ interface StepRowProps {
   onSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
   onDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
+  onDependenciesChange: (stepId: string, dependsOn: string[]) => Promise<void>
 }
 
-function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, statusDefs, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
+function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, statusDefs, onStatusChange, onSubmit, onProviderChange, onDueDateChange, onDependenciesChange }: StepRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
@@ -220,6 +223,21 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, s
   const statusBadgeClass = STATUS_COLOR_STYLES[currentStatusDef.color].badge
   const statusSelectClass = STATUS_COLOR_STYLES[currentStatusDef.color].select
 
+  // 依存ステップの計算
+  const dependsOnIds: string[] = step.depends_on ?? []
+  const depSteps = allSteps.filter((s) => dependsOnIds.includes(s.id))
+  const doneStatusLabels = statusDefs.filter((s) => s.dim).map((s) => s.label)
+  const blockedBy = depSteps.filter((s) => !doneStatusLabels.includes(s.status))
+  const isBlocked = blockedBy.length > 0
+
+  const toggleDependency = async (targetId: string) => {
+    const current = dependsOnIds
+    const next = current.includes(targetId)
+      ? current.filter((id) => id !== targetId)
+      : [...current, targetId]
+    await onDependenciesChange(step.id, next)
+  }
+
   return (
     <div className={cn(
       'rounded-md border transition-all',
@@ -241,6 +259,68 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, s
             </span>
           )}
         </span>
+
+        {/* 前提ステップ設定ポップオーバー */}
+        {allSteps.filter((s) => s.id !== step.id).length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                title="前提ステップを設定"
+                className={cn(
+                  'flex items-center gap-0.5 shrink-0 rounded px-1 py-0.5 transition-colors',
+                  dependsOnIds.length > 0
+                    ? isBlocked
+                      ? 'text-rose-500 hover:text-rose-600'
+                      : 'text-emerald-500 hover:text-emerald-600'
+                    : 'text-muted-foreground/40 hover:text-muted-foreground'
+                )}
+              >
+                {isBlocked
+                  ? <AlertTriangleIcon className="size-3" />
+                  : <Link2Icon className="size-3" />
+                }
+                {dependsOnIds.length > 0 && (
+                  <span className="text-[10px]">{dependsOnIds.length}</span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" align="start">
+              <p className="text-xs font-semibold mb-2 text-muted-foreground">前提ステップ</p>
+              <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
+                チェックしたステップが完了しないと、このステップがブロックされます。
+              </p>
+              <div className="space-y-1">
+                {allSteps
+                  .filter((s) => s.id !== step.id)
+                  .map((s) => {
+                    const checked = dependsOnIds.includes(s.id)
+                    const sDef = getStatusDef(statusDefs, s.status)
+                    const sDone = sDef.dim ?? false
+                    return (
+                      <label
+                        key={s.id}
+                        className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-muted cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDependency(s.id)}
+                          className="rounded"
+                        />
+                        <span className={cn('text-xs flex-1 truncate', sDone && 'line-through text-muted-foreground')}>
+                          {s.label}
+                        </span>
+                        <span className={cn('text-[10px] px-1 py-0 rounded', STATUS_COLOR_STYLES[sDef.color].badge)}>
+                          {s.status}
+                        </span>
+                      </label>
+                    )
+                  })}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* 担当者バッジ（クリックで編集） */}
         <button
@@ -267,7 +347,7 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, s
         <Select value={step.status} onValueChange={handleStatusChange} disabled={statusChanging}>
           <SelectTrigger className={cn(
             'h-7 text-xs flex-1 font-medium transition-colors',
-            statusSelectClass,
+            isBlocked ? 'bg-rose-50 border-rose-300 text-rose-700' : statusSelectClass,
             statusChanging && 'opacity-60'
           )}>
             <SelectValue />
@@ -466,10 +546,11 @@ interface ProjectCardProps {
   onStepSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
   onStepProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
   onStepDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
+  onStepDependenciesChange: (stepId: string, dependsOn: string[]) => Promise<void>
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -595,6 +676,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
                 onSubmit={onStepSubmit}
                 onProviderChange={onStepProviderChange}
                 onDueDateChange={onStepDueDateChange}
+                onDependenciesChange={onStepDependenciesChange}
               />
             ))}
           </div>
