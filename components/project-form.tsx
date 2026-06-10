@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STEPS_CONFIG } from '@/lib/steps-config'
+import { useProviderLabels } from '@/hooks/use-provider-labels'
+import { sendChatworkNotification } from '@/hooks/use-notify'
 import type { ProjectType, ProviderType } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +40,7 @@ interface StepProviderConfig {
 export function ProjectForm() {
   const router = useRouter()
   const supabase = createClient()
+  const { labels: providerLabels } = useProviderLabels()
 
   const [projectType, setProjectType] = useState<ProjectType | ''>('')
   const [title, setTitle] = useState('')
@@ -147,6 +150,10 @@ export function ProjectForm() {
       return
     }
 
+    // Chatwork通知
+    const typeLabel = { instagram: 'Instagram投稿', twitter: 'X（Twitter）投稿', event: 'イベント制作' }[projectType as ProjectType]
+    sendChatworkNotification(`[コンテンツ制作管理]\n🆕 新規プロジェクト作成\nタイトル: ${title.trim()}\n種別: ${typeLabel}\nコード: ${assignee.trim()}${dueDate ? `\n納期: ${format(dueDate, 'M/d')}` : ''}`)
+
     router.push('/')
   }
 
@@ -229,7 +236,7 @@ export function ProjectForm() {
                             )}
                           >
                             {opt.icon}
-                            {opt.label}
+                            {providerLabels[opt.value] || opt.label}
                           </button>
                         ))}
                         <Input

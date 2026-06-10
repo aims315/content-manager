@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, ProjectStep, StepStatus, ProviderType } from '@/lib/types'
+import { sendChatworkNotification } from './use-notify'
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -55,12 +56,18 @@ export function useProjects() {
     setSteps((prev) => ({ ...prev, [projectId]: data || [] }))
   }, [supabase])
 
-  const updateStepStatus = async (stepId: string, status: StepStatus) => {
+  const updateStepStatus = async (stepId: string, status: StepStatus, context?: { projectTitle?: string; stepLabel?: string }) => {
     const { error } = await supabase
       .from('project_steps')
       .update({ status })
       .eq('id', stepId)
     if (error) { console.error('Error updating step:', error); return false }
+
+    // Chatwork通知
+    if (context?.projectTitle && context?.stepLabel) {
+      const msg = `[コンテンツ制作管理]\n📋 ステータス更新\nプロジェクト: ${context.projectTitle}\nステップ: ${context.stepLabel}\n新ステータス: ${status}`
+      sendChatworkNotification(msg)
+    }
     return true
   }
 

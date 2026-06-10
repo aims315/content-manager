@@ -25,7 +25,13 @@ export function ProjectListClient() {
   const [query, setQuery] = useState('')
 
   const handleStepStatusChange = async (stepId: string, status: StepStatus) => {
-    await updateStepStatus(stepId, status)
+    const projectId = findProjectId(stepId)
+    const project = projects.find((p) => p.id === projectId)
+    const step = projectId ? steps[projectId]?.find((s) => s.id === stepId) : undefined
+    await updateStepStatus(stepId, status, {
+      projectTitle: project?.title,
+      stepLabel: step?.label,
+    })
   }
 
   const findProjectId = (stepId: string) =>
