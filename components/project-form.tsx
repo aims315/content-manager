@@ -12,13 +12,6 @@ import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { CalendarIcon, InstagramIcon, TwitterIcon, CalendarDaysIcon, LockIcon, UserIcon, BuildingIcon, WrenchIcon } from 'lucide-react'
@@ -39,10 +32,7 @@ const PROVIDER_OPTIONS: { value: ProviderType; label: string; icon: React.ReactN
 interface StepProviderConfig {
   providerType: ProviderType
   providerName: string
-}
-
-function normalizeSlug(value: string) {
-  return value.toLowerCase().replace(/\s+/g, '-')
+  stepDueDate?: Date | undefined
 }
 
 export function ProjectForm() {
@@ -52,26 +42,42 @@ export function ProjectForm() {
   const [projectType, setProjectType] = useState<ProjectType | ''>('')
   const [title, setTitle] = useState('')
   const [assignee, setAssignee] = useState('')
-  const [amount, setAmount] = useState('')
+  const [existingAssignees, setExistingAssignees] = useState<string[]>([])
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // ステップごとの担当者設定
   const [stepProviders, setStepProviders] = useState<Record<string, StepProviderConfig>>({})
+
+  // 既存のプロジェクトコード一覧を取得
+  useEffect(() => {
+    async function fetchAssignees() {
+      const { data } = await supabase
+        .from('projects')
+        .select('assignee')
+        .is('deleted_at', null)
+        .order('assignee')
+      if (data) {
+        const unique = [...new Set(data.map((d) => d.assignee).filter(Boolean))]
+        setExistingAssignees(unique)
+      }
+    }
+    fetchAssignees()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!projectType) return
     const defs = STEPS_CONFIG[projectType as ProjectType]
     const initial: Record<string, StepProviderConfig> = {}
     defs.forEach((def) => {
-      initial[def.key] = { providerType: def.defaultProvider, providerName: '' }
+      initial[def.key] = { providerType: def.defaultProvider, providerName: '', stepDueDate: undefined }
     })
     setStepProviders(initial)
   }, [projectType])
 
-  const updateStepProvider = (key: string, field: keyof StepProviderConfig, value: string) => {
+  const updateStepProvider = (key: string, field: keyof StepProviderConfig, value: unknown) => {
     setStepProviders((prev) => ({
       ...prev,
       [key]: { ...prev[key], [field]: value },
@@ -83,13 +89,7 @@ export function ProjectForm() {
     setError(null)
 
     if (!title.trim() || !projectType || !assignee.trim()) {
-      setError('タイトル・種別・クライアント名は必須です')
-      return
-    }
-
-    const amountValue = amount.trim() ? Number(amount.replace(/,/g, '')) : null
-    if (amount.trim() && !Number.isFinite(amountValue)) {
-      setError('金額は数値で入力してください')
+      setError('タイトル・種別・プロジェクトコードは必須です')
       return
     }
 
@@ -103,7 +103,7 @@ export function ProjectForm() {
         assignee: assignee.trim(),
         client_slug: null,
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
-        amount: amountValue,
+        amount: null,
         description: description.trim() || null,
         discord_channels: [],
       })
@@ -123,6 +123,7 @@ export function ProjectForm() {
       const providerName = cfg?.providerName?.trim() || null
       const isExternal = providerType === 'client' || providerType === 'freelancer'
       const hasRequires = def.requires.length > 0
+      const stepDueDate = cfg?.stepDueDate ? format(cfg.stepDueDate, 'yyyy-MM-dd') : null
 
       return {
         project_id: projectData.id,
@@ -135,6 +136,7 @@ export function ProjectForm() {
         is_client_step: isExternal,
         file_urls: [],
         file_names: [],
+        step_due_date: stepDueDate,
       }
     })
 
@@ -186,7 +188,7 @@ export function ProjectForm() {
           {projectType && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>各ステップの担当者</Label>
+                <Label>各ステップの担当者{projectType === 'event' ? '・締め切り' : ''}</Label>
                 <div className="flex gap-2 text-[10px] text-muted-foreground">
                   {PROVIDER_OPTIONS.map((p) => (
                     <span key={p.value} className={cn('px-1.5 py-0.5 rounded border flex items-center gap-1', p.color)}>
@@ -239,6 +241,47 @@ export function ProjectForm() {
                           />
                         )}
                       </div>
+                      {/* イベント制作はステップごとの締め切り */}
+                      {projectType === 'event' && (
+                        <div className="pl-5">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className={cn('h-7 text-xs gap-1.5', !cfg?.stepDueDate && 'text-muted-foreground')}
+                              >
+                                <CalendarIcon className="size-3" />
+                                {cfg?.stepDueDate
+                                  ? format(cfg.stepDueDate, 'M/d', { locale: ja })
+                                  : '締め切り（任意）'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={cfg?.stepDueDate}
+                                onSelect={(date) => updateStepProvider(def.key, 'stepDueDate', date)}
+                                locale={ja}
+                              />
+                              {cfg?.stepDueDate && (
+                                <div className="p-2 border-t">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full h-7 text-xs text-muted-foreground"
+                                    onClick={() => updateStepProvider(def.key, 'stepDueDate', undefined)}
+                                  >
+                                    クリア
+                                  </Button>
+                                </div>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -257,27 +300,42 @@ export function ProjectForm() {
             />
           </div>
 
-          {/* クライアント名 */}
+          {/* プロジェクトコード */}
           <div className="space-y-2">
-            <Label htmlFor="assignee">クライアント名 *</Label>
+            <Label htmlFor="assignee">プロジェクトコード *</Label>
             <Input
               id="assignee"
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
-              placeholder="例: 株式会社〇〇"
+              placeholder="例: client-a / 株式会社〇〇"
+              list="assignee-list"
             />
-          </div>
-
-          {/* 金額 */}
-          <div className="space-y-2">
-            <Label htmlFor="amount">金額</Label>
-            <Input
-              id="amount"
-              inputMode="numeric"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="例: 50000"
-            />
+            {existingAssignees.length > 0 && (
+              <datalist id="assignee-list">
+                {existingAssignees.map((a) => (
+                  <option key={a} value={a} />
+                ))}
+              </datalist>
+            )}
+            {existingAssignees.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {existingAssignees.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setAssignee(a)}
+                    className={cn(
+                      'text-[11px] px-2 py-0.5 rounded-full border transition-all',
+                      assignee === a
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-muted-foreground'
+                    )}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 備考 */}
@@ -294,7 +352,7 @@ export function ProjectForm() {
 
           {/* 納期 */}
           <div className="space-y-2">
-            <Label>納期</Label>
+            <Label>全体の納期</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button

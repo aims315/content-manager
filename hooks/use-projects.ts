@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Project, ProjectStep, StepStatus } from '@/lib/types'
+import type { Project, ProjectStep, StepStatus, ProviderType } from '@/lib/types'
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -106,6 +106,35 @@ export function useProjects() {
     return true
   }
 
+  const updateStepProvider = async (
+    stepId: string,
+    projectId: string,
+    providerType: ProviderType,
+    providerName: string | null
+  ) => {
+    const { error } = await supabase
+      .from('project_steps')
+      .update({
+        provider_type: providerType,
+        provider_name: providerName,
+        is_client_step: providerType !== 'self',
+      })
+      .eq('id', stepId)
+    if (error) { console.error('Error updating provider:', error); return false }
+    await fetchStepsForProject(projectId)
+    return true
+  }
+
+  const updateStepDueDate = async (stepId: string, projectId: string, dueDate: string | null) => {
+    const { error } = await supabase
+      .from('project_steps')
+      .update({ step_due_date: dueDate })
+      .eq('id', stepId)
+    if (error) { console.error('Error updating step due date:', error); return false }
+    await fetchStepsForProject(projectId)
+    return true
+  }
+
   const deleteProject = async (projectId: string) => {
     const { error } = await supabase
       .from('projects')
@@ -159,5 +188,6 @@ export function useProjects() {
     updateStepStatus, submitStep, updateStep,
     deleteProject, restoreProject, permanentDeleteProject,
     fetchStepsForProject, refetch: fetchProjects,
+    updateStepProvider, updateStepDueDate,
   }
 }

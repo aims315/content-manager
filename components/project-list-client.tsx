@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { ProjectCard } from '@/components/project-card'
-import type { StepStatus } from '@/lib/types'
+import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -18,7 +18,7 @@ const TYPE_FILTERS = [
 ]
 
 export function ProjectListClient() {
-  const { projects, steps, loading, updateStepStatus, submitStep, deleteProject } = useProjects()
+  const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, updateStepProvider, updateStepDueDate } = useProjects()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
 
@@ -26,11 +26,11 @@ export function ProjectListClient() {
     await updateStepStatus(stepId, status)
   }
 
+  const findProjectId = (stepId: string) =>
+    Object.keys(steps).find((pid) => steps[pid].some((s) => s.id === stepId))
+
   const handleStepSubmit = async (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => {
-    // find project for this step
-    const projectId = Object.keys(steps).find((pid) =>
-      steps[pid].some((s) => s.id === stepId)
-    )
+    const projectId = findProjectId(stepId)
     if (!projectId) return
     await submitStep(stepId, projectId, {
       url: data.url,
@@ -38,6 +38,18 @@ export function ProjectListClient() {
       fileUrls: data.fileUrls,
       fileNames: data.fileNames,
     })
+  }
+
+  const handleStepProviderChange = async (stepId: string, providerType: ProviderType, providerName: string | null) => {
+    const projectId = findProjectId(stepId)
+    if (!projectId) return
+    await updateStepProvider(stepId, projectId, providerType, providerName)
+  }
+
+  const handleStepDueDateChange = async (stepId: string, dueDate: string | null) => {
+    const projectId = findProjectId(stepId)
+    if (!projectId) return
+    await updateStepDueDate(stepId, projectId, dueDate)
   }
 
   const filtered = projects
@@ -97,6 +109,8 @@ export function ProjectListClient() {
               steps={steps[project.id] || []}
               onStepStatusChange={handleStepStatusChange}
               onStepSubmit={handleStepSubmit}
+              onStepProviderChange={handleStepProviderChange}
+              onStepDueDateChange={handleStepDueDateChange}
               onDelete={deleteProject}
             />
           ))}

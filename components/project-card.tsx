@@ -28,6 +28,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import {
@@ -64,10 +66,6 @@ function getFilename(url: string, names?: string[], index?: number) {
   return raw || 'ファイル'
 }
 
-function formatAmount(amount: number) {
-  return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(amount)
-}
-
 function TextWithLinks({ text }: { text: string }) {
   const urlRegex = /(https?:\/\/[^\s]+)/g
   const parts = text.split(urlRegex)
@@ -100,6 +98,12 @@ const providerBadge: Record<ProviderType, { label: string; icon: React.ReactNode
   self: { label: '自分', icon: <WrenchIcon className="size-2.5" />, className: 'bg-sky-100 text-sky-800' },
 }
 
+const PROVIDER_OPTIONS: { value: ProviderType; label: string; icon: React.ReactNode; color: string }[] = [
+  { value: 'client', label: 'クライアント', icon: <BuildingIcon className="size-3" />, color: 'bg-amber-100 text-amber-800 border-amber-300' },
+  { value: 'freelancer', label: '外注', icon: <UserIcon className="size-3" />, color: 'bg-violet-100 text-violet-800 border-violet-300' },
+  { value: 'self', label: '自分', icon: <WrenchIcon className="size-3" />, color: 'bg-sky-100 text-sky-800 border-sky-300' },
+]
+
 const STEP_STATUSES: StepStatus[] = ['未着手', 'ロック中', '素材待ち', '素材受領', '進行中', '確認待ち', '完了']
 
 const projectTypeConfig = {
@@ -131,19 +135,24 @@ function CopyUrlButton({ url }: { url: string }) {
 interface StepRowProps {
   step: ProjectStep
   allSteps: ProjectStep[]
+  projectType: string
   onStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
+  onProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
+  onDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
 }
 
-function StepRow({ step, allSteps, onStatusChange, onSubmit }: StepRowProps) {
+function StepRow({ step, allSteps, projectType, onStatusChange, onSubmit, onProviderChange, onDueDateChange }: StepRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [editingProvider, setEditingProvider] = useState(false)
+  const [newProviderType, setNewProviderType] = useState<ProviderType>(step.provider_type)
+  const [newProviderName, setNewProviderName] = useState(step.provider_name ?? '')
   const files = useFileUpload()
 
-  const completedKeys = allSteps.filter((s) => s.status === '完了').map((s) => s.step_key as StepKey)
   const isLocked = step.status === 'ロック中'
   const hasContent = step.url || step.note || (step.file_urls?.length > 0)
 
@@ -152,7 +161,6 @@ function StepRow({ step, allSteps, onStatusChange, onSubmit }: StepRowProps) {
     ? step.provider_name
     : prov.label
 
-  // 提出URL（外部提出者向け）
   const submitUrl = step.provider_type !== 'self'
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/submit/step/${step.id}`
     : null
@@ -192,6 +200,11 @@ function StepRow({ step, allSteps, onStatusChange, onSubmit }: StepRowProps) {
     setEditing(true); setExpanded(true)
   }
 
+  const handleProviderSave = async () => {
+    await onProviderChange(step.id, newProviderType, newProviderName.trim() || null)
+    setEditingProvider(false)
+  }
+
   return (
     <div className={cn(
       'rounded-md border transition-all',
@@ -207,13 +220,23 @@ function StepRow({ step, allSteps, onStatusChange, onSubmit }: StepRowProps) {
         }
         <span className={cn('text-xs font-medium flex-1 min-w-0 truncate', isLocked && 'text-muted-foreground')}>
           {step.label}
+          {step.step_due_date && (
+            <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
+              〆{format(new Date(step.step_due_date), 'M/d', { locale: ja })}
+            </span>
+          )}
         </span>
 
-        {/* 担当者バッジ */}
-        <span className={cn('flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded shrink-0', prov.className)}>
+        {/* 担当者バッジ（クリックで編集） */}
+        <button
+          type="button"
+          onClick={() => { setEditingProvider(true); setExpanded(true); setNewProviderType(step.provider_type); setNewProviderName(step.provider_name ?? '') }}
+          className={cn('flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded shrink-0 hover:opacity-75 transition-opacity', prov.className)}
+          title="担当者を変更"
+        >
           {prov.icon}
           {provLabel}
-        </span>
+        </button>
 
         {/* 提出URLコピー */}
         {!isLocked && submitUrl && (
@@ -237,6 +260,43 @@ function StepRow({ step, allSteps, onStatusChange, onSubmit }: StepRowProps) {
 
       {expanded && !isLocked && (
         <div className="px-3 pb-3 space-y-3 border-t pt-2">
+
+          {/* 担当者編集 */}
+          {editingProvider && (
+            <div className="rounded-md border border-dashed p-2 space-y-2 bg-muted/30">
+              <p className="text-xs font-medium text-muted-foreground">担当者を変更</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {PROVIDER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setNewProviderType(opt.value)}
+                    className={cn(
+                      'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                      newProviderType === opt.value
+                        ? opt.color + ' border-current'
+                        : 'border-border text-muted-foreground hover:border-muted-foreground'
+                    )}
+                  >
+                    {opt.icon}{opt.label}
+                  </button>
+                ))}
+                {newProviderType === 'freelancer' && (
+                  <Input
+                    value={newProviderName}
+                    onChange={(e) => setNewProviderName(e.target.value)}
+                    placeholder="外注先の名前"
+                    className="h-7 text-xs w-32"
+                  />
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs" onClick={handleProviderSave}>保存</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingProvider(false)}>キャンセル</Button>
+              </div>
+            </div>
+          )}
+
           {/* ステータス変更 */}
           <div className="flex items-center gap-2">
             <Label className="text-xs shrink-0 text-muted-foreground">ステータス</Label>
@@ -252,7 +312,50 @@ function StepRow({ step, allSteps, onStatusChange, onSubmit }: StepRowProps) {
             </Select>
           </div>
 
-          {/* 提出URLのリンク表示（外部提出者向け） */}
+          {/* 締め切り編集（イベントのみ） */}
+          {projectType === 'event' && (
+            <div className="flex items-center gap-2">
+              <Label className="text-xs shrink-0 text-muted-foreground">締め切り</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn('h-7 text-xs gap-1.5', !step.step_due_date && 'text-muted-foreground')}
+                  >
+                    <CalendarIcon className="size-3" />
+                    {step.step_due_date
+                      ? format(new Date(step.step_due_date), 'M/d(E)', { locale: ja })
+                      : '設定なし'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={step.step_due_date ? new Date(step.step_due_date) : undefined}
+                    onSelect={(date) => onDueDateChange(step.id, date ? format(date, 'yyyy-MM-dd') : null)}
+                    locale={ja}
+                  />
+                  {step.step_due_date && (
+                    <div className="p-2 border-t">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full h-7 text-xs text-muted-foreground"
+                        onClick={() => onDueDateChange(step.id, null)}
+                      >
+                        クリア
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* 提出URLのリンク表示 */}
           {submitUrl && (
             <div className="flex items-center gap-2 rounded bg-muted/50 px-2 py-1.5 text-xs">
               <LinkIcon className="size-3 shrink-0 text-muted-foreground" />
@@ -348,10 +451,12 @@ interface ProjectCardProps {
   steps: ProjectStep[]
   onStepStatusChange: (stepId: string, status: StepStatus) => Promise<void>
   onStepSubmit: (stepId: string, data: { url?: string; note?: string; fileUrls?: string[]; fileNames?: string[] }) => Promise<void>
+  onStepProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
+  onStepDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
   onDelete: (projectId: string) => Promise<boolean>
 }
 
-export function ProjectCard({ project, steps, onStepStatusChange, onStepSubmit, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onDelete }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -360,7 +465,6 @@ export function ProjectCard({ project, steps, onStepStatusChange, onStepSubmit, 
   const completedSteps = steps.filter((s) => s.status === '完了').length
   const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
 
-  // 素材待ちの外部ステップをカウント
   const pendingExternal = steps.filter(
     (s) => s.provider_type !== 'self' && (s.status === '素材待ち' || s.status === '未着手')
   ).length
@@ -416,9 +520,6 @@ export function ProjectCard({ project, steps, onStepStatusChange, onStepSubmit, 
             <UserIcon className="size-3" />
             <span className="bg-muted px-1.5 py-0.5 rounded font-medium">{project.assignee}</span>
           </div>
-          {project.amount != null && (
-            <span className="text-emerald-700 font-medium">{formatAmount(project.amount)}</span>
-          )}
           {project.due_date && (
             <div className="flex items-center gap-1">
               <CalendarIcon className="size-3" />
@@ -462,8 +563,11 @@ export function ProjectCard({ project, steps, onStepStatusChange, onStepSubmit, 
                 key={step.id}
                 step={step}
                 allSteps={steps}
+                projectType={project.project_type}
                 onStatusChange={onStepStatusChange}
                 onSubmit={onStepSubmit}
+                onProviderChange={onStepProviderChange}
+                onDueDateChange={onStepDueDateChange}
               />
             ))}
           </div>

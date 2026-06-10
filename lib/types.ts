@@ -33,6 +33,7 @@ export interface ProjectStep {
   submitted_by: string | null
   submitted_at: string | null
   is_client_step: boolean
+  step_due_date: string | null
   created_at: string
 }
 
@@ -44,6 +45,7 @@ export interface Project {
   client_slug: string | null
   due_date: string | null
   amount: number | null
+  project_code: string | null
   staff: string | null
   description: string | null
   discord_channels: string[]
