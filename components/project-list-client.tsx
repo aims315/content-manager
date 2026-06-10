@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { ProjectCard } from '@/components/project-card'
-import { ProjectCalendar } from '@/components/project-calendar'
+import { ScheduleView } from '@/components/schedule-view'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon } from 'lucide-react'
@@ -24,8 +24,8 @@ export function ProjectListClient() {
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
-  const [view, setView] = useState<'list' | 'calendar'>('list')
-  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [view, setView] = useState<'list' | 'schedule'>('list')
+  const [highlightId] = useState<string | null>(null)
 
   const findProjectId = (stepId: string) =>
     Object.keys(steps).find((pid) => steps[pid].some((s) => s.id === stepId))
@@ -58,10 +58,8 @@ export function ProjectListClient() {
     await updateStepDueDate(stepId, projectId, dueDate)
   }
 
-  const handleProjectSelect = (projectId: string) => {
-    setView('list')
-    setHighlightId(projectId)
-    setTimeout(() => setHighlightId(null), 3000)
+  const handleProjectSelect = (_projectId: string) => {
+    // スケジュールビューではハイライト不要（そのまま表示）
   }
 
   const filtered = projects
@@ -96,28 +94,28 @@ export function ProjectListClient() {
           ))}
           <div className="flex rounded-md border overflow-hidden ml-1">
             <button onClick={() => setView('list')}
-              className={cn('px-2.5 py-1.5 transition-colors', view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
-              <LayoutGridIcon className="size-4" />
+              title="制作管理"
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors', view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <LayoutGridIcon className="size-3.5" />
+              <span className="hidden sm:inline">制作管理</span>
             </button>
-            <button onClick={() => setView('calendar')}
-              className={cn('px-2.5 py-1.5 transition-colors', view === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
-              <CalendarIcon className="size-4" />
+            <button onClick={() => setView('schedule')}
+              title="投稿スケジュール"
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors border-l', view === 'schedule' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <CalendarIcon className="size-3.5" />
+              <span className="hidden sm:inline">スケジュール</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* カレンダービュー */}
-      {view === 'calendar' && (
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="lg:w-80 shrink-0">
-            <ProjectCalendar projects={filtered} allSteps={steps} onProjectSelect={handleProjectSelect} />
-          </div>
-        </div>
+      {/* スケジュールビュー */}
+      {view === 'schedule' && (
+        <ScheduleView projects={filtered} allSteps={steps} />
       )}
 
-      {/* リストビュー */}
-      {view === 'list' && (
+      {/* 制作管理ビュー */}
+      {view !== 'schedule' && (
         filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <p className="text-sm">プロジェクトがありません</p>
