@@ -645,6 +645,12 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
 
         {/* ステップ一覧トグル */}
         <div className="flex items-center justify-between py-1 border-t">
+          <StepManagerDialog
+            projectId={project.id}
+            steps={steps}
+            providerRoles={providerRoles}
+            onUpdated={onProjectUpdated}
+          />
           <button
             type="button"
             onClick={() => setStepsOpen((v) => !v)}
@@ -653,12 +659,6 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
             <span className="font-medium">ステップを{stepsOpen ? '閉じる' : '表示'}</span>
             {stepsOpen ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
           </button>
-          <StepManagerDialog
-            projectId={project.id}
-            steps={steps}
-            providerRoles={providerRoles}
-            onUpdated={onProjectUpdated}
-          />
         </div>
 
         {stepsOpen && steps.length > 0 && (
