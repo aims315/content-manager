@@ -10,9 +10,9 @@ export interface ProviderRole {
 }
 
 export const DEFAULT_ROLES: ProviderRole[] = [
-  { id: 'client', label: 'フォレスト出版', color: 'amber' },
-  { id: 'freelancer', label: 'チアプロ', color: 'violet' },
-  { id: 'self', label: '山中チーム', color: 'sky' },
+  { id: 'client', label: 'クライアント', color: 'amber' },
+  { id: 'freelancer', label: '外注', color: 'violet' },
+  { id: 'self', label: '自社', color: 'sky' },
 ]
 
 export const COLOR_STYLES: Record<ProviderRole['color'], { badge: string; button: string }> = {
