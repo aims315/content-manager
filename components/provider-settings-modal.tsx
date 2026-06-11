@@ -5,6 +5,8 @@ import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
 import type { ProviderRole } from '@/hooks/use-provider-labels'
 import { useStepStatuses, STATUS_COLOR_STYLES, STATUS_COLOR_OPTIONS, STATUS_COLOR_LABELS } from '@/hooks/use-step-statuses'
 import type { StepStatusDef, StatusColorKey } from '@/hooks/use-step-statuses'
+import { useNotifyConfig } from '@/hooks/use-notify-config'
+import type { NotifyProvider } from '@/hooks/use-notify-config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -23,11 +25,12 @@ const ROLE_COLOR_LABELS: Record<ProviderRole['color'], string> = {
   emerald: 'グリーン', rose: 'ピンク', orange: 'オレンジ',
 }
 
-type Tab = 'roles' | 'statuses'
+type Tab = 'roles' | 'statuses' | 'notify'
 
 export function ProviderSettingsModal() {
   const { roles, addRole, updateRole, deleteRole } = useProviderLabels()
   const { statuses, addStatus, updateStatus, renameStatus, deleteStatus, reorder } = useStepStatuses()
+  const { config: notifyConfig, saveConfig: saveNotifyConfig } = useNotifyConfig()
 
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('roles')
@@ -69,13 +72,13 @@ export function ProviderSettingsModal() {
 
         {/* タブ */}
         <div className="flex rounded-md border overflow-hidden">
-          {(['roles', 'statuses'] as Tab[]).map((t, i) => (
+          {(['roles', 'statuses', 'notify'] as Tab[]).map((t, i) => (
             <button key={t} onClick={() => setTab(t)}
               className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
                 i > 0 && 'border-l',
                 tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
               )}>
-              {t === 'roles' ? '役割' : 'ステータス'}
+              {t === 'roles' ? '役割' : t === 'statuses' ? 'ステータス' : '通知'}
             </button>
           ))}
         </div>
@@ -244,6 +247,84 @@ export function ProviderSettingsModal() {
             <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addStatus}>
               <PlusIcon className="size-3.5" />ステータスを追加
             </Button>
+          </div>
+        )}
+
+        {/* ── 通知タブ ── */}
+        {tab === 'notify' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              ステータス更新や新規作成時に通知を送る先を設定します。
+            </p>
+
+            {/* 通知サービスの選択 */}
+            <div className="flex rounded-md border overflow-hidden">
+              {([
+                { v: 'none', label: '通知なし' },
+                { v: 'chatwork', label: 'Chatwork' },
+                { v: 'discord', label: 'Discord' },
+              ] as { v: NotifyProvider; label: string }[]).map((opt, i) => (
+                <button key={opt.v}
+                  onClick={() => saveNotifyConfig({ ...notifyConfig, provider: opt.v })}
+                  className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
+                    i > 0 && 'border-l',
+                    notifyConfig.provider === opt.v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                  )}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Chatwork設定 */}
+            {notifyConfig.provider === 'chatwork' && (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">APIトークン</label>
+                  <Input value={notifyConfig.chatworkToken}
+                    onChange={(e) => saveNotifyConfig({ ...notifyConfig, chatworkToken: e.target.value })}
+                    placeholder="Chatwork APIトークン" className="h-8 text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">ルームID（番号）</label>
+                  <Input value={notifyConfig.chatworkRoomId}
+                    onChange={(e) => saveNotifyConfig({ ...notifyConfig, chatworkRoomId: e.target.value })}
+                    placeholder="例: 123456789" className="h-8 text-xs" />
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  ルームIDはChatworkで通知したいチャットを開いたときのURL末尾の数字（rid の後）です。
+                  APIトークンはChatworkの「サービス連携 → API」から取得できます。
+                </p>
+              </div>
+            )}
+
+            {/* Discord設定 */}
+            {notifyConfig.provider === 'discord' && (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">Webhook URL</label>
+                  <Input value={notifyConfig.discordWebhook}
+                    onChange={(e) => saveNotifyConfig({ ...notifyConfig, discordWebhook: e.target.value })}
+                    placeholder="https://discord.com/api/webhooks/..." className="h-8 text-xs" />
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Discordの「チャンネル設定 → 連携サービス → ウェブフック → 新しいウェブフック」で作成し、
+                  「ウェブフックURLをコピー」した値を貼り付けてください。
+                </p>
+              </div>
+            )}
+
+            {notifyConfig.provider !== 'none' && (
+              <Button type="button" variant="outline" size="sm" className="w-full text-xs"
+                onClick={async () => {
+                  await fetch('/api/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: '[コンテンツ制作管理] テスト通知です ✅' }),
+                  })
+                }}>
+                テスト通知を送る
+              </Button>
+            )}
           </div>
         )}
 
