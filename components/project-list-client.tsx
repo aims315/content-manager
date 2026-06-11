@@ -7,6 +7,7 @@ import { useStepStatuses } from '@/hooks/use-step-statuses'
 import { useProjectTypes } from '@/hooks/use-project-types'
 import { ProjectCard } from '@/components/project-card'
 import { ScheduleView } from '@/components/schedule-view'
+import { TrashDialog } from '@/components/trash-dialog'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon, UsersIcon, LinkIcon } from 'lucide-react'
@@ -28,7 +29,7 @@ export function ProjectListClient() {
     setUrlCode(params.get('code'))
   }, [])
 
-  const { projects, steps, loading, updateStepStatus, submitStep, deleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, refetch } = useProjects()
+  const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, refetch } = useProjects()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
   const { customTypes: customProjectTypes } = useProjectTypes()
@@ -266,6 +267,14 @@ export function ProjectListClient() {
               <CalendarIcon className="size-3.5" />
               <span className="hidden sm:inline">スケジュール</span>
             </button>
+          </div>
+
+          <div className="ml-1">
+            <TrashDialog
+              deletedProjects={deletedProjects}
+              onRestore={restoreProject}
+              onPermanentDelete={permanentDeleteProject}
+            />
           </div>
         </div>
       </div>

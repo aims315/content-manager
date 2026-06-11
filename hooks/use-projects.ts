@@ -299,32 +299,48 @@ export function useProjects() {
   }
 
   const deleteProject = async (projectId: string) => {
-    // 楽観的更新：即座にUIから削除
+    // 楽観的更新：一覧から消してゴミ箱へ移動
+    const target = projects.find((p) => p.id === projectId)
     setProjects((prev) => prev.filter((p) => p.id !== projectId))
+    if (target) setDeletedProjects((prev) => [{ ...target, deleted_at: new Date().toISOString() }, ...prev])
     const { error } = await supabase
       .from('projects')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', projectId)
     if (error) {
       console.error('Error deleting project:', error)
-      await fetchProjects() // 失敗時は再取得して戻す
+      await fetchProjects(); await fetchDeletedProjects() // 失敗時は再取得して戻す
       return false
     }
     return true
   }
 
   const restoreProject = async (projectId: string) => {
+    // 楽観的更新：ゴミ箱から消して一覧へ戻す
+    const target = deletedProjects.find((p) => p.id === projectId)
+    setDeletedProjects((prev) => prev.filter((p) => p.id !== projectId))
+    if (target) setProjects((prev) => [{ ...target, deleted_at: null }, ...prev])
     const { error } = await supabase
       .from('projects')
       .update({ deleted_at: null })
       .eq('id', projectId)
-    if (error) { console.error('Error restoring project:', error); return false }
+    if (error) {
+      console.error('Error restoring project:', error)
+      await fetchProjects(); await fetchDeletedProjects()
+      return false
+    }
     return true
   }
 
   const permanentDeleteProject = async (projectId: string) => {
+    // 楽観的更新：ゴミ箱から完全に消す
+    setDeletedProjects((prev) => prev.filter((p) => p.id !== projectId))
     const { error } = await supabase.from('projects').delete().eq('id', projectId)
-    if (error) { console.error('Error permanently deleting project:', error); return false }
+    if (error) {
+      console.error('Error permanently deleting project:', error)
+      await fetchDeletedProjects()
+      return false
+    }
     return true
   }
 
