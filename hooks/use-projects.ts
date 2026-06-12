@@ -298,6 +298,21 @@ export function useProjects() {
     return newProject.id
   }
 
+  // 進行中/完了 の手動指定（null=自動 / true=完了 / false=進行中）
+  const setProjectDoneOverride = async (projectId: string, value: boolean | null) => {
+    setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, done_override: value } : p))
+    const { error } = await supabase
+      .from('projects')
+      .update({ done_override: value })
+      .eq('id', projectId)
+    if (error) {
+      console.error('Error updating done_override:', error)
+      await fetchProjects()
+      return false
+    }
+    return true
+  }
+
   const deleteProject = async (projectId: string) => {
     // 楽観的更新：一覧から消してゴミ箱へ移動
     const target = projects.find((p) => p.id === projectId)
@@ -374,5 +389,6 @@ export function useProjects() {
     deleteProject, restoreProject, permanentDeleteProject,
     fetchStepsForProject, refetch: async () => { await fetchProjects(); await fetchAllSteps() },
     updateStepProvider, updateStepDueDate, updateStepDependencies, duplicateProject,
+    setProjectDoneOverride,
   }
 }

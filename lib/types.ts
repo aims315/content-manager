@@ -50,6 +50,7 @@ export interface Project {
   staff: string | null
   description: string | null
   discord_channels: string[]
+  done_override: boolean | null
   created_at: string
   deleted_at: string | null
   steps?: ProjectStep[]

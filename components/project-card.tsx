@@ -559,9 +559,11 @@ interface ProjectCardProps {
   onStepDependenciesChange: (stepId: string, dependsOn: string[]) => Promise<void>
   onDuplicate: (projectId: string) => Promise<string | false>
   onDelete: (projectId: string) => Promise<boolean>
+  isDone?: boolean
+  onSetDone?: (value: boolean | null) => void
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete, isDone, onSetDone }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
@@ -602,6 +604,18 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
             </div>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
+            {onSetDone && (
+              <Button
+                variant="ghost" size="sm"
+                className={cn('h-7 px-2 gap-1 text-xs rounded-full',
+                  isDone ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'text-muted-foreground hover:bg-muted')}
+                title={isDone ? '完了（クリックで進行中に戻す）' : '進行中（クリックで完了にする）'}
+                onClick={() => onSetDone(isDone ? false : true)}
+              >
+                <CheckIcon className="size-3" />
+                {isDone ? '完了' : '進行中'}
+              </Button>
+            )}
             <Button
               variant="ghost" size="icon" className="size-7"
               disabled={isDuplicating}

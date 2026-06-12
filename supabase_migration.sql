@@ -22,9 +22,13 @@ create table if not exists projects (
   staff text,
   description text,
   discord_channels text[] default '{}',
+  done_override boolean,                -- null=自動判定 / true=完了 / false=進行中
   created_at timestamptz default now(),
   deleted_at timestamptz
 );
+
+-- 既存DB向け：done_override 列が無ければ追加
+alter table projects add column if not exists done_override boolean;
 
 -- ── プロジェクトステップテーブル ──
 create table if not exists project_steps (

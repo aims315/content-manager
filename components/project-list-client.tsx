@@ -29,7 +29,7 @@ export function ProjectListClient() {
     setUrlCode(params.get('code'))
   }, [])
 
-  const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, refetch } = useProjects()
+  const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, setProjectDoneOverride, refetch } = useProjects()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
   const { customTypes: customProjectTypes } = useProjectTypes()
@@ -48,11 +48,13 @@ export function ProjectListClient() {
   // ステータス更新の完了判定ラベル（自動ロック解除用）
   const doneLabels = statusDefs.filter((s) => s.isDone).map((s) => s.label)
 
-  // プロジェクトが「完了」かどうか：ステップが1つ以上あり、全ステップが isDone:true のステータス
+  // プロジェクトが「完了」かどうか
+  //  手動指定(done_override)があればそれを優先。なければ自動判定。
   const isProjectDone = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId)
+    if (project && project.done_override != null) return project.done_override
     const ps = steps[projectId]
     if (!ps || ps.length === 0) return false
-    // ステップが1件も isDone でないものがなければ完了
     return ps.length > 0 && ps.every((s) => doneLabels.includes(s.status))
   }
 
@@ -351,6 +353,8 @@ export function ProjectListClient() {
                         onStepDependenciesChange={handleStepDependenciesChange}
                         onDuplicate={duplicateProject}
                         onDelete={deleteProject}
+                        isDone={isProjectDone(project.id)}
+                        onSetDone={(v) => setProjectDoneOverride(project.id, v)}
                         providerLabels={providerLabels}
                         providerRoles={providerRoles}
                         statusDefs={statusDefs}
@@ -378,6 +382,8 @@ export function ProjectListClient() {
                   onStepDependenciesChange={handleStepDependenciesChange}
                   onDuplicate={duplicateProject}
                   onDelete={deleteProject}
+                  isDone={isProjectDone(project.id)}
+                  onSetDone={(v) => setProjectDoneOverride(project.id, v)}
                   providerLabels={providerLabels}
                   providerRoles={providerRoles}
                   statusDefs={statusDefs}
