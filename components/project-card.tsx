@@ -664,7 +664,14 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <UserIcon className="size-3" />
-            <span className="bg-muted px-1.5 py-0.5 rounded font-medium">{project.assignee}</span>
+            <a
+              href={`/share/${encodeURIComponent(project.assignee)}`}
+              target="_blank" rel="noopener noreferrer"
+              title="このコードの共有ページを開く"
+              className="bg-muted px-1.5 py-0.5 rounded font-medium hover:bg-primary hover:text-primary-foreground transition-colors"
+            >
+              {project.assignee}
+            </a>
           </div>
           {project.due_date && (
             <div className="flex items-center gap-1">
