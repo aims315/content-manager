@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ProjectListClient } from '@/components/project-list-client'
 import { ProviderSettingsModal } from '@/components/provider-settings-modal'
 import { CsvImportDialog } from '@/components/csv-import-dialog'
+import { CsvExportButton } from '@/components/csv-export-button'
 import { Button } from '@/components/ui/button'
 import { PlusIcon, LayoutDashboardIcon } from 'lucide-react'
 
@@ -23,6 +24,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <CsvExportButton />
             <CsvImportDialog />
             <ProviderSettingsModal />
             <Button asChild>
