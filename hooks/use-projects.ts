@@ -317,12 +317,14 @@ export function useProjects() {
 
   // 進行中/完了 の手動指定（null=自動 / true=完了 / false=進行中）
   const setProjectDoneOverride = async (projectId: string, value: boolean | null) => {
+    // 完了にした日時を記録（自動アーカイブ用）。完了解除時はクリア
+    const completedAt = value === true ? new Date().toISOString() : null
     // 楽観的更新 + 数秒間はRealtime再取得に上書きされないようガード登録
     pendingOverridesRef.current[projectId] = { value, expires: Date.now() + 8000 }
-    setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, done_override: value } : p))
+    setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, done_override: value, completed_at: completedAt } : p))
     const { error } = await supabase
       .from('projects')
-      .update({ done_override: value })
+      .update({ done_override: value, completed_at: completedAt })
       .eq('id', projectId)
     if (error) {
       console.error('Error updating done_override:', error)
@@ -332,6 +334,52 @@ export function useProjects() {
     }
     return true
   }
+
+  // 自動整理：完了から一定日数でゴミ箱へ、ゴミ箱から一定日数で完全削除
+  const runAutoArchive = useCallback(async () => {
+    // 設定を取得（なければ既定 14日 / 30日）
+    let trashAfterDays = 14, deleteAfterDays = 30
+    try {
+      const { data } = await supabase.from('app_settings').select('value').eq('key', 'archive_config').single()
+      if (data?.value) {
+        const c = JSON.parse(data.value)
+        if (typeof c.trashAfterDays === 'number') trashAfterDays = c.trashAfterDays
+        if (typeof c.deleteAfterDays === 'number') deleteAfterDays = c.deleteAfterDays
+      }
+    } catch { /* 既定値を使用 */ }
+
+    const now = Date.now()
+    const trashCutoff = new Date(now - trashAfterDays * 86400000).toISOString()
+    const deleteCutoff = new Date(now - deleteAfterDays * 86400000).toISOString()
+
+    // 1) 完了から trashAfterDays 経過 → ゴミ箱へ
+    const { data: toTrash } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('done_override', true)
+      .is('deleted_at', null)
+      .not('completed_at', 'is', null)
+      .lt('completed_at', trashCutoff)
+    if (toTrash && toTrash.length > 0) {
+      const ids = toTrash.map((p) => p.id)
+      await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).in('id', ids)
+    }
+
+    // 2) ゴミ箱で deleteAfterDays 経過 → 完全削除
+    const { data: toDelete } = await supabase
+      .from('projects')
+      .select('id')
+      .not('deleted_at', 'is', null)
+      .lt('deleted_at', deleteCutoff)
+    if (toDelete && toDelete.length > 0) {
+      const ids = toDelete.map((p) => p.id)
+      await supabase.from('projects').delete().in('id', ids)
+    }
+
+    if ((toTrash?.length ?? 0) > 0 || (toDelete?.length ?? 0) > 0) {
+      await fetchProjects(); await fetchDeletedProjects()
+    }
+  }, [supabase, fetchProjects, fetchDeletedProjects])
 
   const deleteProject = async (projectId: string) => {
     // 楽観的更新：一覧から消してゴミ箱へ移動
@@ -383,6 +431,7 @@ export function useProjects() {
     fetchProjects()
     fetchDeletedProjects()
     fetchAllSteps()
+    runAutoArchive()  // 読み込み時に自動整理を実行
 
     const handleProjectChange = () => { fetchProjects(); fetchDeletedProjects() }
     const handleStepChange = () => fetchAllSteps()
@@ -401,7 +450,7 @@ export function useProjects() {
       supabase.removeChannel(projectChannel)
       supabase.removeChannel(stepChannel)
     }
-  }, [fetchProjects, fetchDeletedProjects, fetchAllSteps, supabase])
+  }, [fetchProjects, fetchDeletedProjects, fetchAllSteps, runAutoArchive, supabase])
 
   return {
     projects, deletedProjects, steps, loading,

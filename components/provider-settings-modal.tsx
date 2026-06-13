@@ -7,6 +7,7 @@ import { useStepStatuses, STATUS_COLOR_STYLES, STATUS_COLOR_OPTIONS, STATUS_COLO
 import type { StepStatusDef, StatusColorKey } from '@/hooks/use-step-statuses'
 import { useNotifyConfig } from '@/hooks/use-notify-config'
 import type { NotifyProvider } from '@/hooks/use-notify-config'
+import { useArchiveConfig } from '@/hooks/use-archive-config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -25,12 +26,13 @@ const ROLE_COLOR_LABELS: Record<ProviderRole['color'], string> = {
   emerald: 'グリーン', rose: 'ピンク', orange: 'オレンジ',
 }
 
-type Tab = 'roles' | 'statuses' | 'notify'
+type Tab = 'roles' | 'statuses' | 'notify' | 'archive'
 
 export function ProviderSettingsModal() {
   const { roles, addRole, updateRole, deleteRole } = useProviderLabels()
   const { statuses, addStatus, updateStatus, renameStatus, deleteStatus, reorder } = useStepStatuses()
   const { config: notifyConfig, saveConfig: saveNotifyConfig } = useNotifyConfig()
+  const { config: archiveConfig, saveConfig: saveArchiveConfig } = useArchiveConfig()
 
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('roles')
@@ -72,13 +74,13 @@ export function ProviderSettingsModal() {
 
         {/* タブ */}
         <div className="flex rounded-md border overflow-hidden">
-          {(['roles', 'statuses', 'notify'] as Tab[]).map((t, i) => (
+          {(['roles', 'statuses', 'notify', 'archive'] as Tab[]).map((t, i) => (
             <button key={t} onClick={() => setTab(t)}
               className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
                 i > 0 && 'border-l',
                 tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
               )}>
-              {t === 'roles' ? '役割' : t === 'statuses' ? 'ステータス' : '通知'}
+              {t === 'roles' ? '役割' : t === 'statuses' ? 'ステータス' : t === 'notify' ? '通知' : '自動整理'}
             </button>
           ))}
         </div>
@@ -325,6 +327,37 @@ export function ProviderSettingsModal() {
                 テスト通知を送る
               </Button>
             )}
+          </div>
+        )}
+
+        {/* ── 自動整理タブ ── */}
+        {tab === 'archive' && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              完了したプロジェクトを自動でゴミ箱へ移動し、ゴミ箱内も一定期間で完全削除します。
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">完了から何日でゴミ箱へ移動するか</label>
+              <div className="flex items-center gap-2">
+                <Input type="number" min={1} className="h-8 text-sm w-24"
+                  value={archiveConfig.trashAfterDays}
+                  onChange={(e) => saveArchiveConfig({ ...archiveConfig, trashAfterDays: Math.max(1, Number(e.target.value) || 1) })} />
+                <span className="text-xs text-muted-foreground">日後</span>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">ゴミ箱から何日で完全削除するか</label>
+              <div className="flex items-center gap-2">
+                <Input type="number" min={1} className="h-8 text-sm w-24"
+                  value={archiveConfig.deleteAfterDays}
+                  onChange={(e) => saveArchiveConfig({ ...archiveConfig, deleteAfterDays: Math.max(1, Number(e.target.value) || 1) })} />
+                <span className="text-xs text-muted-foreground">日後</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              ※「完了」ボタンで完了にした日からカウントします。アプリを開いたときに自動で整理されます。
+              ゴミ箱からはいつでも手動で復元できます。
+            </p>
           </div>
         )}
 
