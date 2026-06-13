@@ -8,11 +8,27 @@ function getSupabase() {
   )
 }
 
-// Supabase Webhook から呼ばれる
+interface StepPresetItem { label: string; provider: string }
+interface StepPreset { id: string; name: string; steps: StepPresetItem[] }
+
+// app_settings から「インスタ設定カルーセル」プリセットを取得
+async function fetchPreset(supabase: ReturnType<typeof getSupabase>, name: string): Promise<StepPreset | null> {
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'step_presets')
+    .single()
+  if (!data?.value) return null
+  try {
+    const presets = JSON.parse(data.value) as StepPreset[]
+    return presets.find((p) => p.name === name) ?? null
+  } catch { return null }
+}
+
+// Supabase pg_net トリガーから呼ばれる
 // supabase-green-xylophone の tasks テーブルの UPDATE イベント
 // 紐づけ: tasks.client_slug ↔ projects.assignee
 export async function POST(request: NextRequest) {
-  // 簡易認証
   const secret = request.headers.get('x-sync-secret')
   if (process.env.SYNC_SECRET && secret !== process.env.SYNC_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,7 +51,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ skipped: 'no client_slug' })
   }
 
-  // ステータスが変わっていなければスキップ
   if (oldRecord?.status === record.status) {
     return NextResponse.json({ skipped: 'status unchanged' })
   }
@@ -52,14 +67,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (project) {
-      // 既存プロジェクトの post_ready ステップを「進行中」に（完了はtask完了時）
-      await supabase
-        .from('project_steps')
-        .update({ status: '進行中' })
-        .eq('project_id', project.id)
-        .eq('step_key', 'post_ready')
-        .eq('status', '未着手')
-
+      // 既存プロジェクトはそのまま（ステップを触らない）
       return NextResponse.json({ updated: project.id })
     }
 
@@ -83,12 +91,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error?.message }, { status: 500 })
     }
 
-    await supabase.from('project_steps').insert([
-      { project_id: newProject.id, step_key: 'photo',      step_order: 0, label: '写真素材',    status: '未着手', provider_type: 'client' },
-      { project_id: newProject.id, step_key: 'text',       step_order: 1, label: 'テキスト素材', status: '未着手', provider_type: 'client' },
-      { project_id: newProject.id, step_key: 'design',     step_order: 2, label: 'デザイン制作', status: '未着手', provider_type: 'self' },
-      { project_id: newProject.id, step_key: 'post_ready', step_order: 3, label: '投稿完成',    status: '進行中', provider_type: 'self' },
-    ])
+    // 「インスタ設定カルーセル」プリセットを探す
+    const preset = await fetchPreset(supabase, 'インスタ設定カルーセル')
+
+    if (preset && preset.steps.length > 0) {
+      // プリセットのステップを挿入。最初のステップだけ「完了」、残りは「未着手」
+      const stepsToInsert = preset.steps.map((item, idx) => ({
+        project_id: newProject.id,
+        step_key: 'text',
+        step_order: idx,
+        label: item.label,
+        status: idx === 0 ? '完了' : '未着手',
+        provider_type: item.provider === 'client' ? 'client'
+          : item.provider === 'freelancer' ? 'freelancer'
+          : 'self',
+      }))
+      await supabase.from('project_steps').insert(stepsToInsert)
+    }
+    // プリセットが見つからなければステップなしで作成（空カード）
 
     return NextResponse.json({ created: newProject.id })
   }
