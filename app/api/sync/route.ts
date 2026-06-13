@@ -52,13 +52,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (project) {
-      // 既存プロジェクトの post_ready ステップを完了に
+      // 既存プロジェクトの post_ready ステップを「進行中」に（完了はtask完了時）
       await supabase
         .from('project_steps')
-        .update({ status: '完了', submitted_at: new Date().toISOString() })
+        .update({ status: '進行中' })
         .eq('project_id', project.id)
         .eq('step_key', 'post_ready')
-        .neq('status', '完了')
+        .eq('status', '未着手')
 
       return NextResponse.json({ updated: project.id })
     }
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       { project_id: newProject.id, step_key: 'photo',      step_order: 0, label: '写真素材',    status: '未着手', provider_type: 'client' },
       { project_id: newProject.id, step_key: 'text',       step_order: 1, label: 'テキスト素材', status: '未着手', provider_type: 'client' },
       { project_id: newProject.id, step_key: 'design',     step_order: 2, label: 'デザイン制作', status: '未着手', provider_type: 'self' },
-      { project_id: newProject.id, step_key: 'post_ready', step_order: 3, label: '投稿完成',    status: '完了',   provider_type: 'self' },
+      { project_id: newProject.id, step_key: 'post_ready', step_order: 3, label: '投稿完成',    status: '進行中', provider_type: 'self' },
     ])
 
     return NextResponse.json({ created: newProject.id })
