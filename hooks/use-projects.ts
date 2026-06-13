@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, ProjectStep, StepStatus, ProviderType } from '@/lib/types'
 import { sendChatworkNotification } from './use-notify'
@@ -12,6 +12,23 @@ export function useProjects() {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
+  // 手動で完了/進行中を切り替えた直後、Realtimeの再取得（レプリカ遅延で古い値が返る）が
+  // 楽観的更新を上書きしないようガードする { projectId: { value, expires } }
+  const pendingOverridesRef = useRef<Record<string, { value: boolean | null; expires: number }>>({})
+
+  const applyPendingOverrides = (list: Project[]): Project[] => {
+    const now = Date.now()
+    const pending = pendingOverridesRef.current
+    // 期限切れを掃除
+    for (const id of Object.keys(pending)) {
+      if (pending[id].expires < now) delete pending[id]
+    }
+    if (Object.keys(pending).length === 0) return list
+    return list.map((p) =>
+      pending[p.id] ? { ...p, done_override: pending[p.id].value } : p
+    )
+  }
+
   const fetchProjects = useCallback(async () => {
     const { data, error } = await supabase
       .from('projects')
@@ -19,7 +36,7 @@ export function useProjects() {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
     if (error) { console.error('Error fetching projects:', error); return }
-    setProjects(data || [])
+    setProjects(applyPendingOverrides(data || []))
     setLoading(false)
   }, [supabase])
 
@@ -300,6 +317,8 @@ export function useProjects() {
 
   // 進行中/完了 の手動指定（null=自動 / true=完了 / false=進行中）
   const setProjectDoneOverride = async (projectId: string, value: boolean | null) => {
+    // 楽観的更新 + 数秒間はRealtime再取得に上書きされないようガード登録
+    pendingOverridesRef.current[projectId] = { value, expires: Date.now() + 8000 }
     setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, done_override: value } : p))
     const { error } = await supabase
       .from('projects')
@@ -307,6 +326,7 @@ export function useProjects() {
       .eq('id', projectId)
     if (error) {
       console.error('Error updating done_override:', error)
+      delete pendingOverridesRef.current[projectId]
       await fetchProjects()
       return false
     }
