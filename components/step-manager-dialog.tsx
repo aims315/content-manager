@@ -37,6 +37,7 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
   const [saving, setSaving] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
+  const [roleEditId, setRoleEditId] = useState<string | null>(null)
   const [savePresetMode, setSavePresetMode] = useState(false)
   const [presetName, setPresetName] = useState('')
 
@@ -76,6 +77,17 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
 
   const removeStep = (stepId: string) => {
     setLocalSteps((prev) => prev.filter((s) => s.id !== stepId))
+  }
+
+  // 既存・新規ステップの名前/役割を編集
+  const renameStep = (stepId: string, label: string) => {
+    setLocalSteps((prev) => prev.map((s) => s.id === stepId ? { ...s, label } : s))
+  }
+  const changeStepProvider = (stepId: string, provider: string) => {
+    setLocalSteps((prev) => prev.map((s) =>
+      s.id === stepId ? { ...s, provider_type: provider as ProviderType, is_client_step: provider !== 'self' } : s
+    ))
+    setRoleEditId(null)
   }
 
   // プリセットのステップをまとめて追加
@@ -168,9 +180,14 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
             is_client_step: step.provider_type !== 'self',
           })
         } else {
-          // 順序更新
+          // 既存：順序・名前・役割を更新
           await supabase.from('project_steps')
-            .update({ step_order: i })
+            .update({
+              step_order: i,
+              label: step.label,
+              provider_type: step.provider_type,
+              is_client_step: step.provider_type !== 'self',
+            })
             .eq('id', step.id)
         }
       }
@@ -216,8 +233,6 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
               return (
                 <div
                   key={step.id}
-                  draggable
-                  onDragStart={() => setDragIndex(i)}
                   onDragOver={(e) => { e.preventDefault(); setOverIndex(i) }}
                   onDragEnd={() => { setDragIndex(null); setOverIndex(null) }}
                   onDrop={() => handleDrop(i)}
@@ -228,7 +243,14 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                     overIndex === i && dragIndex !== i && 'border-primary border-2'
                   )}
                 >
-                  <GripVerticalIcon className="size-3.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
+                  <span
+                    draggable
+                    onDragStart={() => setDragIndex(i)}
+                    className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground"
+                    title="ドラッグで並び替え"
+                  >
+                    <GripVerticalIcon className="size-3.5" />
+                  </span>
 
                   {/* 上下ボタン */}
                   <div className="flex flex-col gap-0.5 shrink-0">
@@ -250,14 +272,43 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                     </button>
                   </div>
 
-                  <span className="text-xs font-medium flex-1 min-w-0 truncate">
-                    {step.label}
-                    {isNew && <span className="ml-1 text-[10px] text-primary font-normal">新規</span>}
-                  </span>
+                  {/* 名前（編集可能） */}
+                  <Input
+                    value={step.label}
+                    onChange={(e) => renameStep(step.id, e.target.value)}
+                    className="h-7 text-xs flex-1 min-w-0 border-transparent hover:border-input focus:border-input bg-transparent px-1.5"
+                  />
 
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0', badgeCls)}>
-                    {role?.label ?? step.provider_type}
-                  </span>
+                  {/* 役割（クリックで変更） */}
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setRoleEditId(roleEditId === step.id ? null : step.id)}
+                      className={cn('text-[10px] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80', badgeCls)}
+                      title="役割を変更"
+                    >
+                      {role?.label ?? step.provider_type}
+                    </button>
+                    {roleEditId === step.id && (
+                      <div className="absolute right-0 top-full mt-1 z-20 bg-popover border rounded-md shadow-md p-1 flex flex-col gap-0.5 min-w-[120px]">
+                        {providerRoles.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => changeStepProvider(step.id, r.id)}
+                            className={cn(
+                              'text-[11px] px-2 py-1 rounded text-left transition-colors',
+                              r.id === step.provider_type ? COLOR_STYLES[r.color].badge + ' font-medium' : 'hover:bg-muted'
+                            )}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {isNew && <span className="text-[10px] text-primary font-normal shrink-0">新</span>}
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
