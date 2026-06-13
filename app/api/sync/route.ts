@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 「インスタ設定カルーセル」プリセットを探す
-    const preset = await fetchPreset(supabase, 'インスタ設定カルーセル')
+    const preset = await fetchPreset(supabase, 'インスタ投稿カルーセル')
 
     if (preset && preset.steps.length > 0) {
       // プリセットのステップを挿入。最初のステップだけ「完了」、残りは「未着手」
