@@ -4,11 +4,12 @@ import { ProviderSettingsModal } from '@/components/provider-settings-modal'
 import { CsvImportDialog } from '@/components/csv-import-dialog'
 import { CsvExportButton } from '@/components/csv-export-button'
 import { Button } from '@/components/ui/button'
-import { PlusIcon, LayoutDashboardIcon } from 'lucide-react'
+import { PlusIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react'
 
 export default function HomePage() {
   const adminSecret = process.env.ADMIN_PATH_SECRET ?? 'setup-required'
   const newProjectHref = `/p/${adminSecret}`
+  const settingsHref = `/p/${adminSecret}/settings`
 
   return (
     <main className="min-h-screen bg-background">
@@ -27,6 +28,11 @@ export default function HomePage() {
             <CsvExportButton />
             <CsvImportDialog />
             <ProviderSettingsModal />
+            <Button variant="ghost" size="icon" asChild>
+              <Link href={settingsHref}>
+                <SettingsIcon className="size-4" />
+              </Link>
+            </Button>
             <Button asChild>
               <Link href={newProjectHref}>
                 <PlusIcon className="size-4" />
