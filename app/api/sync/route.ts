@@ -63,6 +63,8 @@ export async function POST(request: NextRequest) {
     amount: number | null
     staff: string | null
     description: string | null
+    draft_url: string | null
+    response_url: string | null
   }
   const oldRecord = body.old_record as { status: string }
 
@@ -114,6 +116,8 @@ export async function POST(request: NextRequest) {
     const preset = await fetchPresetForClient(supabase, record.client_slug!)
 
     if (preset && preset.steps.length > 0) {
+      const latestUrl = record.response_url ?? record.draft_url ?? null
+      const lastIdx = preset.steps.length - 1
       // プリセットのステップを挿入。最初のステップだけ「完了」、残りは「未着手」
       const stepsToInsert = preset.steps.map((item, idx) => ({
         project_id: newProject.id,
@@ -124,6 +128,8 @@ export async function POST(request: NextRequest) {
         provider_type: item.provider === 'client' ? 'client'
           : item.provider === 'freelancer' ? 'freelancer'
           : 'self',
+        // 最新の提出URLを最後のステップにセット
+        url: idx === lastIdx ? latestUrl : null,
       }))
       await supabase.from('project_steps').insert(stepsToInsert)
     }
@@ -163,6 +169,8 @@ export async function POST(request: NextRequest) {
       if (newProject) {
         const preset = await fetchPresetForClient(supabase, record.client_slug!)
         if (preset && preset.steps.length > 0) {
+          const latestUrl = record.response_url ?? record.draft_url ?? null
+          const lastIdx = preset.steps.length - 1
           await supabase.from('project_steps').insert(
             preset.steps.map((item, idx) => ({
               project_id: newProject.id,
@@ -173,6 +181,7 @@ export async function POST(request: NextRequest) {
               provider_type: item.provider === 'client' ? 'client'
                 : item.provider === 'freelancer' ? 'freelancer'
                 : 'self',
+              url: idx === lastIdx ? latestUrl : null,
             }))
           )
         }
