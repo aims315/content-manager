@@ -77,12 +77,11 @@ function getFilename(url: string, names?: string[], index?: number) {
 }
 
 function TextWithLinks({ text }: { text: string }) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g
-  const parts = text.split(urlRegex)
+  const parts = text.split(/(https?:\/\/[^\s]+)/)
   return (
-    <span>
+    <span style={{ whiteSpace: 'pre-wrap' }}>
       {parts.map((part, i) =>
-        urlRegex.test(part) ? (
+        /^https?:\/\//.test(part) ? (
           <a key={i} href={part} target="_blank" rel="noopener noreferrer"
             className="text-primary underline break-all hover:opacity-80"
             onClick={(e) => e.stopPropagation()}>{part}</a>

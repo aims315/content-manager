@@ -24,12 +24,11 @@ import {
 import type { Project, ProjectStep } from '@/lib/types'
 
 function TextWithLinks({ text }: { text: string }) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g
-  const parts = text.split(urlRegex)
+  const parts = text.split(/(https?:\/\/[^\s]+)/)
   return (
-    <span>
+    <span style={{ whiteSpace: 'pre-wrap' }}>
       {parts.map((part, i) =>
-        urlRegex.test(part) ? (
+        /^https?:\/\//.test(part) ? (
           <a key={i} href={part} target="_blank" rel="noopener noreferrer"
             className="underline break-all hover:opacity-80">{part}</a>
         ) : part
