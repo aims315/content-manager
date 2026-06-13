@@ -115,12 +115,56 @@ export async function POST(request: NextRequest) {
 
   // ── 完了 ──
   if (record.status === '完了') {
+    const { data: existingProject } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('assignee', record.client_slug)
+      .is('deleted_at', null)
+      .single()
+
+    if (!existingProject) {
+      // プロジェクトがなければ作成してそのまま完了に
+      const { data: newProject } = await supabase
+        .from('projects')
+        .insert({
+          title: record.title ?? '（タスクアプリから自動作成）',
+          project_type: 'instagram',
+          assignee: record.client_slug,
+          client_slug: record.client_slug,
+          due_date: record.due_date,
+          amount: record.amount,
+          staff: record.staff,
+          description: record.description,
+          done_override: true,
+          completed_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+
+      if (newProject) {
+        const preset = await fetchPreset(supabase, 'インスタ投稿カルーセル')
+        if (preset && preset.steps.length > 0) {
+          await supabase.from('project_steps').insert(
+            preset.steps.map((item, idx) => ({
+              project_id: newProject.id,
+              step_key: 'text',
+              step_order: idx,
+              label: item.label,
+              status: '完了',
+              provider_type: item.provider === 'client' ? 'client'
+                : item.provider === 'freelancer' ? 'freelancer'
+                : 'self',
+            }))
+          )
+        }
+      }
+      return NextResponse.json({ created_and_completed: record.client_slug })
+    }
+
     await supabase
       .from('projects')
       .update({ done_override: true, completed_at: new Date().toISOString() })
-      .eq('assignee', record.client_slug)
-      .is('deleted_at', null)
-      .or('done_override.is.null,done_override.eq.false')
+      .eq('id', existingProject.id)
 
     return NextResponse.json({ completed: record.client_slug })
   }
