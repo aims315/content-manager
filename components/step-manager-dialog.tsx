@@ -12,12 +12,13 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
-  ListTodoIcon, PlusIcon, Trash2Icon, ChevronUpIcon, ChevronDownIcon, GripVerticalIcon, CheckIcon,
+  ListTodoIcon, PlusIcon, Trash2Icon, ChevronUpIcon, ChevronDownIcon, GripVerticalIcon, CheckIcon, BookmarkIcon, SaveIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProjectStep, ProviderType } from '@/lib/types'
 import type { ProviderRole } from '@/hooks/use-provider-labels'
 import { COLOR_STYLES } from '@/hooks/use-provider-labels'
+import { useStepPresets } from '@/hooks/use-step-presets'
 
 interface StepManagerDialogProps {
   projectId: string
@@ -28,16 +29,23 @@ interface StepManagerDialogProps {
 
 export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }: StepManagerDialogProps) {
   const supabase = createClient()
+  const { presets, addPreset, deletePreset } = useStepPresets()
   const [open, setOpen] = useState(false)
   const [localSteps, setLocalSteps] = useState<ProjectStep[]>([])
   const [newLabel, setNewLabel] = useState('')
   const [newProvider, setNewProvider] = useState<string>(providerRoles[0]?.id ?? 'self')
   const [saving, setSaving] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [overIndex, setOverIndex] = useState<number | null>(null)
+  const [savePresetMode, setSavePresetMode] = useState(false)
+  const [presetName, setPresetName] = useState('')
 
   const openDialog = () => {
     setLocalSteps([...steps].sort((a, b) => a.step_order - b.step_order))
     setNewLabel('')
     setNewProvider(providerRoles[0]?.id ?? 'self')
+    setSavePresetMode(false)
+    setPresetName('')
     setOpen(true)
   }
 
@@ -55,8 +63,53 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
     setLocalSteps(arr)
   }
 
+  // ドラッグ並び替え
+  const handleDrop = (target: number) => {
+    if (dragIndex === null || dragIndex === target) { setDragIndex(null); setOverIndex(null); return }
+    const arr = [...localSteps]
+    const [moved] = arr.splice(dragIndex, 1)
+    arr.splice(target, 0, moved)
+    setLocalSteps(arr)
+    setDragIndex(null)
+    setOverIndex(null)
+  }
+
   const removeStep = (stepId: string) => {
     setLocalSteps((prev) => prev.filter((s) => s.id !== stepId))
+  }
+
+  // プリセットのステップをまとめて追加
+  const applyPreset = (presetId: string) => {
+    const preset = presets.find((p) => p.id === presetId)
+    if (!preset) return
+    const base = localSteps.length
+    const added: ProjectStep[] = preset.steps.map((item, idx) => ({
+      id: `new_${Date.now()}_${idx}`,
+      project_id: projectId,
+      step_key: 'text' as any,
+      step_order: base + idx,
+      label: item.label,
+      status: '未着手',
+      provider_type: item.provider as ProviderType,
+      provider_name: null,
+      file_urls: [], file_names: [], url: null, note: null,
+      submitted_by: null, submitted_at: null,
+      is_client_step: item.provider !== 'self',
+      step_due_date: null,
+      created_at: new Date().toISOString(),
+    }))
+    setLocalSteps((prev) => [...prev, ...added])
+  }
+
+  // 現在のステップ構成をプリセットとして保存
+  const saveAsPreset = async () => {
+    if (!presetName.trim() || localSteps.length === 0) return
+    await addPreset(
+      presetName.trim(),
+      localSteps.map((s) => ({ label: s.label, provider: s.provider_type }))
+    )
+    setSavePresetMode(false)
+    setPresetName('')
   }
 
   const addStep = () => {
@@ -163,12 +216,19 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
               return (
                 <div
                   key={step.id}
+                  draggable
+                  onDragStart={() => setDragIndex(i)}
+                  onDragOver={(e) => { e.preventDefault(); setOverIndex(i) }}
+                  onDragEnd={() => { setDragIndex(null); setOverIndex(null) }}
+                  onDrop={() => handleDrop(i)}
                   className={cn(
-                    'flex items-center gap-2 rounded-md border px-2 py-1.5 bg-card',
-                    isNew && 'border-primary/40 bg-primary/5'
+                    'flex items-center gap-2 rounded-md border px-2 py-1.5 bg-card transition-colors',
+                    isNew && 'border-primary/40 bg-primary/5',
+                    dragIndex === i && 'opacity-40',
+                    overIndex === i && dragIndex !== i && 'border-primary border-2'
                   )}
                 >
-                  <GripVerticalIcon className="size-3.5 text-muted-foreground shrink-0" />
+                  <GripVerticalIcon className="size-3.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
 
                   {/* 上下ボタン */}
                   <div className="flex flex-col gap-0.5 shrink-0">
@@ -224,6 +284,66 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                 </div>
               )
             })}
+          </div>
+
+          {/* プリセット */}
+          <div className="rounded-md border border-dashed p-3 space-y-2 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <BookmarkIcon className="size-3" />プリセット（工程のまとまり）
+              </p>
+              {localSteps.length > 0 && !savePresetMode && (
+                <button type="button" onClick={() => setSavePresetMode(true)}
+                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                  <SaveIcon className="size-3" />今の構成を保存
+                </button>
+              )}
+            </div>
+
+            {/* 保存フォーム */}
+            {savePresetMode && (
+              <div className="flex gap-1.5">
+                <Input value={presetName} onChange={(e) => setPresetName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveAsPreset()}
+                  placeholder="プリセット名（例: Instagram通常投稿）" className="h-7 text-xs" />
+                <Button type="button" size="sm" className="h-7 text-xs px-2" onClick={saveAsPreset} disabled={!presetName.trim()}>保存</Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setSavePresetMode(false); setPresetName('') }}>×</Button>
+              </div>
+            )}
+
+            {/* 既存プリセット一覧 */}
+            {presets.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground">まだプリセットがありません。ステップを組んで「今の構成を保存」で作れます。</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {presets.map((p) => (
+                  <div key={p.id} className="flex items-center rounded-full border bg-card overflow-hidden">
+                    <button type="button" onClick={() => applyPreset(p.id)}
+                      title={`${p.steps.length}工程を追加`}
+                      className="text-xs pl-2.5 pr-1.5 py-1 hover:bg-primary hover:text-primary-foreground transition-colors">
+                      ＋{p.name}<span className="text-[9px] opacity-60 ml-0.5">({p.steps.length})</span>
+                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button type="button" className="px-1.5 py-1 text-muted-foreground hover:text-destructive border-l">
+                          <Trash2Icon className="size-3" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>プリセットを削除しますか？</AlertDialogTitle>
+                          <AlertDialogDescription>「{p.name}」を削除します。既存のプロジェクトには影響しません。</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deletePreset(p.id)}>削除</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 新規追加フォーム */}
