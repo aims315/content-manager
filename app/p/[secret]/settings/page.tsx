@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { ArrowLeftIcon } from 'lucide-react'
 import Link from 'next/link'
+import { ClientPresetMap } from '@/components/client-preset-map'
 
 interface Props {
   params: Promise<{ secret: string }>
@@ -21,7 +22,7 @@ export default async function SettingsPage({ params }: Props) {
           </Link>
         </div>
         <h1 className="text-2xl font-bold mb-6">設定</h1>
-        <p className="text-sm text-muted-foreground">設定項目は今後追加予定です。</p>
+        <ClientPresetMap />
       </div>
     </div>
   )

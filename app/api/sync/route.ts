@@ -11,18 +11,37 @@ function getSupabase() {
 interface StepPresetItem { label: string; provider: string }
 interface StepPreset { id: string; name: string; steps: StepPresetItem[] }
 
-// app_settings から「インスタ設定カルーセル」プリセットを取得
-async function fetchPreset(supabase: ReturnType<typeof getSupabase>, name: string): Promise<StepPreset | null> {
-  const { data } = await supabase
+// app_settings からプリセット一覧とクライアント↔プリセットマップを取得
+async function fetchPresetForClient(
+  supabase: ReturnType<typeof getSupabase>,
+  clientSlug: string
+): Promise<StepPreset | null> {
+  const { data: rows } = await supabase
     .from('app_settings')
-    .select('value')
-    .eq('key', 'step_presets')
-    .single()
-  if (!data?.value) return null
+    .select('key, value')
+    .in('key', ['step_presets', 'client_preset_map'])
+
+  if (!rows) return null
+
+  const presetsRow = rows.find((r) => r.key === 'step_presets')
+  const mapRow = rows.find((r) => r.key === 'client_preset_map')
+
+  let presets: StepPreset[] = []
+  try { presets = JSON.parse(presetsRow?.value ?? '[]') } catch { return null }
+
+  // クライアント専用のプリセット名を探す
+  let presetName: string | null = null
   try {
-    const presets = JSON.parse(data.value) as StepPreset[]
-    return presets.find((p) => p.name === name) ?? null
-  } catch { return null }
+    const map: Record<string, string> = JSON.parse(mapRow?.value ?? '{}')
+    presetName = map[clientSlug] ?? map['default'] ?? null
+  } catch { /* ignore */ }
+
+  if (!presetName) {
+    // マップ未設定の場合は最初のプリセットをデフォルトとして使用
+    return presets[0] ?? null
+  }
+
+  return presets.find((p) => p.name === presetName) ?? presets[0] ?? null
 }
 
 // Supabase pg_net トリガーから呼ばれる
@@ -92,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 「インスタ設定カルーセル」プリセットを探す
-    const preset = await fetchPreset(supabase, 'インスタ投稿カルーセル')
+    const preset = await fetchPresetForClient(supabase, record.client_slug!)
 
     if (preset && preset.steps.length > 0) {
       // プリセットのステップを挿入。最初のステップだけ「完了」、残りは「未着手」
@@ -142,7 +161,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (newProject) {
-        const preset = await fetchPreset(supabase, 'インスタ投稿カルーセル')
+        const preset = await fetchPresetForClient(supabase, record.client_slug!)
         if (preset && preset.steps.length > 0) {
           await supabase.from('project_steps').insert(
             preset.steps.map((item, idx) => ({
