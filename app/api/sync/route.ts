@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!existingProject) {
-      // プロジェクトがなければ作成してそのまま完了に
+      // プロジェクトがなければ作成してステップを全て完了にする（done_overrideは使わない）
       const { data: newProject } = await supabase
         .from('projects')
         .insert({
@@ -159,8 +159,6 @@ export async function POST(request: NextRequest) {
           amount: record.amount,
           staff: record.staff,
           description: record.description,
-          done_override: true,
-          completed_at: new Date().toISOString(),
         })
         .select('id')
         .single()
@@ -187,10 +185,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ created_and_completed: record.client_slug })
     }
 
-    await supabase
-      .from('projects')
-      .update({ done_override: true, completed_at: new Date().toISOString() })
-      .eq('id', existingProject.id)
+    // 既存プロジェクトのステップを全て完了にする（done_overrideは使わない）
+    const { data: existingSteps } = await supabase
+      .from('project_steps')
+      .select('id')
+      .eq('project_id', existingProject.id)
+      .neq('status', '完了')
+
+    if (existingSteps && existingSteps.length > 0) {
+      await supabase
+        .from('project_steps')
+        .update({ status: '完了' })
+        .in('id', existingSteps.map((s) => s.id))
+    }
 
     return NextResponse.json({ completed: record.client_slug })
   }
