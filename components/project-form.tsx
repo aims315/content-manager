@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { STEPS_CONFIG } from '@/lib/steps-config'
 import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
 import { useProjectTypes, TYPE_COLOR_OPTIONS, EMOJI_PRESETS } from '@/hooks/use-project-types'
+import { useStepPresets } from '@/hooks/use-step-presets'
 import { sendChatworkNotification } from '@/hooks/use-notify'
 import type { ProjectType, ProviderType } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,8 @@ export function ProjectForm() {
   const supabase = createClient()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { customTypes, addType, deleteType } = useProjectTypes()
+  const { presets } = useStepPresets()
+  const [presetId, setPresetId] = useState<string>('')
 
   const [projectType, setProjectType] = useState<string>('')
   // 種別追加フォーム
@@ -131,31 +134,55 @@ export function ProjectForm() {
       return
     }
 
-    const stepDefs = isBuiltinType(projectType) ? STEPS_CONFIG[projectType as ProjectType] : []
-    const stepsToInsert = stepDefs.map((def, index) => {
-      const cfg = stepProviders[def.key]
-      const providerType: ProviderType = cfg?.providerType ?? def.defaultProvider
-      const providerName = cfg?.providerName?.trim() || null
-      const isExternal = providerType === 'client' || providerType === 'freelancer'
-      const hasRequires = def.requires.length > 0
-      const stepDueDate = cfg?.stepDueDate ? format(cfg.stepDueDate, 'yyyy-MM-dd') : null
+    // プリセットが選ばれていればそれを初期ステップにする。なければ種別の標準ステップ。
+    const selectedPreset = presets.find((p) => p.id === presetId)
+    let stepsToInsert: Record<string, unknown>[]
+    if (selectedPreset) {
+      stepsToInsert = selectedPreset.steps.map((item, index) => {
+        const isExternal = item.provider === 'client' || item.provider === 'freelancer'
+        return {
+          project_id: projectData.id,
+          step_key: 'text',
+          step_order: index,
+          label: item.label,
+          provider_type: item.provider,
+          provider_name: null,
+          status: '未着手',
+          is_client_step: isExternal,
+          file_urls: [],
+          file_names: [],
+          step_due_date: null,
+        }
+      })
+    } else {
+      const stepDefs = isBuiltinType(projectType) ? STEPS_CONFIG[projectType as ProjectType] : []
+      stepsToInsert = stepDefs.map((def, index) => {
+        const cfg = stepProviders[def.key]
+        const providerType: ProviderType = cfg?.providerType ?? def.defaultProvider
+        const providerName = cfg?.providerName?.trim() || null
+        const isExternal = providerType === 'client' || providerType === 'freelancer'
+        const hasRequires = def.requires.length > 0
+        const stepDueDate = cfg?.stepDueDate ? format(cfg.stepDueDate, 'yyyy-MM-dd') : null
 
-      return {
-        project_id: projectData.id,
-        step_key: def.key,
-        step_order: index,
-        label: def.label,
-        provider_type: providerType,
-        provider_name: providerName,
-        status: hasRequires ? 'ロック中' : (isExternal ? '素材待ち' : '未着手'),
-        is_client_step: isExternal,
-        file_urls: [],
-        file_names: [],
-        step_due_date: stepDueDate,
-      }
-    })
+        return {
+          project_id: projectData.id,
+          step_key: def.key,
+          step_order: index,
+          label: def.label,
+          provider_type: providerType,
+          provider_name: providerName,
+          status: hasRequires ? 'ロック中' : (isExternal ? '素材待ち' : '未着手'),
+          is_client_step: isExternal,
+          file_urls: [],
+          file_names: [],
+          step_due_date: stepDueDate,
+        }
+      })
+    }
 
-    const { error: stepsError } = await supabase.from('project_steps').insert(stepsToInsert)
+    const { error: stepsError } = stepsToInsert.length
+      ? await supabase.from('project_steps').insert(stepsToInsert)
+      : { error: null }
     if (stepsError) {
       setError('ステップの作成に失敗しました: ' + stepsError.message)
       setIsSubmitting(false)
@@ -311,15 +338,43 @@ export function ProjectForm() {
             )}
           </div>
 
-          {/* カスタムジャンルはステップなし案内 */}
-          {projectType && !isBuiltinType(projectType) && (
-            <div className="rounded-md bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
-              作成後に「ステップ管理」からステップを追加できます。
+          {/* 初期ステップのプリセット選択 */}
+          {projectType && presets.length > 0 && (
+            <div className="space-y-2">
+              <Label>初期ステップ（プリセット）</Label>
+              <div className="flex flex-wrap gap-1.5">
+                <button type="button" onClick={() => setPresetId('')}
+                  className={cn('text-xs px-2.5 py-1 rounded-full border transition-all',
+                    !presetId ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-muted-foreground'
+                  )}>
+                  {isBuiltinType(projectType) ? '種別の標準' : 'なし'}
+                </button>
+                {presets.map((p) => (
+                  <button key={p.id} type="button" onClick={() => setPresetId(p.id)}
+                    className={cn('text-xs px-2.5 py-1 rounded-full border transition-all',
+                      presetId === p.id ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-muted-foreground'
+                    )}>
+                    {p.name}<span className="text-[9px] opacity-60 ml-0.5">({p.steps.length})</span>
+                  </button>
+                ))}
+              </div>
+              {presetId && (
+                <p className="text-[10px] text-muted-foreground">
+                  プリセット「{presets.find((p) => p.id === presetId)?.name}」の工程で作成します。作成後に「ステップ管理」で調整できます。
+                </p>
+              )}
             </div>
           )}
 
-          {/* ステップごとの担当者設定（組み込みタイプのみ） */}
-          {projectType && isBuiltinType(projectType) && (
+          {/* カスタムジャンルはステップなし案内 */}
+          {projectType && !isBuiltinType(projectType) && !presetId && (
+            <div className="rounded-md bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
+              作成後に「ステップ管理」からステップを追加できます。プリセットを選ぶと初期ステップを配置できます。
+            </div>
+          )}
+
+          {/* ステップごとの担当者設定（組み込みタイプのみ・プリセット未選択時） */}
+          {projectType && isBuiltinType(projectType) && !presetId && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>各ステップの担当者{projectType === 'event' ? '・締め切り' : ''}</Label>

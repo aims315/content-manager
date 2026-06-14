@@ -22,14 +22,16 @@ const TYPE_FILTERS = [
   { value: 'event', label: 'イベント', icon: <CalendarDaysIcon className="size-3.5" /> },
 ]
 
-export function ProjectListClient() {
+export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) {
+  // ?code= は「自分用の絞り込み」。lockedCode は /c/[code] のコード限定モード。
   const [urlCode, setUrlCode] = useState<string | null>(null)
   useEffect(() => {
+    if (lockedCode) { setUrlCode(lockedCode); return }
     const params = new URLSearchParams(window.location.search)
     setUrlCode(params.get('code'))
-  }, [])
+  }, [lockedCode])
 
-  const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, setProjectDoneOverride, refetch } = useProjects()
+  const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, setProjectDoneOverride, refetch } = useProjects(lockedCode)
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
   const { customTypes: customProjectTypes } = useProjectTypes()
@@ -108,9 +110,11 @@ export function ProjectListClient() {
   }
 
   // 検索・種別・コードフィルター適用後のプロジェクト
+  // urlCode（?code= または lockedCode）がある時はそのコードに完全一致で限定。
+  // 無い時は手動のcodeFilter（部分一致）を適用。
   const baseFiltered = projects
     .filter((p) => !typeFilter || p.project_type === typeFilter)
-    .filter((p) => !codeFilter || p.assignee?.includes(codeFilter))
+    .filter((p) => urlCode ? p.assignee === urlCode : (!codeFilter || p.assignee?.includes(codeFilter)))
     .filter((p) => !query.trim() || p.title.includes(query) || p.assignee?.includes(query) || p.client_slug?.includes(query))
 
   // ソート
@@ -271,13 +275,15 @@ export function ProjectListClient() {
             </button>
           </div>
 
-          <div className="ml-1">
-            <TrashDialog
-              deletedProjects={deletedProjects}
-              onRestore={restoreProject}
-              onPermanentDelete={permanentDeleteProject}
-            />
-          </div>
+          {!lockedCode && (
+            <div className="ml-1">
+              <TrashDialog
+                deletedProjects={deletedProjects}
+                onRestore={restoreProject}
+                onPermanentDelete={permanentDeleteProject}
+              />
+            </div>
+          )}
         </div>
       </div>
 

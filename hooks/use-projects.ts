@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Project, ProjectStep, StepStatus, ProviderType } from '@/lib/types'
 import { sendChatworkNotification } from './use-notify'
 
-export function useProjects() {
+export function useProjects(lockedCode?: string) {
   const [projects, setProjects] = useState<Project[]>([])
   const [deletedProjects, setDeletedProjects] = useState<Project[]>([])
   const [steps, setSteps] = useState<Record<string, ProjectStep[]>>({})
@@ -30,30 +30,40 @@ export function useProjects() {
   }
 
   const fetchProjects = useCallback(async () => {
-    const { data, error } = await supabase
+    let q = supabase
       .from('projects')
       .select('*')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
+    if (lockedCode) q = q.eq('assignee', lockedCode)  // コード限定モード
+    const { data, error } = await q
     if (error) { console.error('Error fetching projects:', error); return }
     setProjects(applyPendingOverrides(data || []))
     setLoading(false)
-  }, [supabase])
+  }, [supabase, lockedCode])
 
   const fetchDeletedProjects = useCallback(async () => {
-    const { data } = await supabase
+    let q = supabase
       .from('projects')
       .select('*')
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false })
+    if (lockedCode) q = q.eq('assignee', lockedCode)
+    const { data } = await q
     setDeletedProjects(data || [])
-  }, [supabase])
+  }, [supabase, lockedCode])
 
   const fetchAllSteps = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('project_steps')
-      .select('*')
-      .order('step_order', { ascending: true })
+    // コード限定時は、そのコードのプロジェクトのステップだけ取得
+    let projectIds: string[] | null = null
+    if (lockedCode) {
+      const { data: ps } = await supabase.from('projects').select('id').eq('assignee', lockedCode)
+      projectIds = (ps || []).map((p) => p.id)
+      if (projectIds.length === 0) { setSteps({}); return }
+    }
+    let q = supabase.from('project_steps').select('*').order('step_order', { ascending: true })
+    if (projectIds) q = q.in('project_id', projectIds)
+    const { data, error } = await q
     if (error) { console.error('Error fetching steps:', error); return }
     const grouped: Record<string, ProjectStep[]> = {}
     for (const step of (data || [])) {
@@ -61,7 +71,7 @@ export function useProjects() {
       grouped[step.project_id].push(step)
     }
     setSteps(grouped)
-  }, [supabase])
+  }, [supabase, lockedCode])
 
   const fetchStepsForProject = useCallback(async (projectId: string) => {
     const { data, error } = await supabase
@@ -431,7 +441,7 @@ export function useProjects() {
     fetchProjects()
     fetchDeletedProjects()
     fetchAllSteps()
-    runAutoArchive()  // 読み込み時に自動整理を実行
+    if (!lockedCode) runAutoArchive()  // 自動整理は通常モードのみ
 
     const handleProjectChange = () => { fetchProjects(); fetchDeletedProjects() }
     const handleStepChange = () => fetchAllSteps()
@@ -450,7 +460,7 @@ export function useProjects() {
       supabase.removeChannel(projectChannel)
       supabase.removeChannel(stepChannel)
     }
-  }, [fetchProjects, fetchDeletedProjects, fetchAllSteps, runAutoArchive, supabase])
+  }, [fetchProjects, fetchDeletedProjects, fetchAllSteps, runAutoArchive, lockedCode, supabase])
 
   return {
     projects, deletedProjects, steps, loading,
