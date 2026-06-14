@@ -11,9 +11,10 @@ export default function HomePage() {
   const adminSecret = process.env.ADMIN_PATH_SECRET ?? 'setup-required'
   const newProjectHref = `/p/${adminSecret}`
   const settingsHref = `/p/${adminSecret}/settings`
+  // 既定はパスワード保護あり。NEXT_PUBLIC_REQUIRE_AUTH=false のサイトだけ解除。
+  const requireAuth = process.env.NEXT_PUBLIC_REQUIRE_AUTH !== 'false'
 
-  return (
-    <AdminAuthGuard>
+  const content = (
     <main className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
@@ -47,6 +48,7 @@ export default function HomePage() {
         <ProjectListClient />
       </div>
     </main>
-    </AdminAuthGuard>
   )
+
+  return requireAuth ? <AdminAuthGuard>{content}</AdminAuthGuard> : content
 }
