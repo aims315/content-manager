@@ -3,6 +3,7 @@ import { ProjectListClient } from '@/components/project-list-client'
 import { ProviderSettingsModal } from '@/components/provider-settings-modal'
 import { CsvImportDialog } from '@/components/csv-import-dialog'
 import { CsvExportButton } from '@/components/csv-export-button'
+import { AdminAuthGuard } from '@/components/admin-auth-guard'
 import { Button } from '@/components/ui/button'
 import { PlusIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react'
 
@@ -12,6 +13,7 @@ export default function HomePage() {
   const settingsHref = `/p/${adminSecret}/settings`
 
   return (
+    <AdminAuthGuard>
     <main className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
@@ -45,5 +47,6 @@ export default function HomePage() {
         <ProjectListClient />
       </div>
     </main>
+    </AdminAuthGuard>
   )
 }
