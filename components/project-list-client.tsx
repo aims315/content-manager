@@ -100,11 +100,11 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     [projects]
   )
 
-  // リンクをコピー
+  // 共有リンク（/c/コード）をコピー。渡した相手はそのコードだけ編集できる。
   const copyFilterLink = () => {
-    const url = new URL(window.location.href)
-    url.searchParams.set('code', codeFilter)
-    navigator.clipboard.writeText(url.toString())
+    if (!codeFilter) return
+    const shareUrl = `${window.location.origin}/c/${encodeURIComponent(codeFilter)}`
+    navigator.clipboard.writeText(shareUrl)
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 2000)
   }
