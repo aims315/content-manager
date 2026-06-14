@@ -67,12 +67,14 @@ export function useStepStatuses() {
         const parsed = JSON.parse(data.value) as StepStatusDef[]
         if (Array.isArray(parsed) && parsed.length > 0) {
           // isDone を正しく補正
+          // - 未着手 / ロック中 は絶対に完了扱いにしない（旧バグで true になっていた場合も修正）
           // - isDone未設定 → ラベルが '完了' のときだけ true
-          // - status_locked (ロック中) は必ず false（旧バグで true になっていた場合も修正）
+          const NEVER_DONE_IDS = ['status_pending', 'status_locked']
+          const NEVER_DONE_LABELS = ['未着手', 'ロック中']
           let needsResave = false
           const migrated = parsed.map((s) => {
             let isDone: boolean
-            if (s.id === 'status_locked' || s.label === 'ロック中') {
+            if (NEVER_DONE_IDS.includes(s.id) || NEVER_DONE_LABELS.includes(s.label)) {
               isDone = false
               if (s.isDone !== false) needsResave = true
             } else if (s.isDone !== undefined) {
