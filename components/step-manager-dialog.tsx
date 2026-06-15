@@ -7,12 +7,16 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import { format } from 'date-fns'
+import { ja } from 'date-fns/locale'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
-  ListTodoIcon, PlusIcon, Trash2Icon, ChevronUpIcon, ChevronDownIcon, GripVerticalIcon, CheckIcon, BookmarkIcon, SaveIcon,
+  ListTodoIcon, PlusIcon, Trash2Icon, ChevronUpIcon, ChevronDownIcon, GripVerticalIcon, CheckIcon, BookmarkIcon, SaveIcon, CalendarIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProjectStep, ProviderType } from '@/lib/types'
@@ -88,6 +92,9 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
       s.id === stepId ? { ...s, provider_type: provider as ProviderType, is_client_step: provider !== 'self' } : s
     ))
     setRoleEditId(null)
+  }
+  const setStepDue = (stepId: string, due: string | null) => {
+    setLocalSteps((prev) => prev.map((s) => s.id === stepId ? { ...s, step_due_date: due } : s))
   }
 
   // プリセットのステップをまとめて追加
@@ -178,15 +185,17 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
             file_urls: [],
             file_names: [],
             is_client_step: step.provider_type !== 'self',
+            step_due_date: step.step_due_date ?? null,
           })
         } else {
-          // 既存：順序・名前・役割を更新
+          // 既存：順序・名前・役割・締切を更新
           await supabase.from('project_steps')
             .update({
               step_order: i,
               label: step.label,
               provider_type: step.provider_type,
               is_client_step: step.provider_type !== 'self',
+              step_due_date: step.step_due_date ?? null,
             })
             .eq('id', step.id)
         }
@@ -307,6 +316,29 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                       </div>
                     )}
                   </div>
+
+                  {/* 締切 */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button type="button" title="締切を設定"
+                        className={cn('flex items-center gap-1 text-[10px] px-1.5 py-1 rounded border shrink-0',
+                          step.step_due_date ? 'border-border text-foreground' : 'border-dashed text-muted-foreground')}>
+                        <CalendarIcon className="size-3" />
+                        {step.step_due_date ? format(new Date(step.step_due_date), 'M/d', { locale: ja }) : '締切'}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar mode="single" locale={ja}
+                        selected={step.step_due_date ? new Date(step.step_due_date) : undefined}
+                        onSelect={(date) => setStepDue(step.id, date ? format(date, 'yyyy-MM-dd') : null)} />
+                      {step.step_due_date && (
+                        <div className="p-2 border-t">
+                          <Button type="button" variant="ghost" size="sm" className="w-full h-7 text-xs text-muted-foreground"
+                            onClick={() => setStepDue(step.id, null)}>クリア</Button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
 
                   {isNew && <span className="text-[10px] text-primary font-normal shrink-0">新</span>}
 
