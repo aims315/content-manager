@@ -8,6 +8,8 @@ import { useProjectTypes } from '@/hooks/use-project-types'
 import { ProjectCard } from '@/components/project-card'
 import { ScheduleView } from '@/components/schedule-view'
 import { TrashDialog } from '@/components/trash-dialog'
+import { ProjectForm } from '@/components/project-form'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useDeadlineConfig } from '@/hooks/use-deadline-config'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -44,6 +46,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code'>('created')
   const [codeFilter, setCodeFilter] = useState(urlCode ?? '')
   const [copiedLink, setCopiedLink] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [highlightId] = useState<string | null>(null)
 
   const findProjectId = (stepId: string) =>
@@ -160,6 +163,23 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
 
   return (
     <div className="space-y-4">
+
+      {/* コード限定ページ：クライアントも新規作成できる */}
+      {lockedCode && (
+        <div className="flex justify-end">
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1.5">＋ 新規プロジェクト</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[88vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>新規プロジェクト</DialogTitle>
+              </DialogHeader>
+              <ProjectForm lockedCode={lockedCode} onCreated={() => { setCreateOpen(false); refetch() }} />
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
 
       {/* ── 進行中 / 完了 タブ ── */}
       <div className="flex items-center gap-4 border-b pb-0">

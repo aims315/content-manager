@@ -150,10 +150,11 @@ export function useProjects(lockedCode?: string) {
       }
     }
 
-    // Chatwork通知
+    // 通知（コードごとの通知先に振り分け）
     if (context?.projectTitle && context?.stepLabel) {
+      const code = projectId ? projects.find((p) => p.id === projectId)?.assignee : undefined
       const msg = `[コンテンツ制作管理]\n📋 ステータス更新\nプロジェクト: ${context.projectTitle}\nステップ: ${context.stepLabel}\n新ステータス: ${status}`
-      sendChatworkNotification(msg)
+      sendChatworkNotification(msg, code)
     }
     return true
   }

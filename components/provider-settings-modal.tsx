@@ -329,6 +329,40 @@ export function ProviderSettingsModal() {
                 テスト通知を送る
               </Button>
             )}
+
+            {/* コードごとの通知先 */}
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium">コードごとの通知先</p>
+                <button type="button"
+                  onClick={() => saveNotifyConfig({ ...notifyConfig, routes: [...(notifyConfig.routes ?? []), { id: `route_${Date.now()}`, code: '', provider: 'discord', chatworkRoomId: '', discordWebhook: '' }] })}
+                  className="text-[10px] text-primary hover:underline">＋ 追加</button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">指定したコードのプロジェクトの通知だけ、別の場所へ送れます（未設定のコードは上の既定先へ）。</p>
+              {(notifyConfig.routes ?? []).map((r) => (
+                <div key={r.id} className="rounded-md border p-2 space-y-1.5 bg-muted/20">
+                  <div className="flex gap-1.5 items-center">
+                    <Input value={r.code} placeholder="コード（例: mikakami）" className="h-7 text-xs"
+                      onChange={(e) => saveNotifyConfig({ ...notifyConfig, routes: notifyConfig.routes.map((x) => x.id === r.id ? { ...x, code: e.target.value } : x) })} />
+                    <select value={r.provider} className="h-7 text-xs border rounded px-1 bg-background"
+                      onChange={(e) => saveNotifyConfig({ ...notifyConfig, routes: notifyConfig.routes.map((x) => x.id === r.id ? { ...x, provider: e.target.value as NotifyProvider } : x) })}>
+                      <option value="discord">Discord</option>
+                      <option value="chatwork">Chatwork</option>
+                    </select>
+                    <button type="button" title="削除"
+                      onClick={() => saveNotifyConfig({ ...notifyConfig, routes: notifyConfig.routes.filter((x) => x.id !== r.id) })}
+                      className="text-muted-foreground hover:text-destructive shrink-0"><Trash2Icon className="size-3.5" /></button>
+                  </div>
+                  {r.provider === 'discord' ? (
+                    <Input value={r.discordWebhook} placeholder="Discord Webhook URL" className="h-7 text-xs"
+                      onChange={(e) => saveNotifyConfig({ ...notifyConfig, routes: notifyConfig.routes.map((x) => x.id === r.id ? { ...x, discordWebhook: e.target.value } : x) })} />
+                  ) : (
+                    <Input value={r.chatworkRoomId} placeholder="ChatworkルームID（番号）" className="h-7 text-xs"
+                      onChange={(e) => saveNotifyConfig({ ...notifyConfig, routes: notifyConfig.routes.map((x) => x.id === r.id ? { ...x, chatworkRoomId: e.target.value } : x) })} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

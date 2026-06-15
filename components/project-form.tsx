@@ -39,7 +39,7 @@ interface StepProviderConfig {
   stepDueDate?: Date | undefined
 }
 
-export function ProjectForm() {
+export function ProjectForm({ lockedCode, onCreated }: { lockedCode?: string; onCreated?: () => void } = {}) {
   const router = useRouter()
   const supabase = createClient()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
@@ -54,7 +54,7 @@ export function ProjectForm() {
   const [newTypeEmoji, setNewTypeEmoji] = useState('📝')
   const [newTypeColorIdx, setNewTypeColorIdx] = useState(0)
   const [title, setTitle] = useState('')
-  const [assignee, setAssignee] = useState('')
+  const [assignee, setAssignee] = useState(lockedCode ?? '')
   const [existingAssignees, setExistingAssignees] = useState<string[]>([])
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>()
@@ -193,8 +193,9 @@ export function ProjectForm() {
     const builtinLabel: Record<string, string> = { instagram: 'Instagram投稿', twitter: 'X（Twitter）投稿', event: 'イベント制作' }
     const customType = customTypes.find((t) => t.id === projectType)
     const typeLabel = builtinLabel[projectType] ?? (customType ? `${customType.emoji} ${customType.label}` : projectType)
-    sendChatworkNotification(`[コンテンツ制作管理]\n🆕 新規プロジェクト作成\nタイトル: ${title.trim()}\n種別: ${typeLabel}\nコード: ${assignee.trim()}${dueDate ? `\n納期: ${format(dueDate, 'M/d')}` : ''}`)
+    sendChatworkNotification(`[コンテンツ制作管理]\n🆕 新規プロジェクト作成\nタイトル: ${title.trim()}\n種別: ${typeLabel}\nコード: ${assignee.trim()}${dueDate ? `\n納期: ${format(dueDate, 'M/d')}` : ''}`, assignee.trim())
 
+    if (onCreated) { onCreated(); return }
     router.push('/')
   }
 
@@ -486,7 +487,13 @@ export function ProjectForm() {
             />
           </div>
 
-          {/* プロジェクトコード */}
+          {/* プロジェクトコード（lockedCode時は固定表示） */}
+          {lockedCode ? (
+            <div className="space-y-2">
+              <Label>プロジェクトコード</Label>
+              <div className="text-sm font-medium bg-muted px-3 py-2 rounded-md">{lockedCode}</div>
+            </div>
+          ) : (
           <div className="space-y-2">
             <Label htmlFor="assignee">プロジェクトコード *</Label>
             <Input
@@ -523,6 +530,7 @@ export function ProjectForm() {
               </div>
             )}
           </div>
+          )}
 
           {/* 備考 */}
           <div className="space-y-2">

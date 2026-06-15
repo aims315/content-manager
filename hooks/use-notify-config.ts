@@ -5,11 +5,21 @@ import { createClient } from '@/lib/supabase/client'
 
 export type NotifyProvider = 'none' | 'chatwork' | 'discord'
 
-export interface NotifyConfig {
-  provider: NotifyProvider
-  chatworkToken: string
+// コードごとの通知先ルート
+export interface NotifyRoute {
+  id: string
+  code: string                 // プロジェクトコード（assignee）
+  provider: NotifyProvider     // このコードの通知先サービス
   chatworkRoomId: string
   discordWebhook: string
+}
+
+export interface NotifyConfig {
+  provider: NotifyProvider
+  chatworkToken: string        // Chatworkトークンは共通（ルームIDだけコード別）
+  chatworkRoomId: string
+  discordWebhook: string
+  routes: NotifyRoute[]        // コード別の通知先
 }
 
 export const DEFAULT_NOTIFY_CONFIG: NotifyConfig = {
@@ -17,6 +27,7 @@ export const DEFAULT_NOTIFY_CONFIG: NotifyConfig = {
   chatworkToken: '',
   chatworkRoomId: '',
   discordWebhook: '',
+  routes: [],
 }
 
 const SETTINGS_KEY = 'notification_config'
