@@ -8,6 +8,7 @@ import type { StepStatusDef, StatusColorKey } from '@/hooks/use-step-statuses'
 import { useNotifyConfig } from '@/hooks/use-notify-config'
 import type { NotifyProvider } from '@/hooks/use-notify-config'
 import { useArchiveConfig } from '@/hooks/use-archive-config'
+import { useDeadlineConfig } from '@/hooks/use-deadline-config'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -33,6 +34,7 @@ export function ProviderSettingsModal() {
   const { statuses, addStatus, updateStatus, renameStatus, deleteStatus, reorder } = useStepStatuses()
   const { config: notifyConfig, saveConfig: saveNotifyConfig } = useNotifyConfig()
   const { config: archiveConfig, saveConfig: saveArchiveConfig } = useArchiveConfig()
+  const { config: deadlineConfig, saveConfig: saveDeadlineConfig } = useDeadlineConfig()
 
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('roles')
@@ -358,6 +360,20 @@ export function ProviderSettingsModal() {
               ※「完了」ボタンで完了にした日からカウントします。アプリを開いたときに自動で整理されます。
               ゴミ箱からはいつでも手動で復元できます。
             </p>
+
+            <div className="border-t pt-4 space-y-1.5">
+              <label className="text-xs font-medium">締切バッジを出す日数</label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">締切の</span>
+                <Input type="number" min={1} className="h-8 text-sm w-20"
+                  value={deadlineConfig.warningDays}
+                  onChange={(e) => saveDeadlineConfig({ ...deadlineConfig, warningDays: Math.max(1, Number(e.target.value) || 1) })} />
+                <span className="text-xs text-muted-foreground">日前からバッジ表示</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                納期・ステップ締切がこの日数以内になると、カードとスケジュールに「あと○日」バッジが出ます。
+              </p>
+            </div>
           </div>
         )}
 

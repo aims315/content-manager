@@ -8,6 +8,7 @@ import { useProjectTypes } from '@/hooks/use-project-types'
 import { ProjectCard } from '@/components/project-card'
 import { ScheduleView } from '@/components/schedule-view'
 import { TrashDialog } from '@/components/trash-dialog'
+import { useDeadlineConfig } from '@/hooks/use-deadline-config'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon, UsersIcon, LinkIcon } from 'lucide-react'
@@ -35,6 +36,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
   const { customTypes: customProjectTypes } = useProjectTypes()
+  const { config: deadlineConfig } = useDeadlineConfig()
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
@@ -321,7 +323,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
 
       {/* スケジュールビュー */}
       {view === 'schedule' && (
-        <ScheduleView projects={filtered} allSteps={steps} />
+        <ScheduleView projects={filtered} allSteps={steps} warningDays={deadlineConfig.warningDays} />
       )}
 
       {/* 制作管理ビュー */}
@@ -361,6 +363,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                         onDelete={deleteProject}
                         isDone={isProjectDone(project.id)}
                         onSetDone={(v) => setProjectDoneOverride(project.id, v)}
+                        warningDays={deadlineConfig.warningDays}
                         providerLabels={providerLabels}
                         providerRoles={providerRoles}
                         statusDefs={statusDefs}
@@ -390,6 +393,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                   onDelete={deleteProject}
                   isDone={isProjectDone(project.id)}
                   onSetDone={(v) => setProjectDoneOverride(project.id, v)}
+                  warningDays={deadlineConfig.warningDays}
                   providerLabels={providerLabels}
                   providerRoles={providerRoles}
                   statusDefs={statusDefs}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar'
-import { isSameDay, parseISO, format, compareAsc, isPast, isToday } from 'date-fns'
+import { isSameDay, parseISO, format, compareAsc, isPast, isToday, differenceInCalendarDays } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { InstagramIcon, TwitterIcon, CalendarDaysIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -45,9 +45,10 @@ const KIND_FILTERS = [
 interface ScheduleViewProps {
   projects: Project[]
   allSteps: Record<string, ProjectStep[]>
+  warningDays?: number
 }
 
-export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
+export function ScheduleView({ projects, allSteps, warningDays = 5 }: ScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
   const [typeFilter, setTypeFilter] = useState<Set<string>>(
     new Set(['instagram', 'twitter', 'event'])
@@ -280,6 +281,19 @@ export function ScheduleView({ projects, allSteps }: ScheduleViewProps) {
                           {!item.isDone && past && (
                             <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded shrink-0">遅延</span>
                           )}
+                          {(() => {
+                            if (item.isDone || past) return null
+                            const days = differenceInCalendarDays(parseISO(item.date), new Date())
+                            if (days < 0 || days > warningDays) return null
+                            const label = days === 0 ? '今日締切' : `あと${days}日`
+                            const urgent = days <= 1
+                            return (
+                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0 font-medium',
+                                urgent ? 'text-rose-700 bg-rose-100' : 'text-amber-700 bg-amber-100')}>
+                                {label}
+                              </span>
+                            )
+                          })()}
                         </div>
                       ))}
                     </div>

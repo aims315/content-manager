@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { format } from 'date-fns'
+import { format, differenceInCalendarDays } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import {
   CalendarIcon,
@@ -560,9 +560,10 @@ interface ProjectCardProps {
   onDelete: (projectId: string) => Promise<boolean>
   isDone?: boolean
   onSetDone?: (value: boolean | null) => void
+  warningDays?: number
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete, isDone, onSetDone }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete, isDone, onSetDone, warningDays = 5 }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
@@ -678,6 +679,19 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
               <span>{format(new Date(project.due_date), 'M/d', { locale: ja })}</span>
             </div>
           )}
+          {project.due_date && !isDone && (() => {
+            const days = differenceInCalendarDays(new Date(project.due_date), new Date())
+            if (days < 0) return <span className="text-[10px] px-1.5 py-0.5 rounded font-medium text-rose-700 bg-rose-100">遅延</span>
+            if (days > warningDays) return null
+            const label = days === 0 ? '今日締切' : `あと${days}日`
+            const urgent = days <= 1
+            return (
+              <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium',
+                urgent ? 'text-rose-700 bg-rose-100' : 'text-amber-700 bg-amber-100')}>
+                {label}
+              </span>
+            )
+          })()}
         </div>
 
         {/* 進捗バー */}
