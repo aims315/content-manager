@@ -34,7 +34,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     setUrlCode(params.get('code'))
   }, [lockedCode])
 
-  const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, setProjectDoneOverride, refetch } = useProjects(lockedCode)
+  const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, emptyTrash, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, setProjectDoneOverride, refetch } = useProjects(lockedCode)
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
   const { customTypes: customProjectTypes } = useProjectTypes()
@@ -303,6 +303,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                 deletedProjects={deletedProjects}
                 onRestore={restoreProject}
                 onPermanentDelete={permanentDeleteProject}
+                onEmptyTrash={emptyTrash}
               />
             </div>
           )}

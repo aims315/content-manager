@@ -438,6 +438,20 @@ export function useProjects(lockedCode?: string) {
     return true
   }
 
+  // ゴミ箱を空にする（全完全削除）
+  const emptyTrash = async () => {
+    const ids = deletedProjects.map((p) => p.id)
+    if (ids.length === 0) return true
+    setDeletedProjects([])  // 楽観的に空に
+    const { error } = await supabase.from('projects').delete().in('id', ids)
+    if (error) {
+      console.error('Error emptying trash:', error)
+      await fetchDeletedProjects()
+      return false
+    }
+    return true
+  }
+
   useEffect(() => {
     fetchProjects()
     fetchDeletedProjects()
@@ -466,7 +480,7 @@ export function useProjects(lockedCode?: string) {
   return {
     projects, deletedProjects, steps, loading,
     updateStepStatus, submitStep, updateStep,
-    deleteProject, restoreProject, permanentDeleteProject,
+    deleteProject, restoreProject, permanentDeleteProject, emptyTrash,
     fetchStepsForProject, refetch: async () => { await fetchProjects(); await fetchAllSteps() },
     updateStepProvider, updateStepDueDate, updateStepDependencies, duplicateProject,
     setProjectDoneOverride,
