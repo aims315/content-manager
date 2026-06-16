@@ -5,10 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 
 export interface DeadlineConfig {
   warningDays: number   // 締切まで何日以内でバッジを出すか
+  reminderDays: number  // 締切の何日前から通知を送るか（全体の既定）
 }
 
 export const DEFAULT_DEADLINE_CONFIG: DeadlineConfig = {
   warningDays: 5,
+  reminderDays: 3,
 }
 
 const SETTINGS_KEY = 'deadline_config'

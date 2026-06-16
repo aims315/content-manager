@@ -33,6 +33,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
   )
   const [saving, setSaving] = useState(false)
   const [existingAssignees, setExistingAssignees] = useState<string[]>([])
+  const [reminderDays, setReminderDays] = useState<string>(project.reminder_days != null ? String(project.reminder_days) : '')
 
   useEffect(() => {
     if (!open) return
@@ -40,6 +41,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
     setAssignee(project.assignee)
     setDescription(project.description ?? '')
     setDueDate(project.due_date ? parseISO(project.due_date) : undefined)
+    setReminderDays(project.reminder_days != null ? String(project.reminder_days) : '')
     async function fetchAssignees() {
       const { data } = await supabase.from('projects').select('assignee').is('deleted_at', null)
       if (data) setExistingAssignees([...new Set(data.map((d) => d.assignee).filter(Boolean))])
@@ -51,11 +53,13 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
   const handleSave = async () => {
     if (!title.trim() || !assignee.trim()) return
     setSaving(true)
+    const rd = reminderDays.trim() === '' ? null : Math.max(1, parseInt(reminderDays, 10) || 1)
     await supabase.from('projects').update({
       title: title.trim(),
       assignee: assignee.trim(),
       description: description.trim() || null,
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
+      reminder_days: rd,
     }).eq('id', project.id)
     setSaving(false)
     setOpen(false)
@@ -136,6 +140,18 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
                 )}
               </PopoverContent>
             </Popover>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm">締切リマインダー（このプロジェクト）</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">締切の</span>
+              <Input type="number" min={1} value={reminderDays}
+                onChange={(e) => setReminderDays(e.target.value)}
+                placeholder="全体設定" className="h-8 text-sm w-24" />
+              <span className="text-xs text-muted-foreground">日前から</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground">空欄なら全体設定に従います。数字を入れるとこのプロジェクトだけその日数で通知します。</p>
           </div>
 
           <div className="flex gap-2 pt-2">

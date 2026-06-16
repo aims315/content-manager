@@ -52,6 +52,7 @@ export interface Project {
   discord_channels: string[]
   done_override: boolean | null
   completed_at: string | null
+  reminder_days: number | null
   created_at: string
   deleted_at: string | null
   steps?: ProjectStep[]

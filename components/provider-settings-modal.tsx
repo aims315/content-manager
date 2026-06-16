@@ -408,6 +408,20 @@ export function ProviderSettingsModal() {
                 納期・ステップ締切がこの日数以内になると、カードとスケジュールに「あと○日」バッジが出ます。
               </p>
             </div>
+
+            <div className="border-t pt-4 space-y-1.5">
+              <label className="text-xs font-medium">締切リマインダー通知（全体）</label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">締切の</span>
+                <Input type="number" min={1} className="h-8 text-sm w-20"
+                  value={deadlineConfig.reminderDays}
+                  onChange={(e) => saveDeadlineConfig({ ...deadlineConfig, reminderDays: Math.max(1, Number(e.target.value) || 1) })} />
+                <span className="text-xs text-muted-foreground">日前から通知</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                未完了（進捗が全部緑でない）プロジェクトの締切がこの日数以内になると、毎日1回、通知タブの設定先（コード別があればそちら）へ通知します。カードごとに個別の日数を設定するとそちらが優先されます。
+              </p>
+            </div>
           </div>
         )}
 

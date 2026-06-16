@@ -8,110 +8,109 @@ function getSupabase() {
   )
 }
 
-function getWebhookMap(): Record<string, string> {
-  const raw = process.env.DISCORD_WEBHOOKS
-  if (!raw) {
-    const single = process.env.DISCORD_WEBHOOK_URL
-    if (single) return { '通知': single }
-    return {}
-  }
-  try { return JSON.parse(raw) } catch { return {} }
+type Provider = 'none' | 'chatwork' | 'discord'
+interface NotifyRoute { id: string; code: string; provider: Provider; chatworkRoomId: string; discordWebhook: string }
+interface NotifyConfig {
+  provider: Provider; chatworkToken: string; chatworkRoomId: string; discordWebhook: string; routes?: NotifyRoute[]
 }
 
-async function getChannelForSlug(supabase: ReturnType<typeof getSupabase>, clientSlug: string): Promise<string | null> {
-  try {
-    const { data } = await supabase
-      .from('client_settings')
-      .select('discord_channel')
-      .eq('slug', clientSlug)
-      .single()
-    return data?.discord_channel ?? null
-  } catch {
-    return null
+async function readSetting(supabase: ReturnType<typeof getSupabase>, key: string) {
+  const { data } = await supabase.from('app_settings').select('value').eq('key', key).single()
+  return data?.value as string | undefined
+}
+
+async function sendNotification(config: NotifyConfig | null, code: string | undefined, message: string) {
+  const route = code && config?.routes?.length
+    ? config.routes.find((r) => r.code && (r.code === code || code.includes(r.code)))
+    : undefined
+  const provider: Provider = route?.provider ?? config?.provider ?? (process.env.CHATWORK_API_TOKEN ? 'chatwork' : 'none')
+  const chatworkToken = config?.chatworkToken || process.env.CHATWORK_API_TOKEN || ''
+  const chatworkRoomId = route?.chatworkRoomId || config?.chatworkRoomId || process.env.CHATWORK_ROOM_ID || ''
+  const discordWebhook = route?.discordWebhook || config?.discordWebhook || ''
+
+  if (provider === 'discord' && discordWebhook) {
+    await fetch(discordWebhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: message }) })
+  } else if (provider === 'chatwork' && chatworkToken && chatworkRoomId) {
+    await fetch(`https://api.chatwork.com/v2/rooms/${chatworkRoomId}/messages`, {
+      method: 'POST',
+      headers: { 'X-ChatWorkToken': chatworkToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `body=${encodeURIComponent(message)}`,
+    })
   }
 }
 
-async function sendToDiscord(content: string, channels: string[], clientSlug: string | null, supabase: ReturnType<typeof getSupabase>, webhookMap: Record<string, string>) {
-  let urls: string[] = []
-
-  // 1. タスクに紐づくチャンネルが明示されていればそこだけ
-  if (channels.length > 0) {
-    urls = channels.filter((ch) => webhookMap[ch]).map((ch) => webhookMap[ch])
-  }
-
-  // 2. なければ client_slug → client_settings のチャンネルを参照
-  if (urls.length === 0 && clientSlug) {
-    const ch = await getChannelForSlug(supabase, clientSlug)
-    if (ch && webhookMap[ch]) urls = [webhookMap[ch]]
-  }
-
-  // チャンネルが特定できない場合は送信しない
-  if (urls.length === 0) return
-
-  await Promise.allSettled(
-    urls.map((url) =>
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      })
-    )
-  )
+function daysUntil(dateStr: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  return Math.round((d.getTime() - today.getTime()) / 86400000)
 }
 
 export async function GET(request: NextRequest) {
-  // Vercel が自動で付与する CRON_SECRET で認証
   const authHeader = request.headers.get('authorization')
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const supabase = getSupabase()
-  const webhookMap = getWebhookMap()
 
-  // 通知タイミングを app_settings から取得（デフォルト3日前）
-  const { data: settingData } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'due_reminder_days')
-    .single()
+  // 通知設定
+  let notifyConfig: NotifyConfig | null = null
+  const ncRaw = await readSetting(supabase, 'notification_config')
+  if (ncRaw) { try { notifyConfig = JSON.parse(ncRaw) } catch { /* ignore */ } }
 
-  const reminderDays = Math.max(1, parseInt(settingData?.value ?? '3', 10) || 3)
+  // 全体の通知日数（deadline_config.reminderDays、既定3）
+  let globalDays = 3
+  const dcRaw = await readSetting(supabase, 'deadline_config')
+  if (dcRaw) { try { const c = JSON.parse(dcRaw); if (typeof c.reminderDays === 'number') globalDays = c.reminderDays } catch { /* ignore */ } }
 
-  // 対象日 = 今日 + reminderDays
-  const target = new Date()
-  target.setDate(target.getDate() + reminderDays)
-  const targetDateStr = target.toISOString().split('T')[0] // YYYY-MM-DD
-
-  // 対象タスクを取得：期日が targetDate かつ未完了かつ削除されていない
-  const { data: tasks, error } = await supabase
-    .from('tasks')
-    .select('id, title, assignee, due_date, status, discord_channels, client_slug')
-    .eq('due_date', targetDateStr)
-    .neq('status', '完了')
-    .is('deleted_at', null)
-
-  if (error) {
-    console.error('Cron: failed to fetch tasks', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  // 完了扱いラベル（未着手/ロック中は必ず除外）
+  let doneLabels = ['完了']
+  const ssRaw = await readSetting(supabase, 'step_statuses')
+  if (ssRaw) {
+    try {
+      const defs = JSON.parse(ssRaw) as { id: string; label: string; isDone?: boolean }[]
+      doneLabels = defs.filter((s) => s.isDone && s.label !== '未着手' && s.label !== 'ロック中' && s.id !== 'status_pending' && s.id !== 'status_locked').map((s) => s.label)
+      if (doneLabels.length === 0) doneLabels = ['完了']
+    } catch { /* ignore */ }
   }
 
-  if (!tasks || tasks.length === 0) {
-    return NextResponse.json({ sent: 0, reminderDays, targetDate: targetDateStr })
-  }
+  // 進行中プロジェクト取得
+  const { data: projects } = await supabase.from('projects').select('*').is('deleted_at', null)
+  if (!projects || projects.length === 0) return NextResponse.json({ ok: true, sent: 0 })
+
+  const ids = projects.map((p) => p.id)
+  const { data: allSteps } = await supabase.from('project_steps').select('*').in('project_id', ids)
+  const stepsByProject: Record<string, any[]> = {}
+  for (const s of (allSteps || [])) (stepsByProject[s.project_id] ??= []).push(s)
 
   let sent = 0
-  for (const task of tasks) {
-    const content =
-      `⚠️ **締切まであと${reminderDays}日です！**\n\n` +
-      `**タイトル:** ${task.title}\n` +
-      `**担当者:** ${task.assignee}\n` +
-      `**期限:** ${task.due_date}\n` +
-      `**ステータス:** ${task.status}`
+  for (const p of projects) {
+    // 完了判定：手動完了 or 全ステップ完了（＝進捗バー全部緑）→ スキップ
+    if (p.done_override === true) continue
+    const ps = stepsByProject[p.id] ?? []
+    const allDone = ps.length > 0 && ps.every((s) => doneLabels.includes(s.status))
+    if (p.done_override !== false && allDone) continue
 
-    await sendToDiscord(content, task.discord_channels ?? [], task.client_slug ?? null, supabase, webhookMap)
+    const days = (typeof p.reminder_days === 'number' && p.reminder_days > 0) ? p.reminder_days : globalDays
+
+    // 近づいている締切を集める（プロジェクト納期＋未完了ステップの締切）
+    const near: string[] = []
+    if (p.due_date) {
+      const d = daysUntil(p.due_date)
+      if (d >= 0 && d <= days) near.push(`納期 ${p.due_date}（あと${d}日）`)
+    }
+    for (const s of ps) {
+      if (!s.step_due_date) continue
+      if (doneLabels.includes(s.status)) continue
+      const d = daysUntil(s.step_due_date)
+      if (d >= 0 && d <= days) near.push(`${s.label} 〆${s.step_due_date}（あと${d}日）`)
+    }
+    if (near.length === 0) continue
+
+    const message = `[コンテンツ制作管理] ⏰ 締切が近づいています\nプロジェクト: ${p.title}\nコード: ${p.assignee}\n${near.map((n) => `・${n}`).join('\n')}`
+    await sendNotification(notifyConfig, p.assignee, message)
     sent++
   }
 
-  return NextResponse.json({ sent, reminderDays, targetDate: targetDateStr })
+  return NextResponse.json({ ok: true, sent })
 }
