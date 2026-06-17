@@ -54,6 +54,7 @@ interface ScheduleViewProps {
 }
 
 export function ScheduleView({ projects, allSteps, progressByProject = {}, onJumpToProject }: ScheduleViewProps) {
+  const [mode, setMode] = useState<'calendar' | 'cards'>('calendar')
   const [month, setMonth] = useState<Date>(startOfMonth(new Date()))
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(['instagram', 'twitter', 'event']))
   const [kindFilter, setKindFilter] = useState<Set<string>>(new Set(['due_date', 'step_due_date']))
@@ -98,10 +99,19 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
       {/* ヘッダー：月移動 + フィルター */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button onClick={() => setMonth((m) => addMonths(m, -1))} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronLeftIcon className="size-4" /></button>
-          <span className="text-base font-bold w-28 text-center">{format(month, 'yyyy年 M月', { locale: ja })}</span>
-          <button onClick={() => setMonth((m) => addMonths(m, 1))} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronRightIcon className="size-4" /></button>
-          <button onClick={() => setMonth(startOfMonth(new Date()))} className="ml-1 text-xs px-2 py-1 rounded border text-muted-foreground hover:bg-muted">今月</button>
+          {/* 表示モード切替 */}
+          <div className="flex rounded-md border overflow-hidden mr-1">
+            <button onClick={() => setMode('calendar')}
+              className={cn('px-2.5 py-1 text-xs transition-colors', mode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>カレンダー</button>
+            <button onClick={() => setMode('cards')}
+              className={cn('px-2.5 py-1 text-xs transition-colors border-l', mode === 'cards' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>カード</button>
+          </div>
+          {mode === 'calendar' && (<>
+            <button onClick={() => setMonth((m) => addMonths(m, -1))} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronLeftIcon className="size-4" /></button>
+            <span className="text-base font-bold w-28 text-center">{format(month, 'yyyy年 M月', { locale: ja })}</span>
+            <button onClick={() => setMonth((m) => addMonths(m, 1))} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronRightIcon className="size-4" /></button>
+            <button onClick={() => setMonth(startOfMonth(new Date()))} className="ml-1 text-xs px-2 py-1 rounded border text-muted-foreground hover:bg-muted">今月</button>
+          </>)}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {TYPE_FILTERS.map((f) => {
@@ -128,6 +138,7 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
       </div>
 
       {/* 曜日ヘッダー */}
+      {mode === 'calendar' && (
       <div className="grid grid-cols-7 gap-px">
         {WEEKDAYS.map((w, i) => (
           <div key={w} className={cn('text-center text-[11px] font-semibold py-1',
@@ -136,8 +147,10 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
           </div>
         ))}
       </div>
+      )}
 
       {/* 月グリッド */}
+      {mode === 'calendar' && (
       <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden border">
         {days.map((day) => {
           const key = format(day, 'yyyy-MM-dd')
@@ -181,6 +194,50 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
           )
         })}
       </div>
+      )}
+
+      {/* カード（時系列）表示 */}
+      {mode === 'cards' && (() => {
+        const sorted = [...allItems].sort((a, b) => a.date.localeCompare(b.date))
+        // 行を埋めるため、3の倍数になるよう空の白カードを足す
+        const padCount = sorted.length === 0 ? 0 : (3 - (sorted.length % 3)) % 3
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {sorted.map((it, i) => {
+              const prog = progressByProject[it.projectId]
+              const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0
+              return (
+                <button key={i} type="button" onClick={() => onJumpToProject?.(it.projectId)}
+                  className={cn('text-left rounded-lg border bg-card p-3 min-h-[110px] flex flex-col gap-1.5 shadow-sm transition-colors',
+                    it.isDone && 'opacity-50', onJumpToProject && 'hover:bg-accent/50 cursor-pointer')}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('size-2 rounded-full shrink-0', typeDot[it.projectType] ?? 'bg-muted-foreground')} />
+                    <span className="text-sm font-bold tabular-nums">{format(parseISO(it.date), 'M/d', { locale: ja })}</span>
+                    <span className="text-[10px] text-muted-foreground">({format(parseISO(it.date), 'E', { locale: ja })})</span>
+                    <span className={cn('ml-auto text-[10px] px-1.5 py-0.5 rounded border', typeChip[it.projectType])}>{it.label}</span>
+                  </div>
+                  <p className={cn('text-sm font-medium truncate', it.isDone && 'line-through')}>{it.projectTitle}</p>
+                  {prog && prog.total > 0 && (
+                    <div className="flex items-center gap-1.5 mt-auto">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{prog.done}/{prog.total}</span>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+            {/* 空きスロットを同サイズの白カードで埋める */}
+            {Array.from({ length: padCount }).map((_, i) => (
+              <div key={`pad_${i}`} className="rounded-lg border border-dashed bg-card/50 min-h-[110px]" />
+            ))}
+            {sorted.length === 0 && (
+              <div className="col-span-full text-center py-16 text-muted-foreground text-sm">予定がありません</div>
+            )}
+          </div>
+        )
+      })()}
 
       <p className="text-[11px] text-muted-foreground">予定をクリックするとそのカードに移動します。{allItems.length}件表示中。</p>
     </div>
