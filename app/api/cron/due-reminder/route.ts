@@ -105,6 +105,13 @@ export async function GET(request: NextRequest) {
       const d = daysUntil(s.step_due_date)
       if (d >= 0 && d <= days) near.push(`${s.label} 〆${s.step_due_date}（あと${d}日）`)
     }
+    // 名前付きの追加期日
+    const customDates = Array.isArray(p.custom_dates) ? p.custom_dates : []
+    for (const cd of customDates) {
+      if (!cd?.date || !cd?.label) continue
+      const d = daysUntil(cd.date)
+      if (d >= 0 && d <= days) near.push(`${cd.label} ${cd.date}（あと${d}日）`)
+    }
     if (near.length === 0) continue
 
     const message = `[コンテンツ制作管理] ⏰ 締切が近づいています\nプロジェクト: ${p.title}\nコード: ${p.assignee}\n${near.map((n) => `・${n}`).join('\n')}`
