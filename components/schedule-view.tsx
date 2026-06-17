@@ -46,9 +46,11 @@ interface ScheduleViewProps {
   projects: Project[]
   allSteps: Record<string, ProjectStep[]>
   warningDays?: number
+  progressByProject?: Record<string, { done: number; total: number }>
+  onJumpToProject?: (projectId: string) => void
 }
 
-export function ScheduleView({ projects, allSteps, warningDays = 5 }: ScheduleViewProps) {
+export function ScheduleView({ projects, allSteps, warningDays = 5, progressByProject = {}, onJumpToProject }: ScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
   const [typeFilter, setTypeFilter] = useState<Set<string>>(
     new Set(['instagram', 'twitter', 'event'])
@@ -271,14 +273,20 @@ export function ScheduleView({ projects, allSteps, warningDays = 5 }: ScheduleVi
                       {today && <span className="text-[10px] text-primary font-normal">今日</span>}
                     </div>
                     <div className="space-y-1 ml-2 mb-2">
-                      {groupItems.map((item, i) => (
+                      {groupItems.map((item, i) => {
+                        const prog = progressByProject[item.projectId]
+                        const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0
+                        return (
                         <div
                           key={i}
+                          onClick={() => onJumpToProject?.(item.projectId)}
+                          role={onJumpToProject ? 'button' : undefined}
                           className={cn(
                             'flex items-center gap-3 rounded-md border-l-2 bg-card px-3 py-2 shadow-sm',
                             typeBorder[item.projectType],
                             item.isDone && 'opacity-40',
-                            past && !item.isDone && 'bg-rose-50 border-rose-200 border-l-rose-400'
+                            past && !item.isDone && 'bg-rose-50 border-rose-200 border-l-rose-400',
+                            onJumpToProject && 'cursor-pointer hover:bg-accent/50 transition-colors'
                           )}
                         >
                           {typeIcon[item.projectType]}
@@ -287,6 +295,14 @@ export function ScheduleView({ projects, allSteps, warningDays = 5 }: ScheduleVi
                               {item.projectTitle}
                             </p>
                             <p className="text-[11px] text-muted-foreground truncate">{item.label}</p>
+                            {prog && prog.total > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden max-w-[120px]">
+                                  <div className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="text-[9px] text-muted-foreground shrink-0">{prog.done}/{prog.total}</span>
+                              </div>
+                            )}
                           </div>
                           {!item.isStep && (
                             <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">納期</span>
@@ -311,7 +327,8 @@ export function ScheduleView({ projects, allSteps, warningDays = 5 }: ScheduleVi
                             )
                           })()}
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )

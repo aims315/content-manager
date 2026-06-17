@@ -47,7 +47,19 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const [codeFilter, setCodeFilter] = useState(urlCode ?? '')
   const [copiedLink, setCopiedLink] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
-  const [highlightId] = useState<string | null>(null)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
+  // スケジュールからカードへジャンプ
+  const jumpToProject = (projectId: string) => {
+    setView('list')
+    setStatusTab('all')
+    setSortOrder('created')
+    setHighlightId(projectId)
+    setTimeout(() => {
+      document.getElementById(`project-${projectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setTimeout(() => setHighlightId(null), 2500)
+    }, 120)
+  }
 
   const findProjectId = (stepId: string) =>
     Object.keys(steps).find((pid) => steps[pid].some((s) => s.id === stepId))
@@ -344,7 +356,12 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
 
       {/* スケジュールビュー */}
       {view === 'schedule' && (
-        <ScheduleView projects={filtered} allSteps={steps} warningDays={deadlineConfig.warningDays} />
+        <ScheduleView projects={filtered} allSteps={steps} warningDays={deadlineConfig.warningDays}
+          progressByProject={Object.fromEntries(filtered.map((p) => {
+            const ps = steps[p.id] ?? []
+            return [p.id, { done: ps.filter((s) => doneLabels.includes(s.status)).length, total: ps.length }]
+          }))}
+          onJumpToProject={jumpToProject} />
       )}
 
       {/* 制作管理ビュー */}
