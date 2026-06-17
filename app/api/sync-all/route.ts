@@ -44,24 +44,47 @@ export async function POST(_request: NextRequest) {
   if (!tasks?.length) return NextResponse.json({ synced: 0 })
 
   const supabase = getSupabase()
-  let upserted = 0
-  let created = 0
 
-  for (const task of tasks as Record<string, unknown>[]) {
-    const taskId = task.id as string
-    const clientSlug = task.client_slug as string
-    if (!taskId || !clientSlug) continue
+  // プリセット情報を一度だけ取得（全タスク共通）
+  const { data: settingsRows } = await supabase
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['step_presets', 'client_preset_map'])
 
-    const { data: existing } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('project_code', taskId)
-      .is('deleted_at', null)
-      .limit(1)
-      .single()
+  const presetsRow = settingsRows?.find((r) => r.key === 'step_presets')
+  const mapRow = settingsRows?.find((r) => r.key === 'client_preset_map')
+  let allPresets: StepPreset[] = []
+  let presetMap: Record<string, string> = {}
+  try { allPresets = JSON.parse(presetsRow?.value ?? '[]') } catch { /* ignore */ }
+  try { presetMap = JSON.parse(mapRow?.value ?? '{}') } catch { /* ignore */ }
 
-    if (existing) {
-      await supabase
+  const getPreset = (clientSlug: string): StepPreset | null => {
+    const name = presetMap[clientSlug] ?? presetMap['default'] ?? null
+    if (!name) return allPresets[0] ?? null
+    return allPresets.find((p) => p.name === name) ?? allPresets[0] ?? null
+  }
+
+  // 既存プロジェクトを一括取得
+  const { data: existingProjects } = await supabase
+    .from('projects')
+    .select('id, project_code')
+    .is('deleted_at', null)
+    .not('project_code', 'is', null)
+
+  const existingMap = new Map((existingProjects ?? []).map((p) => [p.project_code, p.id]))
+
+  const validTasks = (tasks as Record<string, unknown>[]).filter(
+    (t) => t.id && t.client_slug
+  )
+
+  // 更新対象と新規作成対象に分類
+  const toUpdate = validTasks.filter((t) => existingMap.has(t.id as string))
+  const toCreate = validTasks.filter((t) => !existingMap.has(t.id as string))
+
+  // 並列で更新
+  await Promise.all(
+    toUpdate.map((task) =>
+      supabase
         .from('projects')
         .update({
           title: task.title ?? undefined,
@@ -70,9 +93,14 @@ export async function POST(_request: NextRequest) {
           staff: task.staff ?? null,
           description: task.description ?? null,
         })
-        .eq('id', existing.id)
-      upserted++
-    } else {
+        .eq('id', existingMap.get(task.id as string)!)
+    )
+  )
+
+  // 並列で新規作成
+  await Promise.all(
+    toCreate.map(async (task) => {
+      const clientSlug = task.client_slug as string
       const { data: newProject, error } = await supabase
         .from('projects')
         .insert({
@@ -80,7 +108,7 @@ export async function POST(_request: NextRequest) {
           project_type: 'instagram',
           assignee: clientSlug,
           client_slug: clientSlug,
-          project_code: taskId,
+          project_code: task.id as string,
           due_date: task.due_date ?? null,
           amount: task.amount ?? null,
           staff: task.staff ?? null,
@@ -90,7 +118,7 @@ export async function POST(_request: NextRequest) {
         .single()
 
       if (!error && newProject) {
-        const preset = await fetchPresetForClient(supabase, clientSlug)
+        const preset = getPreset(clientSlug)
         if (preset && preset.steps.length > 0) {
           await supabase.from('project_steps').insert(
             preset.steps.map((item, idx) => ({
@@ -105,10 +133,9 @@ export async function POST(_request: NextRequest) {
             }))
           )
         }
-        created++
       }
-    }
-  }
+    })
+  )
 
-  return NextResponse.json({ upserted, created })
+  return NextResponse.json({ upserted: toUpdate.length, created: toCreate.length })
 }
