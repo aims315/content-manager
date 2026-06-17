@@ -123,6 +123,72 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ created: newProject.id })
   }
 
+  // ── UPSERT: 手動同期（カード作成 or 情報更新） ──
+  if (eventType === 'UPSERT') {
+    if (!record.client_slug) return NextResponse.json({ skipped: 'no client_slug' })
+
+    const { data: existing } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('assignee', record.client_slug)
+      .is('deleted_at', null)
+      .single()
+
+    if (existing) {
+      // 既存カードの情報を更新
+      await supabase
+        .from('projects')
+        .update({
+          title: record.title ?? undefined,
+          due_date: record.due_date,
+          amount: record.amount,
+          staff: record.staff,
+          description: record.description,
+        })
+        .eq('id', existing.id)
+
+      return NextResponse.json({ updated: existing.id })
+    }
+
+    // カードがなければ新規作成（全ステップ未着手）
+    const { data: newProject, error } = await supabase
+      .from('projects')
+      .insert({
+        title: record.title ?? '（タスクアプリから自動作成）',
+        project_type: 'instagram',
+        assignee: record.client_slug,
+        client_slug: record.client_slug,
+        due_date: record.due_date,
+        amount: record.amount,
+        staff: record.staff,
+        description: record.description,
+      })
+      .select('id')
+      .single()
+
+    if (error || !newProject) {
+      return NextResponse.json({ error: error?.message }, { status: 500 })
+    }
+
+    const preset = await fetchPresetForClient(supabase, record.client_slug)
+    if (preset && preset.steps.length > 0) {
+      await supabase.from('project_steps').insert(
+        preset.steps.map((item, idx) => ({
+          project_id: newProject.id,
+          step_key: 'text',
+          step_order: idx,
+          label: item.label,
+          status: '未着手',
+          provider_type: item.provider === 'client' ? 'client'
+            : item.provider === 'freelancer' ? 'freelancer'
+            : 'self',
+        }))
+      )
+    }
+
+    return NextResponse.json({ created: newProject.id })
+  }
+
   // UPDATE のみここから
   if (eventType !== 'UPDATE') {
     return NextResponse.json({ skipped: 'not INSERT or UPDATE' })
