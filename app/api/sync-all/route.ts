@@ -20,33 +20,21 @@ export async function POST(_request: NextRequest) {
   const supabase = getSupabase()
   let upserted = 0
   let created = 0
-  let deleted = 0
 
   for (const task of tasks as Record<string, unknown>[]) {
-    const clientSlug = task.client_slug as string
-    if (!clientSlug) continue
+    const taskId = task.id as string
+    if (!taskId || !task.client_slug) continue
 
-    // 同じ assignee のプロジェクトを全件取得（重複対応）
-    const { data: matches } = await supabase
+    // task_fb タスクID（project_code）で既存プロジェクトを検索
+    const { data: existing } = await supabase
       .from('projects')
-      .select('id, created_at')
-      .eq('assignee', clientSlug)
+      .select('id')
+      .eq('project_code', taskId)
       .is('deleted_at', null)
-      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
 
-    if (matches && matches.length > 0) {
-      const [keep, ...duplicates] = matches
-
-      // 重複分を削除
-      if (duplicates.length > 0) {
-        await supabase
-          .from('projects')
-          .update({ deleted_at: new Date().toISOString() })
-          .in('id', duplicates.map((p) => p.id))
-        deleted += duplicates.length
-      }
-
-      // 最新1件を上書き更新
+    if (existing) {
       await supabase
         .from('projects')
         .update({
@@ -56,10 +44,10 @@ export async function POST(_request: NextRequest) {
           staff: task.staff ?? null,
           description: task.description ?? null,
         })
-        .eq('id', keep.id)
+        .eq('id', existing.id)
       upserted++
     } else {
-      // 新規作成
+      // 新規作成（ステップ含む）
       await fetch('https://task-unyou-sns.vercel.app/api/sync', {
         method: 'POST',
         headers: {
@@ -72,5 +60,5 @@ export async function POST(_request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ upserted, created, deleted })
+  return NextResponse.json({ upserted, created })
 }

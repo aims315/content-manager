@@ -38,10 +38,18 @@ async function fetchPresetForClient(
   return presets.find((p) => p.name === presetName) ?? presets[0] ?? null
 }
 
-// supabase-green-xylophone の tasks テーブルから呼ばれる
-// INSERT → プロマネ用カード自動作成（ステップ全て未着手）
-// UPDATE status=投稿OK → 最初のステップを完了＋URL・初稿日セット
-// UPDATE status=完了   → 全ステップを完了
+// task_fb タスクIDでプロジェクトを検索（project_code に保存）
+async function findProjectByTaskId(supabase: ReturnType<typeof getSupabase>, taskId: string) {
+  const { data } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('project_code', taskId)
+    .is('deleted_at', null)
+    .limit(1)
+    .single()
+  return data
+}
+
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-sync-secret')
   if (process.env.SYNC_SECRET && secret !== process.env.SYNC_SECRET) {
@@ -49,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const eventType: string = body.type // 'INSERT' | 'UPDATE'
+  const eventType: string = body.type
   const record = body.record as {
     id: string
     title: string | null
@@ -73,17 +81,8 @@ export async function POST(request: NextRequest) {
 
   // ── INSERT: カード新規作成 ──
   if (eventType === 'INSERT') {
-    // 既に同じクライアントのプロジェクトがあれば作らない
-    const { data: existing } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('assignee', record.client_slug)
-      .is('deleted_at', null)
-      .single()
-
-    if (existing) {
-      return NextResponse.json({ skipped: 'project already exists' })
-    }
+    const existing = await findProjectByTaskId(supabase, record.id)
+    if (existing) return NextResponse.json({ skipped: 'project already exists' })
 
     const { data: newProject, error } = await supabase
       .from('projects')
@@ -92,6 +91,7 @@ export async function POST(request: NextRequest) {
         project_type: 'instagram',
         assignee: record.client_slug,
         client_slug: record.client_slug,
+        project_code: record.id, // task_fb タスクID
         due_date: record.due_date,
         amount: record.amount,
         staff: record.staff,
@@ -125,32 +125,23 @@ export async function POST(request: NextRequest) {
 
   // ── UPSERT: 手動同期（カード作成 or 情報更新） ──
   if (eventType === 'UPSERT') {
-    if (!record.client_slug) return NextResponse.json({ skipped: 'no client_slug' })
-
-    const { data: existing } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('assignee', record.client_slug)
-      .is('deleted_at', null)
-      .single()
+    const existing = await findProjectByTaskId(supabase, record.id)
 
     if (existing) {
-      // 既存カードの情報を更新
       await supabase
         .from('projects')
         .update({
           title: record.title ?? undefined,
-          due_date: record.due_date,
-          amount: record.amount,
-          staff: record.staff,
-          description: record.description,
+          due_date: record.due_date ?? null,
+          amount: record.amount ?? null,
+          staff: record.staff ?? null,
+          description: record.description ?? null,
         })
         .eq('id', existing.id)
-
       return NextResponse.json({ updated: existing.id })
     }
 
-    // カードがなければ新規作成（全ステップ未着手）
+    // 新規作成
     const { data: newProject, error } = await supabase
       .from('projects')
       .insert({
@@ -158,6 +149,7 @@ export async function POST(request: NextRequest) {
         project_type: 'instagram',
         assignee: record.client_slug,
         client_slug: record.client_slug,
+        project_code: record.id,
         due_date: record.due_date,
         amount: record.amount,
         staff: record.staff,
@@ -200,16 +192,8 @@ export async function POST(request: NextRequest) {
 
   // ── 投稿OK: 最初のステップを完了＋URL・初稿日セット ──
   if (record.status === '投稿OK') {
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('assignee', record.client_slug)
-      .is('deleted_at', null)
-      .single()
-
-    if (!project) {
-      return NextResponse.json({ skipped: 'no project found for client' })
-    }
+    const project = await findProjectByTaskId(supabase, record.id)
+    if (!project) return NextResponse.json({ skipped: 'no project found' })
 
     const { data: firstStep } = await supabase
       .from('project_steps')
@@ -220,12 +204,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (firstStep) {
-      const latestUrl = record.response_url ?? record.draft_url ?? null
       await supabase
         .from('project_steps')
         .update({
           status: '完了',
-          url: latestUrl,
+          url: record.response_url ?? record.draft_url ?? null,
           step_due_date: record.draft_due_date ?? null,
         })
         .eq('id', firstStep.id)
@@ -236,16 +219,8 @@ export async function POST(request: NextRequest) {
 
   // ── 完了: 全ステップを完了 ──
   if (record.status === '完了') {
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('assignee', record.client_slug)
-      .is('deleted_at', null)
-      .single()
-
-    if (!project) {
-      return NextResponse.json({ skipped: 'no project found for client' })
-    }
+    const project = await findProjectByTaskId(supabase, record.id)
+    if (!project) return NextResponse.json({ skipped: 'no project found' })
 
     const { data: remainingSteps } = await supabase
       .from('project_steps')
