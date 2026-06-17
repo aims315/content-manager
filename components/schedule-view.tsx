@@ -39,11 +39,26 @@ const TYPE_FILTERS = [
 ] as const
 
 const KIND_FILTERS = [
-  { key: 'due_date',      label: '納期・期日' },
+  { key: 'due_date',      label: '納期' },
   { key: 'step_due_date', label: 'ステップ締切' },
+  { key: 'custom_date',   label: '追加期日' },
 ] as const
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
+
+// 日本の祝日（2026〜2027）。YYYY-MM-DD → 名称
+const HOLIDAYS: Record<string, string> = {
+  '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
+  '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
+  '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日', '2026-05-06': '振替休日',
+  '2026-07-20': '海の日', '2026-08-11': '山の日', '2026-09-21': '敬老の日', '2026-09-22': '国民の休日',
+  '2026-09-23': '秋分の日', '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日',
+  '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日',
+  '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '振替休日', '2027-04-29': '昭和の日',
+  '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日', '2027-05-05': 'こどもの日',
+  '2027-07-19': '海の日', '2027-08-11': '山の日', '2027-09-20': '敬老の日', '2027-09-23': '秋分の日',
+  '2027-10-11': 'スポーツの日', '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日',
+}
 
 interface ScheduleViewProps {
   projects: Project[]
@@ -57,7 +72,7 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
   const [mode, setMode] = useState<'calendar' | 'cards'>('calendar')
   const [month, setMonth] = useState<Date>(startOfMonth(new Date()))
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(['instagram', 'twitter', 'event']))
-  const [kindFilter, setKindFilter] = useState<Set<string>>(new Set(['due_date', 'step_due_date']))
+  const [kindFilter, setKindFilter] = useState<Set<string>>(new Set(['due_date', 'step_due_date', 'custom_date']))
 
   const toggleType = (key: string) => setTypeFilter((prev) => {
     const next = new Set(prev); if (next.has(key)) { if (next.size > 1) next.delete(key) } else next.add(key); return next
@@ -78,7 +93,7 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
         if (s.step_due_date) allItems.push({ date: s.step_due_date, projectId: p.id, projectTitle: p.title, projectType: p.project_type, label: s.label, isStep: true, isDone: s.status === '完了' })
       })
     }
-    if (kindFilter.has('due_date') && typeOk && p.custom_dates) {
+    if (kindFilter.has('custom_date') && typeOk && p.custom_dates) {
       p.custom_dates.forEach((cd) => {
         if (cd.date) allItems.push({ date: cd.date, projectId: p.id, projectTitle: p.title, projectType: p.project_type, label: cd.label, isStep: false, isDone: false })
       })
@@ -158,21 +173,26 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
           const dow = getDay(day)
           const inMonth = isSameMonth(day, month)
           const today = isToday(day)
+          const holiday = HOLIDAYS[key]
+          const isRed = dow === 0 || !!holiday   // 日曜・祝日は赤
           return (
             <div key={key} className={cn(
               'min-h-[92px] bg-card p-1 flex flex-col gap-0.5',
               !inMonth && 'bg-muted/30',
-              dow === 0 && 'bg-rose-50/40',
-              dow === 6 && 'bg-sky-50/40',
+              isRed && 'bg-rose-50/40',
+              dow === 6 && !holiday && 'bg-sky-50/40',
             )}>
-              <div className={cn('text-[11px] font-medium px-0.5',
-                today && 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground',
-                !today && dow === 0 && 'text-rose-500',
-                !today && dow === 6 && 'text-sky-500',
-                !today && dow !== 0 && dow !== 6 && 'text-foreground',
-                !inMonth && !today && 'opacity-40',
-              )}>
-                {format(day, 'd')}
+              <div className="flex items-center gap-1">
+                <span className={cn('text-[11px] font-medium px-0.5',
+                  today && 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground',
+                  !today && isRed && 'text-rose-500',
+                  !today && !isRed && dow === 6 && 'text-sky-500',
+                  !today && !isRed && dow !== 6 && 'text-foreground',
+                  !inMonth && !today && 'opacity-40',
+                )}>
+                  {format(day, 'd')}
+                </span>
+                {holiday && inMonth && <span className="text-[8px] text-rose-500 truncate">{holiday}</span>}
               </div>
               <div className="flex flex-col gap-0.5 overflow-hidden">
                 {dayItems.slice(0, 4).map((it, i) => (
@@ -196,45 +216,67 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
       </div>
       )}
 
-      {/* カード（時系列）表示 */}
+      {/* カード（日付順リスト）表示 */}
       {mode === 'cards' && (() => {
         const sorted = [...allItems].sort((a, b) => a.date.localeCompare(b.date))
-        // 行を埋めるため、3の倍数になるよう空の白カードを足す
-        const padCount = sorted.length === 0 ? 0 : (3 - (sorted.length % 3)) % 3
+        if (sorted.length === 0) {
+          return <div className="text-center py-16 text-muted-foreground text-sm">予定がありません</div>
+        }
+        // 日付ごとにグループ化
+        const groups: { date: string; items: ScheduleItem[] }[] = []
+        for (const it of sorted) {
+          const last = groups[groups.length - 1]
+          if (last && last.date === it.date) last.items.push(it)
+          else groups.push({ date: it.date, items: [it] })
+        }
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sorted.map((it, i) => {
-              const prog = progressByProject[it.projectId]
-              const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0
+          <div className="space-y-1.5">
+            {groups.map(({ date, items }) => {
+              const d = parseISO(date)
+              const dow = getDay(d)
+              const hol = HOLIDAYS[date]
+              const red = dow === 0 || !!hol
               return (
-                <button key={i} type="button" onClick={() => onJumpToProject?.(it.projectId)}
-                  className={cn('text-left rounded-lg border bg-card p-3 min-h-[110px] flex flex-col gap-1.5 shadow-sm transition-colors',
-                    it.isDone && 'opacity-50', onJumpToProject && 'hover:bg-accent/50 cursor-pointer')}>
-                  <div className="flex items-center gap-2">
-                    <span className={cn('size-2 rounded-full shrink-0', typeDot[it.projectType] ?? 'bg-muted-foreground')} />
-                    <span className="text-sm font-bold tabular-nums">{format(parseISO(it.date), 'M/d', { locale: ja })}</span>
-                    <span className="text-[10px] text-muted-foreground">({format(parseISO(it.date), 'E', { locale: ja })})</span>
-                    <span className={cn('ml-auto text-[10px] px-1.5 py-0.5 rounded border', typeChip[it.projectType])}>{it.label}</span>
+                <div key={date}>
+                  <div className="flex items-center gap-2 px-1 py-1 text-xs font-semibold sticky top-0 bg-background">
+                    <span className={cn('inline-flex items-center justify-center min-w-12 h-5 px-1 rounded text-[11px] font-bold',
+                      isToday(d) ? 'bg-primary text-primary-foreground' : red ? 'bg-rose-100 text-rose-600' : dow === 6 ? 'bg-sky-100 text-sky-600' : 'bg-muted')}>
+                      {format(d, 'M/d', { locale: ja })}
+                    </span>
+                    <span className={cn('font-normal', red ? 'text-rose-500' : dow === 6 ? 'text-sky-500' : 'text-muted-foreground')}>
+                      ({format(d, 'E', { locale: ja })}){hol ? ` ${hol}` : ''}
+                    </span>
                   </div>
-                  <p className={cn('text-sm font-medium truncate', it.isDone && 'line-through')}>{it.projectTitle}</p>
-                  {prog && prog.total > 0 && (
-                    <div className="flex items-center gap-1.5 mt-auto">
-                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{prog.done}/{prog.total}</span>
-                    </div>
-                  )}
-                </button>
+                  <div className="space-y-1 ml-2 mb-2">
+                    {items.map((it, i) => {
+                      const prog = progressByProject[it.projectId]
+                      const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0
+                      return (
+                        <button key={i} type="button" onClick={() => onJumpToProject?.(it.projectId)}
+                          className={cn('w-full text-left flex items-center gap-3 rounded-md border-l-2 bg-card px-3 py-2 shadow-sm transition-colors',
+                            it.projectType === 'instagram' && 'border-l-pink-400', it.projectType === 'twitter' && 'border-l-sky-400', it.projectType === 'event' && 'border-l-violet-400',
+                            it.isDone && 'opacity-40', onJumpToProject && 'hover:bg-accent/50 cursor-pointer')}>
+                          <span className={cn('size-2 rounded-full shrink-0', typeDot[it.projectType] ?? 'bg-muted-foreground')} />
+                          <div className="flex-1 min-w-0">
+                            <p className={cn('text-sm font-medium truncate', it.isDone && 'line-through')}>{it.projectTitle}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{it.label}</p>
+                            {prog && prog.total > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden max-w-[160px]">
+                                  <div className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="text-[9px] text-muted-foreground shrink-0">{prog.done}/{prog.total}</span>
+                              </div>
+                            )}
+                          </div>
+                          <span className={cn('text-[10px] px-1.5 py-0.5 rounded border shrink-0', typeChip[it.projectType])}>{it.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               )
             })}
-            {/* 空きスロットを同サイズの白カードで埋める */}
-            {Array.from({ length: padCount }).map((_, i) => (
-              <div key={`pad_${i}`} className="rounded-lg border border-dashed bg-card/50 min-h-[110px]" />
-            ))}
-            {sorted.length === 0 && (
-              <div className="col-span-full text-center py-16 text-muted-foreground text-sm">予定がありません</div>
-            )}
           </div>
         )
       })()}
