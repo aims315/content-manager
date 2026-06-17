@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, CalendarDayButton } from '@/components/ui/calendar'
-import { isSameDay, parseISO, format, compareAsc, isPast, isToday, differenceInCalendarDays } from 'date-fns'
+import {
+  parseISO, format, isSameDay, isToday,
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval,
+  addMonths, isSameMonth, getDay,
+} from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { InstagramIcon, TwitterIcon, CalendarDaysIcon } from 'lucide-react'
+import { InstagramIcon, TwitterIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Project, ProjectStep } from '@/lib/types'
 
@@ -18,19 +21,17 @@ interface ScheduleItem {
   isDone: boolean
 }
 
-const typeIcon: Record<string, React.ReactNode> = {
-  instagram: <InstagramIcon className="size-3.5 text-pink-500 shrink-0" />,
-  twitter:   <TwitterIcon className="size-3.5 text-sky-500 shrink-0" />,
-  event:     <CalendarDaysIcon className="size-3.5 text-violet-500 shrink-0" />,
+const typeDot: Record<string, string> = {
+  instagram: 'bg-pink-500',
+  twitter: 'bg-sky-500',
+  event: 'bg-violet-500',
+}
+const typeChip: Record<string, string> = {
+  instagram: 'bg-pink-50 text-pink-700 border-pink-200',
+  twitter: 'bg-sky-50 text-sky-700 border-sky-200',
+  event: 'bg-violet-50 text-violet-700 border-violet-200',
 }
 
-const typeBorder: Record<string, string> = {
-  instagram: 'border-l-pink-400',
-  twitter:   'border-l-sky-400',
-  event:     'border-l-violet-400',
-}
-
-// フィルター定義
 const TYPE_FILTERS = [
   { key: 'instagram', label: 'Instagram', color: 'text-pink-600',   bg: 'bg-pink-50 border-pink-300' },
   { key: 'twitter',   label: 'X',         color: 'text-sky-600',    bg: 'bg-sky-50 border-sky-300' },
@@ -38,9 +39,11 @@ const TYPE_FILTERS = [
 ] as const
 
 const KIND_FILTERS = [
-  { key: 'due_date',      label: '納期' },
-  { key: 'step_due_date', label: 'ステップ締め切り' },
+  { key: 'due_date',      label: '納期・期日' },
+  { key: 'step_due_date', label: 'ステップ締切' },
 ] as const
+
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 
 interface ScheduleViewProps {
   projects: Project[]
@@ -50,293 +53,136 @@ interface ScheduleViewProps {
   onJumpToProject?: (projectId: string) => void
 }
 
-export function ScheduleView({ projects, allSteps, warningDays = 5, progressByProject = {}, onJumpToProject }: ScheduleViewProps) {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>()
-  const [typeFilter, setTypeFilter] = useState<Set<string>>(
-    new Set(['instagram', 'twitter', 'event'])
-  )
-  const [kindFilter, setKindFilter] = useState<Set<string>>(
-    new Set(['due_date', 'step_due_date'])
-  )
+export function ScheduleView({ projects, allSteps, progressByProject = {}, onJumpToProject }: ScheduleViewProps) {
+  const [month, setMonth] = useState<Date>(startOfMonth(new Date()))
+  const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(['instagram', 'twitter', 'event']))
+  const [kindFilter, setKindFilter] = useState<Set<string>>(new Set(['due_date', 'step_due_date']))
 
-  const toggleType = (key: string) => {
-    setTypeFilter((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) { if (next.size > 1) next.delete(key) } else next.add(key)
-      return next
-    })
-  }
-  const toggleKind = (key: string) => {
-    setKindFilter((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) { if (next.size > 1) next.delete(key) } else next.add(key)
-      return next
-    })
-  }
+  const toggleType = (key: string) => setTypeFilter((prev) => {
+    const next = new Set(prev); if (next.has(key)) { if (next.size > 1) next.delete(key) } else next.add(key); return next
+  })
+  const toggleKind = (key: string) => setKindFilter((prev) => {
+    const next = new Set(prev); if (next.has(key)) { if (next.size > 1) next.delete(key) } else next.add(key); return next
+  })
 
-  // 全スケジュールアイテムを収集（フィルター前）
+  // アイテム収集
   const allItems: ScheduleItem[] = []
   projects.forEach((p) => {
-    if (p.due_date && kindFilter.has('due_date') && typeFilter.has(p.project_type)) {
-      allItems.push({
-        date: p.due_date,
-        projectId: p.id,
-        projectTitle: p.title,
-        projectType: p.project_type,
-        label: '納期',
-        isStep: false,
-        isDone: false,
+    const typeOk = typeFilter.has(p.project_type)
+    if (p.due_date && kindFilter.has('due_date') && typeOk) {
+      allItems.push({ date: p.due_date, projectId: p.id, projectTitle: p.title, projectType: p.project_type, label: '納期', isStep: false, isDone: false })
+    }
+    if (kindFilter.has('step_due_date') && typeOk) {
+      (allSteps[p.id] ?? []).forEach((s) => {
+        if (s.step_due_date) allItems.push({ date: s.step_due_date, projectId: p.id, projectTitle: p.title, projectType: p.project_type, label: s.label, isStep: true, isDone: s.status === '完了' })
       })
     }
-    if (kindFilter.has('step_due_date') && typeFilter.has(p.project_type)) {
-      const steps = allSteps[p.id] ?? []
-      steps.forEach((s) => {
-        if (s.step_due_date) {
-          allItems.push({
-            date: s.step_due_date,
-            projectId: p.id,
-            projectTitle: p.title,
-            projectType: p.project_type,
-            label: s.label,
-            isStep: true,
-            isDone: s.status === '完了',
-          })
-        }
-      })
-    }
-    // 名前付きの追加期日
-    if (kindFilter.has('due_date') && typeFilter.has(p.project_type) && p.custom_dates) {
+    if (kindFilter.has('due_date') && typeOk && p.custom_dates) {
       p.custom_dates.forEach((cd) => {
-        if (cd.date) {
-          allItems.push({
-            date: cd.date,
-            projectId: p.id,
-            projectTitle: p.title,
-            projectType: p.project_type,
-            label: cd.label,
-            isStep: false,
-            isDone: false,
-          })
-        }
+        if (cd.date) allItems.push({ date: cd.date, projectId: p.id, projectTitle: p.title, projectType: p.project_type, label: cd.label, isStep: false, isDone: false })
       })
     }
   })
 
-  const sorted = [...allItems].sort((a, b) => compareAsc(parseISO(a.date), parseISO(b.date)))
+  // 日付ごとにまとめる
+  const itemsByDate: Record<string, ScheduleItem[]> = {}
+  for (const it of allItems) (itemsByDate[it.date] ??= []).push(it)
 
-  const hasItemOnDate = (date: Date) =>
-    allItems.some((d) => isSameDay(parseISO(d.date), date))
-
-  const displayed = selectedDate
-    ? sorted.filter((d) => isSameDay(parseISO(d.date), selectedDate))
-    : sorted
+  // 月グリッドの日付（前後の週も埋める）
+  const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 0 })
+  const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 0 })
+  const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      {/* 左：カレンダー + フィルター */}
-      <div className="shrink-0 lg:w-72 space-y-3">
-        <Calendar
-          locale={ja}
-          mode="single"
-          selected={selectedDate}
-          onSelect={(date) => {
-            if (date && selectedDate && isSameDay(date, selectedDate)) {
-              setSelectedDate(undefined)
-            } else {
-              setSelectedDate(date)
-            }
-          }}
-          modifiers={{ hasItem: (date) => hasItemOnDate(date) }}
-          components={{
-            DayButton: (props) => {
-              const has = props.modifiers?.hasItem
-              return (
-                <CalendarDayButton {...props}>
-                  {props.children}
-                  {has && (
-                    <span className="block w-1 h-1 rounded-full mx-auto -mt-0.5 bg-primary" />
-                  )}
-                </CalendarDayButton>
-              )
-            },
-          }}
-          className="rounded-md border w-full"
-        />
-
-        {selectedDate && (
-          <button
-            onClick={() => setSelectedDate(undefined)}
-            className="w-full text-xs text-muted-foreground hover:text-foreground text-center py-1"
-          >
-            ← すべて表示
-          </button>
-        )}
-
-        {/* フィルターパネル */}
-        <div className="rounded-md border p-3 space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground">表示フィルター</p>
-
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-muted-foreground">種別</p>
-            <div className="flex flex-wrap gap-1.5">
-              {TYPE_FILTERS.map((f) => {
-                const active = typeFilter.has(f.key)
-                return (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => toggleType(f.key)}
-                    className={cn(
-                      'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-all',
-                      active ? f.bg + ' ' + f.color : 'border-border text-muted-foreground opacity-40'
-                    )}
-                  >
-                    <span className={cn('size-1.5 rounded-full', active ? 'bg-current' : 'bg-muted-foreground')} />
-                    {f.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-muted-foreground">内容</p>
-            <div className="flex flex-wrap gap-1.5">
-              {KIND_FILTERS.map((f) => {
-                const active = kindFilter.has(f.key)
-                return (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => toggleKind(f.key)}
-                    className={cn(
-                      'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-all',
-                      active
-                        ? 'bg-primary/10 border-primary/40 text-primary'
-                        : 'border-border text-muted-foreground opacity-40'
-                    )}
-                  >
-                    <span className={cn('size-1.5 rounded-full', active ? 'bg-primary' : 'bg-muted-foreground')} />
-                    {f.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <p className="text-[11px] text-muted-foreground">
-            {allItems.length}件表示中
-          </p>
+    <div className="space-y-3">
+      {/* ヘッダー：月移動 + フィルター */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setMonth((m) => addMonths(m, -1))} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronLeftIcon className="size-4" /></button>
+          <span className="text-base font-bold w-28 text-center">{format(month, 'yyyy年 M月', { locale: ja })}</span>
+          <button onClick={() => setMonth((m) => addMonths(m, 1))} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronRightIcon className="size-4" /></button>
+          <button onClick={() => setMonth(startOfMonth(new Date()))} className="ml-1 text-xs px-2 py-1 rounded border text-muted-foreground hover:bg-muted">今月</button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {TYPE_FILTERS.map((f) => {
+            const active = typeFilter.has(f.key)
+            return (
+              <button key={f.key} type="button" onClick={() => toggleType(f.key)}
+                className={cn('flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-all',
+                  active ? f.bg + ' ' + f.color : 'border-border text-muted-foreground opacity-40')}>
+                <span className={cn('size-1.5 rounded-full', active ? 'bg-current' : 'bg-muted-foreground')} />{f.label}
+              </button>
+            )
+          })}
+          {KIND_FILTERS.map((f) => {
+            const active = kindFilter.has(f.key)
+            return (
+              <button key={f.key} type="button" onClick={() => toggleKind(f.key)}
+                className={cn('text-[11px] px-2 py-0.5 rounded-full border transition-all',
+                  active ? 'bg-foreground/5 border-foreground/20 text-foreground' : 'border-border text-muted-foreground opacity-40')}>
+                {f.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* 右：スリムカード一覧 */}
-      <div className="flex-1 min-w-0">
-        {selectedDate && (
-          <p className="text-sm font-medium mb-3 text-muted-foreground">
-            {format(selectedDate, 'M月d日(E)', { locale: ja })}のスケジュール
-          </p>
-        )}
-        {displayed.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <p className="text-sm">スケジュールがありません</p>
-            <p className="text-xs mt-1">フィルターを変えるか、プロジェクトに日程を設定してください</p>
+      {/* 曜日ヘッダー */}
+      <div className="grid grid-cols-7 gap-px">
+        {WEEKDAYS.map((w, i) => (
+          <div key={w} className={cn('text-center text-[11px] font-semibold py-1',
+            i === 0 ? 'text-rose-500' : i === 6 ? 'text-sky-500' : 'text-muted-foreground')}>
+            {w}
           </div>
-        ) : (
-          <div className="space-y-1.5">
-            {(() => {
-              const grouped: { date: string; items: ScheduleItem[] }[] = []
-              displayed.forEach((item) => {
-                const last = grouped[grouped.length - 1]
-                if (last && last.date === item.date) last.items.push(item)
-                else grouped.push({ date: item.date, items: [item] })
-              })
-              return grouped.map(({ date, items: groupItems }) => {
-                const d = parseISO(date)
-                const past = isPast(d) && !isToday(d)
-                const today = isToday(d)
-                return (
-                  <div key={date}>
-                    <div className={cn(
-                      'flex items-center gap-2 px-1 py-1 text-xs font-semibold sticky top-0 bg-background',
-                      today ? 'text-primary' : past ? 'text-muted-foreground' : 'text-foreground'
-                    )}>
-                      <span className={cn(
-                        'inline-flex items-center justify-center w-10 h-5 rounded text-[11px] font-bold',
-                        today ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                      )}>
-                        {format(d, 'M/d', { locale: ja })}
-                      </span>
-                      <span className="text-muted-foreground font-normal">
-                        {format(d, '(E)', { locale: ja })}
-                      </span>
-                      {today && <span className="text-[10px] text-primary font-normal">今日</span>}
-                    </div>
-                    <div className="space-y-1 ml-2 mb-2">
-                      {groupItems.map((item, i) => {
-                        const prog = progressByProject[item.projectId]
-                        const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0
-                        return (
-                        <div
-                          key={i}
-                          onClick={() => onJumpToProject?.(item.projectId)}
-                          role={onJumpToProject ? 'button' : undefined}
-                          className={cn(
-                            'flex items-center gap-3 rounded-md border-l-2 bg-card px-3 py-2 shadow-sm',
-                            typeBorder[item.projectType],
-                            item.isDone && 'opacity-40',
-                            past && !item.isDone && 'bg-rose-50 border-rose-200 border-l-rose-400',
-                            onJumpToProject && 'cursor-pointer hover:bg-accent/50 transition-colors'
-                          )}
-                        >
-                          {typeIcon[item.projectType]}
-                          <div className="flex-1 min-w-0">
-                            <p className={cn('text-sm font-medium truncate', item.isDone && 'line-through')}>
-                              {item.projectTitle}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground truncate">{item.label}</p>
-                            {prog && prog.total > 0 && (
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden max-w-[120px]">
-                                  <div className={cn('h-full rounded-full', pct === 100 ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${pct}%` }} />
-                                </div>
-                                <span className="text-[9px] text-muted-foreground shrink-0">{prog.done}/{prog.total}</span>
-                              </div>
-                            )}
-                          </div>
-                          {!item.isStep && (
-                            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">納期</span>
-                          )}
-                          {item.isDone && (
-                            <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0">完了</span>
-                          )}
-                          {!item.isDone && past && (
-                            <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded shrink-0">遅延</span>
-                          )}
-                          {(() => {
-                            if (item.isDone || past) return null
-                            const days = differenceInCalendarDays(parseISO(item.date), new Date())
-                            if (days < 0 || days > warningDays) return null
-                            const label = days === 0 ? '今日締切' : `あと${days}日`
-                            const urgent = days <= 1
-                            return (
-                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0 font-medium',
-                                urgent ? 'text-rose-700 bg-rose-100' : 'text-amber-700 bg-amber-100')}>
-                                {label}
-                              </span>
-                            )
-                          })()}
-                        </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })
-            })()}
-          </div>
-        )}
+        ))}
       </div>
+
+      {/* 月グリッド */}
+      <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden border">
+        {days.map((day) => {
+          const key = format(day, 'yyyy-MM-dd')
+          const dayItems = itemsByDate[key] ?? []
+          const dow = getDay(day)
+          const inMonth = isSameMonth(day, month)
+          const today = isToday(day)
+          return (
+            <div key={key} className={cn(
+              'min-h-[92px] bg-card p-1 flex flex-col gap-0.5',
+              !inMonth && 'bg-muted/30',
+              dow === 0 && 'bg-rose-50/40',
+              dow === 6 && 'bg-sky-50/40',
+            )}>
+              <div className={cn('text-[11px] font-medium px-0.5',
+                today && 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground',
+                !today && dow === 0 && 'text-rose-500',
+                !today && dow === 6 && 'text-sky-500',
+                !today && dow !== 0 && dow !== 6 && 'text-foreground',
+                !inMonth && !today && 'opacity-40',
+              )}>
+                {format(day, 'd')}
+              </div>
+              <div className="flex flex-col gap-0.5 overflow-hidden">
+                {dayItems.slice(0, 4).map((it, i) => (
+                  <button key={i} type="button" onClick={() => onJumpToProject?.(it.projectId)}
+                    title={`${it.projectTitle}：${it.label}`}
+                    className={cn('flex items-center gap-1 text-[9px] leading-tight px-1 py-0.5 rounded border text-left truncate',
+                      typeChip[it.projectType] ?? 'bg-muted text-muted-foreground border-border',
+                      it.isDone && 'opacity-40 line-through',
+                      onJumpToProject && 'hover:brightness-95 cursor-pointer')}>
+                    <span className={cn('size-1.5 rounded-full shrink-0', typeDot[it.projectType] ?? 'bg-muted-foreground')} />
+                    <span className="truncate">{it.label === '納期' ? it.projectTitle : `${it.projectTitle}・${it.label}`}</span>
+                  </button>
+                ))}
+                {dayItems.length > 4 && (
+                  <span className="text-[9px] text-muted-foreground px-1">＋{dayItems.length - 4}件</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">予定をクリックするとそのカードに移動します。{allItems.length}件表示中。</p>
     </div>
   )
 }
