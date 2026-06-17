@@ -4,7 +4,7 @@ import { useState } from 'react'
 import {
   parseISO, format, isSameDay, isToday,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval,
-  addMonths, isSameMonth, getDay,
+  addMonths, isSameMonth, getDay, differenceInCalendarDays,
 } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { InstagramIcon, TwitterIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
@@ -69,7 +69,7 @@ interface ScheduleViewProps {
 }
 
 export function ScheduleView({ projects, allSteps, progressByProject = {}, onJumpToProject }: ScheduleViewProps) {
-  const [mode, setMode] = useState<'calendar' | 'cards'>('calendar')
+  const [mode, setMode] = useState<'calendar' | 'cards' | 'gantt'>('calendar')
   const [month, setMonth] = useState<Date>(startOfMonth(new Date()))
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(['instagram', 'twitter', 'event']))
   const [kindFilter, setKindFilter] = useState<Set<string>>(new Set(['due_date', 'step_due_date', 'custom_date']))
@@ -120,6 +120,8 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
               className={cn('px-2.5 py-1 text-xs transition-colors', mode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>カレンダー</button>
             <button onClick={() => setMode('cards')}
               className={cn('px-2.5 py-1 text-xs transition-colors border-l', mode === 'cards' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>カード</button>
+            <button onClick={() => setMode('gantt')}
+              className={cn('px-2.5 py-1 text-xs transition-colors border-l', mode === 'gantt' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>ガント</button>
           </div>
           {mode === 'calendar' && (<>
             <button onClick={() => setMonth((m) => addMonths(m, -1))} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronLeftIcon className="size-4" /></button>
@@ -268,6 +270,20 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
                                 <span className="text-[9px] text-muted-foreground shrink-0">{prog.done}/{prog.total}</span>
                               </div>
                             )}
+                            {/* 未完了ステップ */}
+                            {(() => {
+                              const remaining = (allSteps[it.projectId] ?? []).filter((s) => s.status !== '完了')
+                              if (remaining.length === 0) return null
+                              return (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {remaining.map((s) => (
+                                    <span key={s.id} className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground">
+                                      {s.label}<span className="opacity-60">・{s.status}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )
+                            })()}
                           </div>
                           <span className={cn('text-[10px] px-1.5 py-0.5 rounded border shrink-0', typeChip[it.projectType])}>{it.label}</span>
                         </button>
@@ -277,6 +293,85 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
                 </div>
               )
             })}
+          </div>
+        )
+      })()}
+
+      {/* ガントチャート表示 */}
+      {mode === 'gantt' && (() => {
+        // プロジェクトごとに開始〜終了（このスケジュールに出ている日付の最小〜最大）を集計
+        const byProject: Record<string, { title: string; type: string; min: string; max: string }> = {}
+        for (const it of allItems) {
+          const e = byProject[it.projectId]
+          if (!e) byProject[it.projectId] = { title: it.projectTitle, type: it.projectType, min: it.date, max: it.date }
+          else { if (it.date < e.min) e.min = it.date; if (it.date > e.max) e.max = it.date }
+        }
+        const rows = Object.entries(byProject).map(([projectId, v]) => ({ projectId, ...v }))
+          .sort((a, b) => a.min.localeCompare(b.min))
+        if (rows.length === 0) {
+          return <div className="text-center py-16 text-muted-foreground text-sm">予定がありません</div>
+        }
+        // 全体の日付範囲
+        let rangeStart = rows[0].min, rangeEnd = rows[0].max
+        for (const r of rows) { if (r.min < rangeStart) rangeStart = r.min; if (r.max > rangeEnd) rangeEnd = r.max }
+        const start = parseISO(rangeStart), end = parseISO(rangeEnd)
+        const totalDays = differenceInCalendarDays(end, start) + 1
+        const DAY_W = 26
+        const dayList = eachDayOfInterval({ start, end })
+        const todayOffset = differenceInCalendarDays(new Date(), start)
+
+        const dotBg: Record<string, string> = { instagram: 'bg-pink-400', twitter: 'bg-sky-400', event: 'bg-violet-400' }
+
+        return (
+          <div className="overflow-x-auto border rounded-lg">
+            <div style={{ width: 180 + totalDays * DAY_W }}>
+              {/* 日付ヘッダー */}
+              <div className="flex sticky top-0 bg-background border-b">
+                <div className="w-[180px] shrink-0 px-2 py-1 text-[11px] font-semibold text-muted-foreground">プロジェクト</div>
+                <div className="flex">
+                  {dayList.map((d) => {
+                    const dow = getDay(d); const hol = HOLIDAYS[format(d, 'yyyy-MM-dd')]
+                    const red = dow === 0 || !!hol
+                    return (
+                      <div key={d.toISOString()} style={{ width: DAY_W }}
+                        className={cn('text-center text-[9px] py-1 border-l',
+                          red ? 'text-rose-500 bg-rose-50/40' : dow === 6 ? 'text-sky-500 bg-sky-50/40' : 'text-muted-foreground',
+                          isToday(d) && 'bg-primary/10 font-bold')}>
+                        {format(d, 'd')}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {/* 行 */}
+              {rows.map((r) => {
+                const offset = differenceInCalendarDays(parseISO(r.min), start)
+                const span = differenceInCalendarDays(parseISO(r.max), parseISO(r.min)) + 1
+                const prog = progressByProject[r.projectId]
+                const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0
+                return (
+                  <div key={r.projectId} className="flex items-center border-b hover:bg-accent/30">
+                    <button type="button" onClick={() => onJumpToProject?.(r.projectId)}
+                      className="w-[180px] shrink-0 px-2 py-2 text-left text-xs font-medium truncate hover:text-primary">
+                      {r.title}
+                    </button>
+                    <div className="relative flex" style={{ width: totalDays * DAY_W, height: 32 }}>
+                      {/* 今日ライン */}
+                      {todayOffset >= 0 && todayOffset < totalDays && (
+                        <div className="absolute top-0 bottom-0 w-px bg-primary/50" style={{ left: todayOffset * DAY_W + DAY_W / 2 }} />
+                      )}
+                      <button type="button" onClick={() => onJumpToProject?.(r.projectId)}
+                        title={`${r.title}（${r.min}〜${r.max}）進捗${pct}%`}
+                        className={cn('absolute top-1.5 h-5 rounded-full overflow-hidden border cursor-pointer',
+                          dotBg[r.type] ?? 'bg-muted-foreground')}
+                        style={{ left: offset * DAY_W + 2, width: Math.max(DAY_W * span - 4, 10) }}>
+                        <div className="h-full bg-emerald-500/70" style={{ width: `${pct}%` }} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )
       })()}
