@@ -20,24 +20,7 @@ export async function POST(_request: NextRequest) {
   const supabase = getSupabase()
   const activeClientSlugs: string[] = tasks.map((t: Record<string, string>) => t.client_slug).filter(Boolean)
 
-  // ① task_fb にない client_slug のプロジェクトを削除
-  const { data: allProjects } = await supabase
-    .from('projects')
-    .select('id, assignee')
-    .is('deleted_at', null)
-
-  const toDelete = (allProjects ?? []).filter(
-    (p) => p.assignee && !activeClientSlugs.includes(p.assignee)
-  )
-
-  if (toDelete.length > 0) {
-    await supabase
-      .from('projects')
-      .update({ deleted_at: new Date().toISOString() })
-      .in('id', toDelete.map((p) => p.id))
-  }
-
-  // ② 各タスクを上書きUPSERT
+  // 各タスクを上書きUPSERT
   let upserted = 0
   let created = 0
 
