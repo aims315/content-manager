@@ -11,11 +11,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import { PencilIcon, CalendarIcon, CheckIcon } from 'lucide-react'
+import { PencilIcon, CalendarIcon, CheckIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
-import type { Project } from '@/lib/types'
+import type { Project, CustomDate } from '@/lib/types'
 
 interface ProjectEditDialogProps {
   project: Project
@@ -34,6 +34,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
   const [saving, setSaving] = useState(false)
   const [existingAssignees, setExistingAssignees] = useState<string[]>([])
   const [reminderDays, setReminderDays] = useState<string>(project.reminder_days != null ? String(project.reminder_days) : '')
+  const [customDates, setCustomDates] = useState<CustomDate[]>(project.custom_dates ?? [])
 
   useEffect(() => {
     if (!open) return
@@ -42,6 +43,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
     setDescription(project.description ?? '')
     setDueDate(project.due_date ? parseISO(project.due_date) : undefined)
     setReminderDays(project.reminder_days != null ? String(project.reminder_days) : '')
+    setCustomDates(project.custom_dates ?? [])
     async function fetchAssignees() {
       const { data } = await supabase.from('projects').select('assignee').is('deleted_at', null)
       if (data) setExistingAssignees([...new Set(data.map((d) => d.assignee).filter(Boolean))])
@@ -54,12 +56,14 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
     if (!title.trim() || !assignee.trim()) return
     setSaving(true)
     const rd = reminderDays.trim() === '' ? null : Math.max(1, parseInt(reminderDays, 10) || 1)
+    const cleanDates = customDates.filter((d) => d.label.trim() && d.date)
     await supabase.from('projects').update({
       title: title.trim(),
       assignee: assignee.trim(),
       description: description.trim() || null,
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
       reminder_days: rd,
+      custom_dates: cleanDates,
     }).eq('id', project.id)
     setSaving(false)
     setOpen(false)
@@ -140,6 +144,44 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
                 )}
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* 名前付きの追加期日 */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">追加の期日（名前付き）</Label>
+              <button type="button"
+                onClick={() => setCustomDates((prev) => [...prev, { id: `date_${Date.now()}`, label: '', date: '' }])}
+                className="text-[11px] text-primary hover:underline flex items-center gap-0.5">
+                <PlusIcon className="size-3" />追加
+              </button>
+            </div>
+            {customDates.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">例：投稿期日 / 確認完了期日 など、好きな名前で期日を追加できます。</p>
+            )}
+            {customDates.map((cd) => (
+              <div key={cd.id} className="flex items-center gap-1.5">
+                <Input value={cd.label} placeholder="名前（例: 投稿期日）" className="h-8 text-xs flex-1"
+                  onChange={(e) => setCustomDates((prev) => prev.map((x) => x.id === cd.id ? { ...x, label: e.target.value } : x))} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" size="sm"
+                      className={cn('h-8 text-xs gap-1 shrink-0', !cd.date && 'text-muted-foreground')}>
+                      <CalendarIcon className="size-3" />
+                      {cd.date ? format(parseISO(cd.date), 'M/d', { locale: ja }) : '日付'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar mode="single" locale={ja}
+                      selected={cd.date ? parseISO(cd.date) : undefined}
+                      onSelect={(date) => setCustomDates((prev) => prev.map((x) => x.id === cd.id ? { ...x, date: date ? format(date, 'yyyy-MM-dd') : '' } : x))} />
+                  </PopoverContent>
+                </Popover>
+                <button type="button" title="削除"
+                  onClick={() => setCustomDates((prev) => prev.filter((x) => x.id !== cd.id))}
+                  className="text-muted-foreground hover:text-destructive shrink-0"><Trash2Icon className="size-3.5" /></button>
+              </div>
+            ))}
           </div>
 
           <div className="space-y-1.5">

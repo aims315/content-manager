@@ -102,6 +102,22 @@ export function ScheduleView({ projects, allSteps, warningDays = 5 }: ScheduleVi
         }
       })
     }
+    // 名前付きの追加期日
+    if (kindFilter.has('due_date') && typeFilter.has(p.project_type) && p.custom_dates) {
+      p.custom_dates.forEach((cd) => {
+        if (cd.date) {
+          allItems.push({
+            date: cd.date,
+            projectId: p.id,
+            projectTitle: p.title,
+            projectType: p.project_type,
+            label: cd.label,
+            isStep: false,
+            isDone: false,
+          })
+        }
+      })
+    }
   })
 
   const sorted = [...allItems].sort((a, b) => compareAsc(parseISO(a.date), parseISO(b.date)))

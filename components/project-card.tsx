@@ -694,6 +694,19 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
           })()}
         </div>
 
+        {/* 名前付きの追加期日 */}
+        {project.custom_dates && project.custom_dates.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 text-xs">
+            {project.custom_dates.map((cd) => (
+              <span key={cd.id} className="flex items-center gap-1 bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">
+                <CalendarIcon className="size-3" />
+                <span className="font-medium text-foreground">{cd.label}</span>
+                {format(new Date(cd.date), 'M/d', { locale: ja })}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* 進捗バー */}
         {totalSteps > 0 && (
           <div className="space-y-1">

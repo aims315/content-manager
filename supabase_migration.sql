@@ -25,6 +25,7 @@ create table if not exists projects (
   done_override boolean,                -- null=自動判定 / true=完了 / false=進行中
   completed_at timestamptz,             -- 完了にした日時（自動アーカイブ用）
   reminder_days int,                    -- 締切何日前から通知するか（null=全体設定に従う）
+  custom_dates jsonb default '[]'::jsonb, -- 名前付きの追加期日 [{id,label,date}]
   created_at timestamptz default now(),
   deleted_at timestamptz
 );
@@ -33,6 +34,7 @@ create table if not exists projects (
 alter table projects add column if not exists done_override boolean;
 alter table projects add column if not exists completed_at timestamptz;
 alter table projects add column if not exists reminder_days int;
+alter table projects add column if not exists custom_dates jsonb default '[]'::jsonb;
 
 -- ── プロジェクトステップテーブル ──
 create table if not exists project_steps (

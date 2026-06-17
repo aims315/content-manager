@@ -38,6 +38,12 @@ export interface ProjectStep {
   created_at: string
 }
 
+export interface CustomDate {
+  id: string
+  label: string
+  date: string   // YYYY-MM-DD
+}
+
 export interface Project {
   id: string
   title: string
@@ -53,6 +59,7 @@ export interface Project {
   done_override: boolean | null
   completed_at: string | null
   reminder_days: number | null
+  custom_dates: CustomDate[] | null
   created_at: string
   deleted_at: string | null
   steps?: ProjectStep[]
