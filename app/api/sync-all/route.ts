@@ -98,7 +98,7 @@ export async function POST(_request: NextRequest) {
   )
 
   // 並列で新規作成
-  await Promise.all(
+  const createResults = await Promise.all(
     toCreate.map(async (task) => {
       const clientSlug = task.client_slug as string
       const { data: newProject, error } = await supabase
@@ -117,7 +117,9 @@ export async function POST(_request: NextRequest) {
         .select('id')
         .single()
 
-      if (!error && newProject) {
+      if (error) return { ok: false, error: error.message }
+
+      if (newProject) {
         const preset = getPreset(clientSlug)
         if (preset && preset.steps.length > 0) {
           await supabase.from('project_steps').insert(
@@ -134,8 +136,16 @@ export async function POST(_request: NextRequest) {
           )
         }
       }
+      return { ok: true }
     })
   )
 
-  return NextResponse.json({ upserted: toUpdate.length, created: toCreate.length })
+  const created = createResults.filter((r) => r.ok).length
+  const insertErrors = createResults.filter((r) => !r.ok).map((r) => (r as { ok: false; error: string }).error)
+
+  return NextResponse.json({
+    upserted: toUpdate.length,
+    created,
+    errors: insertErrors.length > 0 ? insertErrors.slice(0, 3) : undefined,
+  })
 }
