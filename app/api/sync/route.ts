@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     description: string | null
     draft_url: string | null
     response_url: string | null
+    draft_due_date: string | null
   }
   const oldRecord = body.old_record as { status: string }
 
@@ -127,8 +128,8 @@ export async function POST(request: NextRequest) {
         provider_type: item.provider === 'client' ? 'client'
           : item.provider === 'freelancer' ? 'freelancer'
           : 'self',
-        // 最新の提出URLを最初のステップにセット
         url: idx === 0 ? latestUrl : null,
+        step_due_date: idx === 0 ? (record.draft_due_date ?? null) : null,
       }))
       await supabase.from('project_steps').insert(stepsToInsert)
     }
@@ -178,6 +179,7 @@ export async function POST(request: NextRequest) {
                 : item.provider === 'freelancer' ? 'freelancer'
                 : 'self',
               url: idx === 0 ? latestUrl : null,
+              step_due_date: idx === 0 ? (record.draft_due_date ?? null) : null,
             }))
           )
         }
