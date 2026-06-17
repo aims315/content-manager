@@ -14,7 +14,8 @@ export function SyncAllButton() {
     try {
       const res = await fetch('/api/sync-all', { method: 'POST' })
       const data = await res.json()
-      setResult(`${data.synced ?? 0}件同期完了`)
+      const total = (data.upserted ?? 0) + (data.created ?? 0)
+      setResult(`${data.created ?? 0}件作成・${data.upserted ?? 0}件更新`)
       setTimeout(() => setResult(null), 3000)
     } catch {
       setResult('エラー')
