@@ -11,7 +11,6 @@ function getSupabase() {
 interface StepPresetItem { label: string; provider: string }
 interface StepPreset { id: string; name: string; steps: StepPresetItem[] }
 
-// app_settings からプリセット一覧とクライアント↔プリセットマップを取得
 async function fetchPresetForClient(
   supabase: ReturnType<typeof getSupabase>,
   clientSlug: string
@@ -29,24 +28,20 @@ async function fetchPresetForClient(
   let presets: StepPreset[] = []
   try { presets = JSON.parse(presetsRow?.value ?? '[]') } catch { return null }
 
-  // クライアント専用のプリセット名を探す
   let presetName: string | null = null
   try {
     const map: Record<string, string> = JSON.parse(mapRow?.value ?? '{}')
     presetName = map[clientSlug] ?? map['default'] ?? null
   } catch { /* ignore */ }
 
-  if (!presetName) {
-    // マップ未設定の場合は最初のプリセットをデフォルトとして使用
-    return presets[0] ?? null
-  }
-
+  if (!presetName) return presets[0] ?? null
   return presets.find((p) => p.name === presetName) ?? presets[0] ?? null
 }
 
-// Supabase pg_net トリガーから呼ばれる
-// supabase-green-xylophone の tasks テーブルの UPDATE イベント
-// 紐づけ: tasks.client_slug ↔ projects.assignee
+// supabase-green-xylophone の tasks テーブルから呼ばれる
+// INSERT → プロマネ用カード自動作成（ステップ全て未着手）
+// UPDATE status=投稿OK → 最初のステップを完了＋URL・初稿日セット
+// UPDATE status=完了   → 全ステップを完了
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-sync-secret')
   if (process.env.SYNC_SECRET && secret !== process.env.SYNC_SECRET) {
@@ -54,6 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
+  const eventType: string = body.type // 'INSERT' | 'UPDATE'
   const record = body.record as {
     id: string
     title: string | null
@@ -67,33 +63,28 @@ export async function POST(request: NextRequest) {
     response_url: string | null
     draft_due_date: string | null
   }
-  const oldRecord = body.old_record as { status: string }
+  const oldRecord = body.old_record as { status?: string } | undefined
 
-  if (!record || !record.client_slug) {
+  if (!record?.client_slug) {
     return NextResponse.json({ skipped: 'no client_slug' })
-  }
-
-  if (oldRecord?.status === record.status) {
-    return NextResponse.json({ skipped: 'status unchanged' })
   }
 
   const supabase = getSupabase()
 
-  // ── 投稿OK ──
-  if (record.status === '投稿OK') {
-    const { data: project } = await supabase
+  // ── INSERT: カード新規作成 ──
+  if (eventType === 'INSERT') {
+    // 既に同じクライアントのプロジェクトがあれば作らない
+    const { data: existing } = await supabase
       .from('projects')
       .select('id')
       .eq('assignee', record.client_slug)
       .is('deleted_at', null)
       .single()
 
-    if (project) {
-      // 既存プロジェクトはそのまま（ステップを触らない）
-      return NextResponse.json({ updated: project.id })
+    if (existing) {
+      return NextResponse.json({ skipped: 'project already exists' })
     }
 
-    // プロジェクトが存在しない → 自動作成
     const { data: newProject, error } = await supabase
       .from('projects')
       .insert({
@@ -113,95 +104,97 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error?.message }, { status: 500 })
     }
 
-    // 「インスタ設定カルーセル」プリセットを探す
-    const preset = await fetchPresetForClient(supabase, record.client_slug!)
-
+    const preset = await fetchPresetForClient(supabase, record.client_slug)
     if (preset && preset.steps.length > 0) {
-      const latestUrl = record.response_url ?? record.draft_url ?? null
-      // プリセットのステップを挿入。最初のステップだけ「完了」、残りは「未着手」
-      const stepsToInsert = preset.steps.map((item, idx) => ({
-        project_id: newProject.id,
-        step_key: 'text',
-        step_order: idx,
-        label: item.label,
-        status: idx === 0 ? '完了' : '未着手',
-        provider_type: item.provider === 'client' ? 'client'
-          : item.provider === 'freelancer' ? 'freelancer'
-          : 'self',
-        url: idx === 0 ? latestUrl : null,
-        step_due_date: idx === 0 ? (record.draft_due_date ?? null) : null,
-      }))
-      await supabase.from('project_steps').insert(stepsToInsert)
+      await supabase.from('project_steps').insert(
+        preset.steps.map((item, idx) => ({
+          project_id: newProject.id,
+          step_key: 'text',
+          step_order: idx,
+          label: item.label,
+          status: '未着手',
+          provider_type: item.provider === 'client' ? 'client'
+            : item.provider === 'freelancer' ? 'freelancer'
+            : 'self',
+        }))
+      )
     }
-    // プリセットが見つからなければステップなしで作成（空カード）
 
     return NextResponse.json({ created: newProject.id })
   }
 
-  // ── 完了 ──
-  if (record.status === '完了') {
-    const { data: existingProject } = await supabase
+  // UPDATE のみここから
+  if (eventType !== 'UPDATE') {
+    return NextResponse.json({ skipped: 'not INSERT or UPDATE' })
+  }
+
+  if (oldRecord?.status === record.status) {
+    return NextResponse.json({ skipped: 'status unchanged' })
+  }
+
+  // ── 投稿OK: 最初のステップを完了＋URL・初稿日セット ──
+  if (record.status === '投稿OK') {
+    const { data: project } = await supabase
       .from('projects')
       .select('id')
       .eq('assignee', record.client_slug)
       .is('deleted_at', null)
       .single()
 
-    if (!existingProject) {
-      // プロジェクトがなければ作成してステップを全て完了にする（done_overrideは使わない）
-      const { data: newProject } = await supabase
-        .from('projects')
-        .insert({
-          title: record.title ?? '（タスクアプリから自動作成）',
-          project_type: 'instagram',
-          assignee: record.client_slug,
-          client_slug: record.client_slug,
-          due_date: record.due_date,
-          amount: record.amount,
-          staff: record.staff,
-          description: record.description,
-        })
-        .select('id')
-        .single()
-
-      if (newProject) {
-        const preset = await fetchPresetForClient(supabase, record.client_slug!)
-        if (preset && preset.steps.length > 0) {
-          const latestUrl = record.response_url ?? record.draft_url ?? null
-          await supabase.from('project_steps').insert(
-            preset.steps.map((item, idx) => ({
-              project_id: newProject.id,
-              step_key: 'text',
-              step_order: idx,
-              label: item.label,
-              status: '完了',
-              provider_type: item.provider === 'client' ? 'client'
-                : item.provider === 'freelancer' ? 'freelancer'
-                : 'self',
-              url: idx === 0 ? latestUrl : null,
-              step_due_date: idx === 0 ? (record.draft_due_date ?? null) : null,
-            }))
-          )
-        }
-      }
-      return NextResponse.json({ created_and_completed: record.client_slug })
+    if (!project) {
+      return NextResponse.json({ skipped: 'no project found for client' })
     }
 
-    // 既存プロジェクトのステップを全て完了にする（done_overrideは使わない）
-    const { data: existingSteps } = await supabase
+    const { data: firstStep } = await supabase
       .from('project_steps')
       .select('id')
-      .eq('project_id', existingProject.id)
+      .eq('project_id', project.id)
+      .order('step_order', { ascending: true })
+      .limit(1)
+      .single()
+
+    if (firstStep) {
+      const latestUrl = record.response_url ?? record.draft_url ?? null
+      await supabase
+        .from('project_steps')
+        .update({
+          status: '完了',
+          url: latestUrl,
+          step_due_date: record.draft_due_date ?? null,
+        })
+        .eq('id', firstStep.id)
+    }
+
+    return NextResponse.json({ updated_first_step: project.id })
+  }
+
+  // ── 完了: 全ステップを完了 ──
+  if (record.status === '完了') {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('assignee', record.client_slug)
+      .is('deleted_at', null)
+      .single()
+
+    if (!project) {
+      return NextResponse.json({ skipped: 'no project found for client' })
+    }
+
+    const { data: remainingSteps } = await supabase
+      .from('project_steps')
+      .select('id')
+      .eq('project_id', project.id)
       .neq('status', '完了')
 
-    if (existingSteps && existingSteps.length > 0) {
+    if (remainingSteps && remainingSteps.length > 0) {
       await supabase
         .from('project_steps')
         .update({ status: '完了' })
-        .in('id', existingSteps.map((s) => s.id))
+        .in('id', remainingSteps.map((s) => s.id))
     }
 
-    return NextResponse.json({ completed: record.client_slug })
+    return NextResponse.json({ completed: project.id })
   }
 
   return NextResponse.json({ skipped: 'status not matched' })
