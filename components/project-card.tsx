@@ -697,13 +697,13 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
         {/* 名前付きの追加期日 */}
         {project.custom_dates && project.custom_dates.length > 0 && (
           <div className="flex flex-wrap gap-1.5 text-xs">
-            {project.custom_dates.map((cd) => {
+            {project.custom_dates.filter((cd) => cd.date && !isNaN(new Date(cd.date).getTime())).map((cd) => {
               const days = differenceInCalendarDays(new Date(cd.date), new Date())
               const showBadge = !isDone && days <= warningDays
               const overdue = days < 0
               const urgent = days <= 1
               return (
-                <span key={cd.id} className="flex items-center gap-1 bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">
+                <span key={cd.id ?? cd.label} className="flex items-center gap-1 bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">
                   <CalendarIcon className="size-3" />
                   <span className="font-medium text-foreground">{cd.label}</span>
                   {format(new Date(cd.date), 'M/d', { locale: ja })}
