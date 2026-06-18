@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   InstagramIcon, TwitterIcon, CalendarDaysIcon, MegaphoneIcon, LightbulbIcon,
-  CalendarIcon, LinkIcon, FileIcon, CheckCircle2Icon, ClockIcon,
+  CalendarIcon, LinkIcon, FileIcon, CheckCircle2Icon, ClockIcon, ExternalLinkIcon,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -32,6 +32,7 @@ export function ShareView({ code }: ShareViewProps) {
   const [projects, setProjects] = useState<Project[]>([])
   const [steps, setSteps] = useState<Record<string, ProjectStep[]>>({})
   const [loading, setLoading] = useState(true)
+  const [scheduleOpen, setScheduleOpen] = useState(true)
 
   useEffect(() => {
     const run = async () => {
@@ -112,10 +113,16 @@ export function ShareView({ code }: ShareViewProps) {
         {scheduleItems.length > 0 && (
           <Card className="mb-6">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <CalendarIcon className="size-4" />予定
-              </CardTitle>
+              <button type="button" onClick={() => setScheduleOpen((v) => !v)}
+                className="w-full flex items-center justify-between gap-2">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <CalendarIcon className="size-4" />予定
+                  <span className="text-xs font-normal text-muted-foreground">（{scheduleItems.length}件）</span>
+                </CardTitle>
+                {scheduleOpen ? <ChevronUpIcon className="size-4 text-muted-foreground" /> : <ChevronDownIcon className="size-4 text-muted-foreground" />}
+              </button>
             </CardHeader>
+            {scheduleOpen && (
             <CardContent className="space-y-1.5">
               {scheduleItems.map((it, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm">
@@ -127,6 +134,7 @@ export function ShareView({ code }: ShareViewProps) {
                 </div>
               ))}
             </CardContent>
+            )}
           </Card>
         )}
 
@@ -156,6 +164,18 @@ export function ShareView({ code }: ShareViewProps) {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* 納品物ボタン（最新のURL） */}
+                  {(() => {
+                    const deliverableStep = ps.find((s) => s.url)
+                    if (!deliverableStep) return null
+                    return (
+                      <a href={deliverableStep.url!} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full rounded-md bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors">
+                        <ExternalLinkIcon className="size-4" />
+                        納品物を確認する
+                      </a>
+                    )
+                  })()}
                   {/* ステップ一覧 */}
                   <div className="space-y-1.5">
                     {ps.map((s) => (
