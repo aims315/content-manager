@@ -16,6 +16,7 @@ import { format, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { Project, CustomDate } from '@/lib/types'
+import { BAR_COLORS } from '@/components/schedule-view'
 
 interface ProjectEditDialogProps {
   project: Project
@@ -35,6 +36,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
   const [existingAssignees, setExistingAssignees] = useState<string[]>([])
   const [reminderDays, setReminderDays] = useState<string>(project.reminder_days != null ? String(project.reminder_days) : '')
   const [customDates, setCustomDates] = useState<CustomDate[]>(project.custom_dates ?? [])
+  const [barColor, setBarColor] = useState<string | null>(project.bar_color ?? null)
 
   useEffect(() => {
     if (!open) return
@@ -44,6 +46,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
     setDueDate(project.due_date ? parseISO(project.due_date) : undefined)
     setReminderDays(project.reminder_days != null ? String(project.reminder_days) : '')
     setCustomDates(project.custom_dates ?? [])
+    setBarColor(project.bar_color ?? null)
     async function fetchAssignees() {
       const { data } = await supabase.from('projects').select('assignee').is('deleted_at', null)
       if (data) setExistingAssignees([...new Set(data.map((d) => d.assignee).filter(Boolean))])
@@ -64,6 +67,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
       due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
       reminder_days: rd,
       custom_dates: cleanDates,
+      bar_color: barColor,
     }).eq('id', project.id)
     setSaving(false)
     setOpen(false)
@@ -182,6 +186,21 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
                   className="text-muted-foreground hover:text-destructive shrink-0"><Trash2Icon className="size-3.5" /></button>
               </div>
             ))}
+          </div>
+
+          {/* ガントバーの色 */}
+          <div className="space-y-1.5">
+            <Label className="text-sm">ガントチャートのバー色</Label>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <button type="button" onClick={() => setBarColor(null)} title="種別の色（既定）"
+                className={cn('size-6 rounded-full border-2 bg-muted flex items-center justify-center text-[9px] text-muted-foreground',
+                  !barColor ? 'border-foreground' : 'border-transparent')}>自動</button>
+              {BAR_COLORS.map((c) => (
+                <button key={c.key} type="button" onClick={() => setBarColor(c.key)} title={c.label}
+                  className={cn('size-6 rounded-full border-2 transition-transform hover:scale-110', c.bg,
+                    barColor === c.key ? 'border-foreground' : 'border-transparent')} />
+              ))}
+            </div>
           </div>
 
           <div className="space-y-1.5">

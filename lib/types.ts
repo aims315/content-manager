@@ -60,6 +60,7 @@ export interface Project {
   completed_at: string | null
   reminder_days: number | null
   custom_dates: CustomDate[] | null
+  bar_color: string | null
   created_at: string
   deleted_at: string | null
   steps?: ProjectStep[]

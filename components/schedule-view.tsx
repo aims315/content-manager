@@ -46,6 +46,20 @@ const KIND_FILTERS = [
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 
+// ガントバーの選べる色
+export const BAR_COLORS: { key: string; label: string; bg: string }[] = [
+  { key: 'pink',    label: 'ピンク',   bg: 'bg-pink-400' },
+  { key: 'sky',     label: 'スカイ',   bg: 'bg-sky-400' },
+  { key: 'violet',  label: 'パープル', bg: 'bg-violet-400' },
+  { key: 'emerald', label: 'グリーン', bg: 'bg-emerald-400' },
+  { key: 'amber',   label: 'イエロー', bg: 'bg-amber-400' },
+  { key: 'orange',  label: 'オレンジ', bg: 'bg-orange-400' },
+  { key: 'rose',    label: 'レッド',   bg: 'bg-rose-400' },
+  { key: 'blue',    label: 'ブルー',   bg: 'bg-blue-500' },
+  { key: 'slate',   label: 'グレー',   bg: 'bg-slate-400' },
+]
+export const BAR_COLOR_MAP: Record<string, string> = Object.fromEntries(BAR_COLORS.map((c) => [c.key, c.bg]))
+
 // 日本の祝日（2026〜2027）。YYYY-MM-DD → 名称
 const HOLIDAYS: Record<string, string> = {
   '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
@@ -321,6 +335,7 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
         const todayOffset = differenceInCalendarDays(new Date(), start)
 
         const dotBg: Record<string, string> = { instagram: 'bg-pink-400', twitter: 'bg-sky-400', event: 'bg-violet-400' }
+        const colorByProject: Record<string, string | null> = Object.fromEntries(projects.map((p) => [p.id, p.bar_color]))
 
         return (
           <div className="overflow-x-auto border rounded-lg">
@@ -363,9 +378,9 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
                       <button type="button" onClick={() => onJumpToProject?.(r.projectId)}
                         title={`${r.title}（${r.min}〜${r.max}）進捗${pct}%`}
                         className={cn('absolute top-1.5 h-5 rounded-full overflow-hidden border cursor-pointer',
-                          dotBg[r.type] ?? 'bg-muted-foreground')}
+                          (colorByProject[r.projectId] && BAR_COLOR_MAP[colorByProject[r.projectId] as string]) || dotBg[r.type] || 'bg-muted-foreground')}
                         style={{ left: offset * DAY_W + 2, width: Math.max(DAY_W * span - 4, 10) }}>
-                        <div className="h-full bg-emerald-500/70" style={{ width: `${pct}%` }} />
+                        <div className="h-full bg-black/25" style={{ width: `${pct}%` }} />
                       </button>
                     </div>
                   </div>

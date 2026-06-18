@@ -26,6 +26,7 @@ create table if not exists projects (
   completed_at timestamptz,             -- 完了にした日時（自動アーカイブ用）
   reminder_days int,                    -- 締切何日前から通知するか（null=全体設定に従う）
   custom_dates jsonb default '[]'::jsonb, -- 名前付きの追加期日 [{id,label,date}]
+  bar_color text,                       -- ガントチャートのバー色（null=種別の色）
   created_at timestamptz default now(),
   deleted_at timestamptz
 );
@@ -35,6 +36,7 @@ alter table projects add column if not exists done_override boolean;
 alter table projects add column if not exists completed_at timestamptz;
 alter table projects add column if not exists reminder_days int;
 alter table projects add column if not exists custom_dates jsonb default '[]'::jsonb;
+alter table projects add column if not exists bar_color text;
 
 -- ── プロジェクトステップテーブル ──
 create table if not exists project_steps (
