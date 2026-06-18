@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  parseISO, format, isSameDay, isToday,
+  parseISO, format, isSameDay, isToday, isValid,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval,
   addMonths, isSameMonth, getDay, differenceInCalendarDays,
 } from 'date-fns'
@@ -95,7 +95,7 @@ export function ScheduleView({ projects, allSteps, progressByProject = {}, onJum
     }
     if (kindFilter.has('custom_date') && typeOk && p.custom_dates) {
       p.custom_dates.forEach((cd) => {
-        if (cd.date) allItems.push({ date: cd.date, projectId: p.id, projectTitle: p.title, projectType: p.project_type, label: cd.label, isStep: false, isDone: false })
+        if (cd.date && isValid(parseISO(cd.date))) allItems.push({ date: cd.date, projectId: p.id, projectTitle: p.title, projectType: p.project_type, label: cd.label, isStep: false, isDone: false })
       })
     }
   })
