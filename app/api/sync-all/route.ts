@@ -92,7 +92,7 @@ export async function POST(_request: NextRequest) {
           amount: task.amount ?? null,
           staff: task.staff ?? null,
           description: task.description ?? null,
-          custom_dates: task.custom_dates ?? [],
+          custom_dates: (task.custom_deadlines as unknown[] | null) ?? [],
         })
         .eq('id', existingMap.get(task.id as string)!)
     )
@@ -114,7 +114,7 @@ export async function POST(_request: NextRequest) {
           amount: task.amount ?? null,
           staff: task.staff ?? null,
           description: task.description ?? null,
-          custom_dates: task.custom_dates ?? [],
+          custom_dates: (task.custom_deadlines as unknown[] | null) ?? [],
         })
         .select('id')
         .single()
