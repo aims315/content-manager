@@ -11,6 +11,7 @@ import { TrashDialog } from '@/components/trash-dialog'
 import { ProjectForm } from '@/components/project-form'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useDeadlineConfig } from '@/hooks/use-deadline-config'
+import { useClientDisplayConfig } from '@/hooks/use-client-display-config'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon, UsersIcon, LinkIcon } from 'lucide-react'
@@ -39,11 +40,29 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const { statuses: statusDefs } = useStepStatuses()
   const { customTypes: customProjectTypes } = useProjectTypes()
   const { config: deadlineConfig } = useDeadlineConfig()
+  const { config: clientDisplayConfig } = useClientDisplayConfig()
+  // クライアントページ(lockedCode)で隠す担当ロール
+  const hiddenRoles = lockedCode ? (clientDisplayConfig[lockedCode]?.hiddenRoles ?? []) : undefined
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
   const [statusTab, setStatusTab] = useState<'active' | 'done' | 'all'>('active')
   const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code'>('created')
+
+  // 並び替え・種別フィルターをローカルに保持（リロードしても維持）
+  const stateKey = `cm_list_${lockedCode ?? 'main'}`
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(stateKey) || '{}')
+      if (saved.sortOrder) setSortOrder(saved.sortOrder)
+      if (saved.typeFilter !== undefined) setTypeFilter(saved.typeFilter)
+      if (saved.statusTab) setStatusTab(saved.statusTab)
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    try { localStorage.setItem(stateKey, JSON.stringify({ sortOrder, typeFilter, statusTab })) } catch { /* ignore */ }
+  }, [sortOrder, typeFilter, statusTab, stateKey])
   const [codeFilter, setCodeFilter] = useState(urlCode ?? '')
   const [copiedLink, setCopiedLink] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -402,6 +421,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                         isDone={isProjectDone(project.id)}
                         onSetDone={(v) => setProjectDoneOverride(project.id, v)}
                         warningDays={deadlineConfig.warningDays}
+                        hiddenRoles={hiddenRoles}
                         providerLabels={providerLabels}
                         providerRoles={providerRoles}
                         statusDefs={statusDefs}
@@ -432,6 +452,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                   isDone={isProjectDone(project.id)}
                   onSetDone={(v) => setProjectDoneOverride(project.id, v)}
                   warningDays={deadlineConfig.warningDays}
+                  hiddenRoles={hiddenRoles}
                   providerLabels={providerLabels}
                   providerRoles={providerRoles}
                   statusDefs={statusDefs}

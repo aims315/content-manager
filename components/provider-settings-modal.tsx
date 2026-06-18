@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
 import type { ProviderRole } from '@/hooks/use-provider-labels'
 import { useStepStatuses, STATUS_COLOR_STYLES, STATUS_COLOR_OPTIONS, STATUS_COLOR_LABELS } from '@/hooks/use-step-statuses'
@@ -9,6 +9,8 @@ import { useNotifyConfig } from '@/hooks/use-notify-config'
 import type { NotifyProvider } from '@/hooks/use-notify-config'
 import { useArchiveConfig } from '@/hooks/use-archive-config'
 import { useDeadlineConfig } from '@/hooks/use-deadline-config'
+import { useClientDisplayConfig } from '@/hooks/use-client-display-config'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -27,7 +29,7 @@ const ROLE_COLOR_LABELS: Record<ProviderRole['color'], string> = {
   emerald: 'グリーン', rose: 'ピンク', orange: 'オレンジ',
 }
 
-type Tab = 'roles' | 'statuses' | 'notify' | 'archive'
+type Tab = 'roles' | 'statuses' | 'notify' | 'archive' | 'client'
 
 export function ProviderSettingsModal() {
   const { roles, addRole, updateRole, deleteRole } = useProviderLabels()
@@ -35,9 +37,20 @@ export function ProviderSettingsModal() {
   const { config: notifyConfig, saveConfig: saveNotifyConfig } = useNotifyConfig()
   const { config: archiveConfig, saveConfig: saveArchiveConfig } = useArchiveConfig()
   const { config: deadlineConfig, saveConfig: saveDeadlineConfig } = useDeadlineConfig()
+  const { config: clientDisplayConfig, setHiddenRoles } = useClientDisplayConfig()
+  const [codes, setCodes] = useState<string[]>([])
 
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('roles')
+
+  // クライアント表示タブを開いたら、コード一覧を取得
+  useEffect(() => {
+    if (tab !== 'client' || !open) return
+    const supabase = createClient()
+    supabase.from('projects').select('assignee').is('deleted_at', null).then(({ data }) => {
+      if (data) setCodes([...new Set(data.map((d) => d.assignee).filter(Boolean))].sort())
+    })
+  }, [tab, open])
   const [saved, setSaved] = useState(false)
   const [roleColorEditId, setRoleColorEditId] = useState<string | null>(null)
   const [statusColorEditId, setStatusColorEditId] = useState<string | null>(null)
@@ -75,14 +88,14 @@ export function ProviderSettingsModal() {
         </DialogHeader>
 
         {/* タブ */}
-        <div className="flex rounded-md border overflow-hidden">
-          {(['roles', 'statuses', 'notify', 'archive'] as Tab[]).map((t, i) => (
+        <div className="flex rounded-md border overflow-hidden flex-wrap">
+          {(['roles', 'statuses', 'notify', 'archive', 'client'] as Tab[]).map((t, i) => (
             <button key={t} onClick={() => setTab(t)}
-              className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
+              className={cn('flex-1 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap px-1',
                 i > 0 && 'border-l',
                 tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
               )}>
-              {t === 'roles' ? '役割' : t === 'statuses' ? 'ステータス' : t === 'notify' ? '通知' : '自動整理'}
+              {t === 'roles' ? '役割' : t === 'statuses' ? 'ステータス' : t === 'notify' ? '通知' : t === 'archive' ? '自動整理' : 'クライアント表示'}
             </button>
           ))}
         </div>
@@ -422,6 +435,42 @@ export function ProviderSettingsModal() {
                 未完了（進捗が全部緑でない）プロジェクトの締切がこの日数以内になると、毎日1回、通知タブの設定先（コード別があればそちら）へ通知します。カードごとに個別の日数を設定するとそちらが優先されます。
               </p>
             </div>
+          </div>
+        )}
+
+        {/* ── クライアント表示タブ ── */}
+        {tab === 'client' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              クライアントページ（/c/コード）で、ステップの担当者を隠すロールをコードごとに選べます。チェックを入れたロールは、そのコードのクライアントページで担当バッジが表示されません。
+            </p>
+            {codes.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">プロジェクトコードがありません</p>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {codes.map((code) => {
+                  const hidden = clientDisplayConfig[code]?.hiddenRoles ?? []
+                  return (
+                    <div key={code} className="rounded-md border p-2.5 space-y-1.5">
+                      <p className="text-xs font-semibold">{code}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {roles.map((r) => {
+                          const isHidden = hidden.includes(r.id)
+                          return (
+                            <button key={r.id} type="button"
+                              onClick={() => setHiddenRoles(code, isHidden ? hidden.filter((x) => x !== r.id) : [...hidden, r.id])}
+                              className={cn('text-[11px] px-2 py-1 rounded-full border transition-all',
+                                isHidden ? 'bg-muted text-muted-foreground line-through border-border' : COLOR_STYLES[r.color].button + ' border-current')}>
+                              {r.label}{isHidden ? '（非表示）' : ''}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 

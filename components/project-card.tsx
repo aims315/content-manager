@@ -148,9 +148,10 @@ interface StepRowProps {
   onProviderChange: (stepId: string, providerType: ProviderType, providerName: string | null) => Promise<void>
   onDueDateChange: (stepId: string, dueDate: string | null) => Promise<void>
   onDependenciesChange: (stepId: string, dependsOn: string[]) => Promise<void>
+  hideProvider?: boolean
 }
 
-function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, statusDefs, onStatusChange, onSubmit, onProviderChange, onDueDateChange, onDependenciesChange }: StepRowProps) {
+function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, statusDefs, onStatusChange, onSubmit, onProviderChange, onDueDateChange, onDependenciesChange, hideProvider }: StepRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
@@ -330,15 +331,17 @@ function StepRow({ step, allSteps, projectType, providerLabels, providerRoles, s
           </Popover>
         )}
 
-        {/* 担当者バッジ（クリックで編集） */}
-        <button
-          type="button"
-          onClick={() => { setEditingProvider(true); setExpanded(true); setNewProviderType(step.provider_type); setNewProviderName(step.provider_name ?? '') }}
-          className={cn('flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded shrink-0 hover:opacity-75 transition-opacity', provBadgeClass)}
-          title="担当者を変更"
-        >
-          {provLabel}
-        </button>
+        {/* 担当者バッジ（クリックで編集）。クライアント非表示ロールは出さない */}
+        {!hideProvider && (
+          <button
+            type="button"
+            onClick={() => { setEditingProvider(true); setExpanded(true); setNewProviderType(step.provider_type); setNewProviderName(step.provider_name ?? '') }}
+            className={cn('flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded shrink-0 hover:opacity-75 transition-opacity', provBadgeClass)}
+            title="担当者を変更"
+          >
+            {provLabel}
+          </button>
+        )}
 
         {/* 展開ボタン（常に表示） */}
         <button
@@ -561,9 +564,10 @@ interface ProjectCardProps {
   isDone?: boolean
   onSetDone?: (value: boolean | null) => void
   warningDays?: number
+  hiddenRoles?: string[]
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete, isDone, onSetDone, warningDays = 5 }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete, isDone, onSetDone, warningDays = 5, hiddenRoles }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
@@ -771,6 +775,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
                 onProviderChange={onStepProviderChange}
                 onDueDateChange={onStepDueDateChange}
                 onDependenciesChange={onStepDependenciesChange}
+                hideProvider={hiddenRoles?.includes(step.provider_type)}
               />
             ))}
           </div>
