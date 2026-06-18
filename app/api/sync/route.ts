@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
     draft_url: string | null
     response_url: string | null
     draft_due_date: string | null
+    custom_dates: unknown[] | null
   }
   const oldRecord = body.old_record as { status?: string } | undefined
 
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
         amount: record.amount,
         staff: record.staff,
         description: record.description,
+        custom_dates: record.custom_dates ?? [],
       })
       .select('id')
       .single()
@@ -136,6 +138,7 @@ export async function POST(request: NextRequest) {
           amount: record.amount ?? null,
           staff: record.staff ?? null,
           description: record.description ?? null,
+          custom_dates: record.custom_dates ?? [],
         })
         .eq('id', existing.id)
       return NextResponse.json({ updated: existing.id })
@@ -154,6 +157,7 @@ export async function POST(request: NextRequest) {
         amount: record.amount,
         staff: record.staff,
         description: record.description,
+        custom_dates: record.custom_dates ?? [],
       })
       .select('id')
       .single()
