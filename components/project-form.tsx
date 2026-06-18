@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { STEPS_CONFIG } from '@/lib/steps-config'
 import { useProviderLabels, COLOR_STYLES } from '@/hooks/use-provider-labels'
+import { useClientDisplayConfig } from '@/hooks/use-client-display-config'
 import { useProjectTypes, TYPE_COLOR_OPTIONS, EMOJI_PRESETS } from '@/hooks/use-project-types'
 import { useStepPresets } from '@/hooks/use-step-presets'
 import { sendChatworkNotification } from '@/hooks/use-notify'
@@ -42,7 +43,11 @@ interface StepProviderConfig {
 export function ProjectForm({ lockedCode, onCreated }: { lockedCode?: string; onCreated?: () => void } = {}) {
   const router = useRouter()
   const supabase = createClient()
-  const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
+  const { labels: providerLabels, roles: allRoles } = useProviderLabels()
+  const { config: clientDisplayConfig } = useClientDisplayConfig()
+  // クライアントページからの作成時は非表示ロールを除外
+  const hiddenRoles = lockedCode ? (clientDisplayConfig[lockedCode]?.hiddenRoles ?? []) : []
+  const providerRoles = hiddenRoles.length ? allRoles.filter((r) => !hiddenRoles.includes(r.id)) : allRoles
   const { customTypes, addType, deleteType } = useProjectTypes()
   const { presets } = useStepPresets()
   const [presetId, setPresetId] = useState<string>('')

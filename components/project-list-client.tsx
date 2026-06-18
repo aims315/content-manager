@@ -43,6 +43,10 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const { config: clientDisplayConfig } = useClientDisplayConfig()
   // クライアントページ(lockedCode)で隠す担当ロール
   const hiddenRoles = lockedCode ? (clientDisplayConfig[lockedCode]?.hiddenRoles ?? []) : undefined
+  // クライアントページでは選択肢から非表示ロールを除外
+  const effectiveRoles = hiddenRoles && hiddenRoles.length
+    ? providerRoles.filter((r) => !hiddenRoles.includes(r.id))
+    : providerRoles
   const [typeFilter, setTypeFilter] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
@@ -423,7 +427,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                         warningDays={deadlineConfig.warningDays}
                         hiddenRoles={hiddenRoles}
                         providerLabels={providerLabels}
-                        providerRoles={providerRoles}
+                        providerRoles={effectiveRoles}
                         statusDefs={statusDefs}
                         customProjectTypes={customProjectTypes}
                       />
@@ -454,7 +458,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                   warningDays={deadlineConfig.warningDays}
                   hiddenRoles={hiddenRoles}
                   providerLabels={providerLabels}
-                  providerRoles={providerRoles}
+                  providerRoles={effectiveRoles}
                   statusDefs={statusDefs}
                   customProjectTypes={customProjectTypes}
                 />

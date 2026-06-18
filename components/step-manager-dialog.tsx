@@ -288,7 +288,8 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                     className="h-7 text-xs flex-1 min-w-0 border-transparent hover:border-input focus:border-input bg-transparent px-1.5"
                   />
 
-                  {/* 役割（クリックで変更） */}
+                  {/* 役割（クリックで変更）。表示対象外ロールは出さない */}
+                  {role && (
                   <div className="relative shrink-0">
                     <button
                       type="button"
@@ -296,7 +297,7 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                       className={cn('text-[10px] px-1.5 py-0.5 rounded transition-opacity hover:opacity-80', badgeCls)}
                       title="役割を変更"
                     >
-                      {role?.label ?? step.provider_type}
+                      {role.label}
                     </button>
                     {roleEditId === step.id && (
                       <div className="absolute right-0 top-full mt-1 z-20 bg-popover border rounded-md shadow-md p-1 flex flex-col gap-0.5 min-w-[120px]">
@@ -316,6 +317,7 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* 締切 */}
                   <Popover>
