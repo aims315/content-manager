@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { PostCaption, CaptionCandidate, CaptionStatus } from '@/lib/types'
+import type { PostCaption, CaptionCandidate, CaptionStatus, ProjectStep } from '@/lib/types'
 import type { CaptionPatch } from '@/hooks/use-captions'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,7 +13,27 @@ import { cn } from '@/lib/utils'
 import {
   MessageSquareTextIcon, CheckCircleIcon, CopyIcon, CheckIcon,
   PencilIcon, SendIcon, Undo2Icon, FileTextIcon, UploadIcon, PlusIcon, XIcon,
+  PaperclipIcon, ExternalLinkIcon, FileIcon,
 } from 'lucide-react'
+
+// 最新の納品物（提出URL/ファイルがあるステップのうち提出日が最新のもの）を返す
+function latestDelivered(steps: ProjectStep[]): ProjectStep | null {
+  const withLink = steps.filter((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
+  if (withLink.length === 0) return null
+  const dated = withLink.filter((s) => s.submitted_at)
+  const pool = dated.length ? dated : withLink
+  return [...pool].sort((a, b) => {
+    const ta = a.submitted_at ? new Date(a.submitted_at).getTime() : 0
+    const tb = b.submitted_at ? new Date(b.submitted_at).getTime() : 0
+    return tb - ta
+  })[0] ?? null
+}
+
+function fileLabel(url: string, names: string[] | undefined, i: number): string {
+  if (names && names[i]) return names[i]
+  const raw = decodeURIComponent(url.split('/').pop()?.split('?')[0] ?? '')
+  return raw || `ファイル${i + 1}`
+}
 import { uid, parseCaptionCsv, type CaptionGroup } from '@/lib/caption-csv'
 
 const STATUS_STYLE: Record<CaptionStatus, string> = {
@@ -44,13 +64,15 @@ interface Props {
   caption?: PostCaption
   clientMode: boolean
   actorName: string
+  steps?: ProjectStep[]
   onSave: (projectId: string, patch: CaptionPatch) => Promise<boolean | void>
 }
 
-export function CaptionBlock({ projectId, caption, clientMode, actorName, onSave }: Props) {
+export function CaptionBlock({ projectId, caption, clientMode, actorName, steps = [], onSave }: Props) {
   const candidates = caption?.candidates ?? []
   const status = caption?.status ?? '未確認'
   const hasCandidates = candidates.length > 0
+  const delivered = latestDelivered(steps)
 
   // クライアントが何も無いカードでは表示しない（社内は登録ボタンを出す）
   if (clientMode && !hasCandidates) return null
@@ -69,6 +91,35 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, onSave
           </span>
         )}
       </div>
+
+      {/* 最新の納品物リンク（候補の上に表示） */}
+      {delivered && (
+        <div className="rounded-md border bg-background px-2.5 py-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <PaperclipIcon className="size-3 text-primary shrink-0" />
+            <span className="font-semibold shrink-0">最新の納品物</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] shrink-0">{delivered.status}</span>
+            <span className="text-muted-foreground truncate flex-1 min-w-0">{delivered.label}</span>
+            {delivered.submitted_at && (
+              <span className="text-[10px] text-muted-foreground shrink-0">
+                {new Date(delivered.submitted_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+              </span>
+            )}
+          </div>
+          {delivered.url && (
+            <a href={delivered.url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-primary underline break-all hover:opacity-80">
+              <ExternalLinkIcon className="size-3 shrink-0" /> 納品リンクを開く
+            </a>
+          )}
+          {delivered.file_urls?.map((u, i) => (
+            <a key={i} href={u} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-primary underline break-all hover:opacity-80">
+              <FileIcon className="size-3 shrink-0" /> {fileLabel(u, delivered.file_names, i)}
+            </a>
+          ))}
+        </div>
+      )}
 
       {clientMode
         ? <ClientView projectId={projectId} caption={caption!} actorName={actorName} onSave={onSave} />

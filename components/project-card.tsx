@@ -755,6 +755,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
             caption={caption}
             clientMode={clientMode}
             actorName={actorName}
+            steps={steps}
             onSave={onSaveCaption}
           />
         )}
