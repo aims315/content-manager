@@ -11,6 +11,9 @@ import type { StepStatusDef } from '@/hooks/use-step-statuses'
 import { STATUS_COLOR_STYLES } from '@/hooks/use-step-statuses'
 import { ProjectEditDialog } from '@/components/project-edit-dialog'
 import { StepManagerDialog } from '@/components/step-manager-dialog'
+import { CaptionBlock } from '@/components/caption-block'
+import type { PostCaption } from '@/lib/types'
+import type { CaptionPatch } from '@/hooks/use-captions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -565,9 +568,13 @@ interface ProjectCardProps {
   onSetDone?: (value: boolean | null) => void
   warningDays?: number
   hiddenRoles?: string[]
+  clientMode?: boolean
+  caption?: PostCaption
+  actorName?: string
+  onSaveCaption?: (projectId: string, patch: CaptionPatch) => Promise<boolean | void>
 }
 
-export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete, isDone, onSetDone, warningDays = 5, hiddenRoles }: ProjectCardProps) {
+export function ProjectCard({ project, steps, providerLabels, providerRoles, statusDefs, customProjectTypes, onProjectUpdated, onStepStatusChange, onStepSubmit, onStepProviderChange, onStepDueDateChange, onStepDependenciesChange, onDuplicate, onDelete, isDone, onSetDone, warningDays = 5, hiddenRoles, clientMode = false, caption, actorName = '社内', onSaveCaption }: ProjectCardProps) {
   const [stepsOpen, setStepsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
@@ -739,6 +746,17 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
               />
             </div>
           </div>
+        )}
+
+        {/* キャプション承認ブロック（post_captions のみ読み書き。既存ステップには無関係） */}
+        {onSaveCaption && (
+          <CaptionBlock
+            projectId={project.id}
+            caption={caption}
+            clientMode={clientMode}
+            actorName={actorName}
+            onSave={onSaveCaption}
+          />
         )}
 
         {/* ステップ一覧トグル */}

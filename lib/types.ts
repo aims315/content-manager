@@ -44,6 +44,29 @@ export interface CustomDate {
   date: string   // YYYY-MM-DD
 }
 
+// ── キャプション承認（post_captions テーブル）──
+export type CaptionStatus = '未確認' | '選択済' | '修正依頼' | '確定' | '差し戻し'
+
+export interface CaptionCandidate {
+  id: string
+  text: string
+  memo?: string
+}
+
+export interface PostCaption {
+  id: string
+  project_id: string
+  candidates: CaptionCandidate[]
+  selected_candidate_id: string | null
+  draft_text: string | null
+  client_comment: string | null
+  status: CaptionStatus
+  decided_by: string | null
+  decided_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Project {
   id: string
   title: string
