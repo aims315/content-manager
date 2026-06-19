@@ -7,6 +7,7 @@ import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { useStepStatuses } from '@/hooks/use-step-statuses'
 import { useProjectTypes } from '@/hooks/use-project-types'
 import { ProjectCard } from '@/components/project-card'
+import { CaptionBulkDialog } from '@/components/caption-bulk-dialog'
 import { ScheduleView } from '@/components/schedule-view'
 import { TrashDialog } from '@/components/trash-dialog'
 import { ProjectForm } from '@/components/project-form'
@@ -333,6 +334,12 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
               <span className="hidden sm:inline">スケジュール</span>
             </button>
           </div>
+
+          {!lockedCode && (
+            <div className="ml-1">
+              <CaptionBulkDialog projects={projects} captions={captions} onSave={saveCaption} />
+            </div>
+          )}
 
           {!lockedCode && (
             <div className="ml-1">

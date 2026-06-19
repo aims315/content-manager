@@ -5,19 +5,16 @@ import type { PostCaption, CaptionCandidate, CaptionStatus } from '@/lib/types'
 import type { CaptionPatch } from '@/hooks/use-captions'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import {
   MessageSquareTextIcon, CheckCircleIcon, CopyIcon, CheckIcon,
-  PencilIcon, SendIcon, Undo2Icon, FileTextIcon,
+  PencilIcon, SendIcon, Undo2Icon, FileTextIcon, UploadIcon, PlusIcon, XIcon,
 } from 'lucide-react'
-
-function uid(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
+import { uid, parseCaptionCsv, type CaptionGroup } from '@/lib/caption-csv'
 
 const STATUS_STYLE: Record<CaptionStatus, string> = {
   '未確認': 'bg-slate-100 text-slate-600',
@@ -79,28 +76,73 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, onSave
 }
 
 // ── 社内側：候補の登録・編集 + クライアントの結果確認 ──────────────
+interface EditorRow { id: string; text: string; memo: string }
+
 function InternalView({ projectId, caption, onSave }: {
   projectId: string; caption?: PostCaption; onSave: Props['onSave']
 }) {
   const [editOpen, setEditOpen] = useState(false)
-  const [text, setText] = useState('')
+  const [rows, setRows] = useState<EditorRow[]>([])
   const [saving, setSaving] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [csvGroups, setCsvGroups] = useState<CaptionGroup[] | null>(null)
+  const [csvMsg, setCsvMsg] = useState('')
   const candidates = caption?.candidates ?? []
 
+  const toRows = (cands: { text: string; memo?: string }[]): EditorRow[] =>
+    cands.length
+      ? cands.map((c) => ({ id: uid(), text: c.text, memo: c.memo ?? '' }))
+      : [{ id: uid(), text: '', memo: '' }]
+
   const openEditor = () => {
-    setText(candidates.map((c) => c.text).join('\n---\n'))
+    setRows(toRows(candidates))
+    setCsvGroups(null); setCsvMsg('')
     setEditOpen(true)
   }
 
-  const parseCandidates = (raw: string): CaptionCandidate[] =>
-    raw.split(/\n-{3,}\n/).map((s) => s.trim()).filter(Boolean).map((t) => ({ id: uid(), text: t }))
+  const loadCsvText = (raw: string) => {
+    const groups = parseCaptionCsv(raw)
+    if (groups.length === 0) { setCsvMsg('CSVから候補を読み取れませんでした（投稿名・キャプション/備考の列を確認してください）'); return }
+    if (groups.length === 1) {
+      setRows(toRows(groups[0].cands)); setCsvGroups(null)
+      setCsvMsg(`✓「${groups[0].title}」から${groups[0].cands.length}件の候補を読み込みました`)
+    } else {
+      setCsvGroups(groups)
+      setCsvMsg(`${groups.length}件の投稿が見つかりました。このカードに入れる投稿を選んでください`)
+    }
+  }
+
+  const handleFile = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = () => loadCsvText(String(reader.result ?? ''))
+    reader.readAsText(file, 'utf-8')
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false)
+    const file = Array.from(e.dataTransfer.files).find((f) => /\.csv$/i.test(f.name) || f.type === 'text/csv') ?? e.dataTransfer.files[0]
+    if (file) handleFile(file)
+    else setCsvMsg('CSVファイルが見つかりませんでした')
+  }
+
+  const chooseGroup = (g: CaptionGroup) => {
+    setRows(toRows(g.cands)); setCsvGroups(null)
+    setCsvMsg(`✓「${g.title}」から${g.cands.length}件の候補を読み込みました`)
+  }
+
+  const updateRow = (id: string, patch: Partial<EditorRow>) =>
+    setRows((prev) => prev.map((r) => r.id === id ? { ...r, ...patch } : r))
+  const addRow = () => setRows((prev) => [...prev, { id: uid(), text: '', memo: '' }])
+  const removeRow = (id: string) => setRows((prev) => prev.filter((r) => r.id !== id))
 
   const handleSave = async () => {
     setSaving(true)
-    const parsed = parseCandidates(text)
+    const cands: CaptionCandidate[] = rows
+      .map((r) => ({ id: uid(), text: r.text.trim(), memo: r.memo.trim() || undefined }))
+      .filter((c) => c.text)
     // 候補を入れたらステータスは「未確認」スタート（既に進行中なら維持）
     const nextStatus = (caption?.status && caption.status !== '未確認') ? caption.status : '未確認'
-    await onSave(projectId, { candidates: parsed, status: nextStatus })
+    await onSave(projectId, { candidates: cands, status: nextStatus })
     setSaving(false)
     setEditOpen(false)
   }
@@ -152,27 +194,77 @@ function InternalView({ projectId, caption, onSave }: {
       )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[88vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <FileTextIcon className="size-4" /> キャプション候補を登録
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              候補が複数あるときは、候補と候補の間に <code className="bg-muted px-1 rounded">---</code>（ハイフン3つだけの行）を入れて区切ってください。
-            </p>
-            <Textarea
-              rows={12}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={'1案目のキャプション本文…\n---\n2案目のキャプション本文…'}
-              className="text-xs"
-            />
+
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            {/* CSVドラッグ&ドロップ */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={(e) => { e.preventDefault(); setDragOver(false) }}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById(`cap-csv-${projectId}`)?.click()}
+              className={cn(
+                'flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed py-5 cursor-pointer transition-colors text-center',
+                dragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-muted-foreground/60'
+              )}
+            >
+              <UploadIcon className="size-5 text-muted-foreground" />
+              <p className="text-xs font-medium">CSVをドラッグ&ドロップして一括登録</p>
+              <p className="text-[10px] text-muted-foreground">またはクリックして選択（投稿名・キャプション/備考の列を読み込みます）</p>
+              <input id={`cap-csv-${projectId}`} type="file" accept=".csv,text/csv" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+            </div>
+            {csvMsg && (
+              <p className={cn('text-[11px]', csvMsg.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600')}>{csvMsg}</p>
+            )}
+
+            {/* 複数投稿が見つかった場合：このカードに入れる投稿を選ぶ */}
+            {csvGroups && (
+              <div className="rounded-md border p-2 space-y-1 bg-muted/30">
+                {csvGroups.map((g) => (
+                  <button key={g.title} type="button" onClick={() => chooseGroup(g)}
+                    className="w-full text-left rounded px-2 py-1.5 text-xs hover:bg-background border border-transparent hover:border-border transition-colors">
+                    <span className="font-medium">{g.title}</span>
+                    <span className="text-muted-foreground ml-1">（候補{g.cands.length}件）</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 候補の編集（行ごと） */}
+            {!csvGroups && (
+              <div className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">候補（{rows.filter((r) => r.text.trim()).length}件）— 直接編集・追加もできます</p>
+                {rows.map((r, i) => (
+                  <div key={r.id} className="rounded-md border p-2 space-y-1.5 bg-card">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground shrink-0">候補{i + 1}</span>
+                      <Input value={r.memo} onChange={(e) => updateRow(r.id, { memo: e.target.value })}
+                        placeholder="メモ（任意・例：A案）" className="h-6 text-[11px] flex-1" />
+                      <button type="button" onClick={() => removeRow(r.id)}
+                        className="text-muted-foreground hover:text-destructive shrink-0" title="この候補を削除">
+                        <XIcon className="size-3.5" />
+                      </button>
+                    </div>
+                    <Textarea value={r.text} onChange={(e) => updateRow(r.id, { text: e.target.value })}
+                      rows={3} placeholder="キャプション本文" className="text-xs" />
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1 w-full" onClick={addRow}>
+                  <PlusIcon className="size-3" /> 候補を追加
+                </Button>
+              </div>
+            )}
           </div>
+
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setEditOpen(false)}>キャンセル</Button>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Button size="sm" onClick={handleSave} disabled={saving || csvGroups !== null}>
               {saving ? '保存中…' : '保存する'}
             </Button>
           </DialogFooter>
