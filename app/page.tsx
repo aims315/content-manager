@@ -3,6 +3,7 @@ import { ProjectListClient } from '@/components/project-list-client'
 import { ProviderSettingsModal } from '@/components/provider-settings-modal'
 import { CsvImportDialog } from '@/components/csv-import-dialog'
 import { CsvExportButton } from '@/components/csv-export-button'
+import { BulkEditDialog } from '@/components/bulk-edit-dialog'
 import { SyncAllButton } from '@/components/sync-all-button'
 import { AdminAuthGuard } from '@/components/admin-auth-guard'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-2">
             <SyncAllButton />
+            <BulkEditDialog />
             <CsvExportButton />
             <CsvImportDialog />
             <ProviderSettingsModal />
