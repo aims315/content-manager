@@ -24,6 +24,8 @@ const STATUS_STYLE: Record<CaptionStatus, string> = {
   '確定': 'bg-emerald-100 text-emerald-700',
 }
 
+const ALL_STATUSES: CaptionStatus[] = ['未確認', '選択済', '修正依頼', '差し戻し', '確定']
+
 function CopyButton({ text, label = 'コピー' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
   return (
@@ -147,6 +149,29 @@ function InternalView({ projectId, caption, onSave }: {
     setEditOpen(false)
   }
 
+  // 社内側からの手動ステータス変更
+  const changeStatus = async (status: CaptionStatus) => {
+    const patch: { status: CaptionStatus; selected_candidate_id?: string; draft_text?: string; decided_by?: string; decided_at?: string } = { status }
+    const sel = candidates.find((c) => c.id === caption?.selected_candidate_id) ?? candidates[0]
+    if (status === '確定') {
+      patch.draft_text = (caption?.draft_text && caption.draft_text.trim()) ? caption.draft_text : (sel?.text ?? '')
+      if (sel && !caption?.selected_candidate_id) patch.selected_candidate_id = sel.id
+      patch.decided_by = '社内'; patch.decided_at = new Date().toISOString()
+    } else if (status === '選択済' && !caption?.selected_candidate_id && sel) {
+      patch.selected_candidate_id = sel.id
+      patch.draft_text = caption?.draft_text || sel.text
+    }
+    await onSave(projectId, patch)
+  }
+
+  // この候補で確定（代理）
+  const confirmCandidate = async (c: CaptionCandidate) => {
+    await onSave(projectId, {
+      selected_candidate_id: c.id, draft_text: c.text, status: '確定',
+      decided_by: '社内', decided_at: new Date().toISOString(),
+    })
+  }
+
   return (
     <div className="space-y-2">
       {candidates.length === 0 ? (
@@ -155,14 +180,37 @@ function InternalView({ projectId, caption, onSave }: {
         </Button>
       ) : (
         <>
-          {/* 候補プレビュー（先頭のみ簡易表示） */}
+          {/* 社内ステータス操作 */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground shrink-0">ステータス変更</span>
+            <select
+              value={caption?.status ?? '未確認'}
+              onChange={(e) => changeStatus(e.target.value as CaptionStatus)}
+              className="h-7 text-xs rounded-md border bg-background px-2 flex-1 min-w-0"
+            >
+              {ALL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {/* 候補プレビュー（各候補を「この案で確定」できる） */}
           <div className="space-y-1">
-            {candidates.map((c, i) => (
-              <div key={c.id} className="rounded bg-background border px-2 py-1.5">
-                <div className="text-[10px] text-muted-foreground mb-0.5">候補{i + 1}{c.memo ? `・${c.memo}` : ''}</div>
-                <div className="text-[11px] line-clamp-2 whitespace-pre-wrap text-foreground/80">{c.text}</div>
-              </div>
-            ))}
+            {candidates.map((c, i) => {
+              const isSelected = caption?.selected_candidate_id === c.id
+              return (
+                <div key={c.id} className={cn('rounded border px-2 py-1.5', isSelected ? 'border-emerald-300 bg-emerald-50/50' : 'bg-background')}>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[10px] text-muted-foreground flex-1 min-w-0 truncate">
+                      候補{i + 1}{c.memo ? `・${c.memo}` : ''}{isSelected ? '（選択中）' : ''}
+                    </span>
+                    <button type="button" onClick={() => confirmCandidate(c)}
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-50 shrink-0">
+                      この案で確定
+                    </button>
+                  </div>
+                  <div className="text-[11px] line-clamp-2 whitespace-pre-wrap text-foreground/80">{c.text}</div>
+                </div>
+              )
+            })}
           </div>
 
           {/* クライアントの選択・コメント・確定結果 */}
