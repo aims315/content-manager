@@ -394,7 +394,10 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
             <p className="text-sm">
               {statusTab === 'done' ? '完了したプロジェクトはありません' : statusTab === 'all' ? 'プロジェクトがありません' : '進行中のプロジェクトはありません'}
             </p>
-            {statusTab === 'active' && (
+            {statusTab === 'active' && lockedCode && (
+              <Button size="sm" className="mt-3 gap-1.5" onClick={() => setCreateOpen(true)}>＋ 新規プロジェクトを作成</Button>
+            )}
+            {statusTab === 'active' && !lockedCode && (
               <p className="text-xs mt-1">右上の「新規プロジェクト」から作成してください</p>
             )}
           </div>
