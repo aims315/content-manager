@@ -21,6 +21,13 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+// 列数 → グリッドクラス（Tailwindが拾えるよう完全な文字列で持つ）
+const GRID_COLS: Record<1 | 2 | 3, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+}
+
 const TYPE_FILTERS = [
   { value: '', label: 'すべて' },
   { value: 'instagram', label: 'Instagram', icon: <InstagramIcon className="size-3.5" /> },
@@ -55,8 +62,9 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const [view, setView] = useState<'list' | 'schedule'>('list')
   const [statusTab, setStatusTab] = useState<'active' | 'done' | 'all'>('active')
   const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code'>('created')
+  const [cols, setCols] = useState<1 | 2 | 3>(3)
 
-  // 並び替え・種別フィルターをローカルに保持（リロードしても維持）
+  // 並び替え・種別フィルター・列数をローカルに保持（リロードしても維持）
   const stateKey = `cm_list_${lockedCode ?? 'main'}`
   useEffect(() => {
     try {
@@ -64,12 +72,13 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
       if (saved.sortOrder) setSortOrder(saved.sortOrder)
       if (saved.typeFilter !== undefined) setTypeFilter(saved.typeFilter)
       if (saved.statusTab) setStatusTab(saved.statusTab)
+      if (saved.cols === 1 || saved.cols === 2 || saved.cols === 3) setCols(saved.cols)
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
-    try { localStorage.setItem(stateKey, JSON.stringify({ sortOrder, typeFilter, statusTab })) } catch { /* ignore */ }
-  }, [sortOrder, typeFilter, statusTab, stateKey])
+    try { localStorage.setItem(stateKey, JSON.stringify({ sortOrder, typeFilter, statusTab, cols })) } catch { /* ignore */ }
+  }, [sortOrder, typeFilter, statusTab, cols, stateKey])
   const [codeFilter, setCodeFilter] = useState(urlCode ?? '')
   const [copiedLink, setCopiedLink] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -335,6 +344,20 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
             </button>
           </div>
 
+          {/* 列数切替（制作管理ビューのみ） */}
+          {view === 'list' && (
+            <div className="flex rounded-md border overflow-hidden ml-1">
+              {([1, 2, 3] as const).map((n) => (
+                <button key={n} onClick={() => setCols(n)}
+                  title={`${n}列で表示`}
+                  className={cn('flex items-center px-2.5 py-1.5 text-xs transition-colors', n > 1 && 'border-l',
+                    cols === n ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+                  {n}列
+                </button>
+              ))}
+            </div>
+          )}
+
           {!lockedCode && (
             <div className="ml-1">
               <CaptionBulkDialog projects={projects} captions={captions} onSave={saveCaption} />
@@ -420,7 +443,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                   <span className="text-xs text-muted-foreground">({list.length}件)</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+                <div className={cn('grid gap-4 items-stretch', GRID_COLS[cols])}>
                   {list.map((project) => (
                     <div key={project.id} id={`project-${project.id}`} className="h-full">
                       <ProjectCard
@@ -454,7 +477,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+          <div className={cn('grid gap-4 items-stretch', GRID_COLS[cols])}>
             {filtered.map((project) => (
               <div key={project.id} id={`project-${project.id}`}
                 className={cn('rounded-lg transition-all h-full', highlightId === project.id && 'ring-2 ring-primary ring-offset-2')}>

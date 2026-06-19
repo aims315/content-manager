@@ -85,11 +85,18 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
           キャプション
           {hasCandidates && <span className="text-muted-foreground font-normal">（候補{candidates.length}件）</span>}
         </div>
-        {hasCandidates && (
-          <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium', STATUS_STYLE[status])}>
-            {status}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {clientMode && hasCandidates && status !== '確定' && !caption?.selected_candidate_id && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 animate-pulse">
+              要選択
+            </span>
+          )}
+          {hasCandidates && (
+            <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium', STATUS_STYLE[status])}>
+              {status}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 最新の納品物リンク（候補の上に表示） */}
@@ -373,41 +380,40 @@ function InternalView({ projectId, caption, onSave }: {
   )
 }
 
-// ── クライアント側：選択・修正・コメント・承認/差し戻し ──────────────
+// ── クライアント側：全候補をその場で編集・選択・コメント・承認/差し戻し ──────
 function ClientView({ projectId, caption, actorName, onSave }: {
   projectId: string; caption: PostCaption; actorName: string; onSave: Props['onSave']
 }) {
-  const candidates = caption.candidates
+  const [cands, setCands] = useState<CaptionCandidate[]>(caption.candidates)
   const [selectedId, setSelectedId] = useState<string | null>(caption.selected_candidate_id)
-  const [draft, setDraft] = useState(caption.draft_text ?? '')
   const [comment, setComment] = useState(caption.client_comment ?? '')
   const [busy, setBusy] = useState(false)
 
   // 別端末での更新を反映
   useEffect(() => {
+    setCands(caption.candidates)
     setSelectedId(caption.selected_candidate_id)
-    setDraft(caption.draft_text ?? '')
     setComment(caption.client_comment ?? '')
-  }, [caption.selected_candidate_id, caption.draft_text, caption.client_comment])
+  }, [caption.candidates, caption.selected_candidate_id, caption.client_comment])
 
   const isConfirmed = caption.status === '確定'
+  const needsSelection = !selectedId
+
+  const editCand = (id: string, text: string) => setCands((prev) => prev.map((c) => c.id === id ? { ...c, text } : c))
+  const saveCands = async () => { await onSave(projectId, { candidates: cands }) }
 
   const pick = async (c: CaptionCandidate) => {
     setSelectedId(c.id)
-    setDraft(c.text)
-    await onSave(projectId, { selected_candidate_id: c.id, draft_text: c.text, status: '選択済' })
-  }
-
-  const saveDraft = async () => {
-    if (draft === (caption.draft_text ?? '')) return
-    await onSave(projectId, { draft_text: draft })
+    await onSave(projectId, { candidates: cands, selected_candidate_id: c.id, draft_text: c.text, status: '選択済' })
   }
 
   const approve = async () => {
+    if (!selectedId) return
     setBusy(true)
+    const text = cands.find((c) => c.id === selectedId)?.text ?? ''
     await onSave(projectId, {
-      draft_text: draft, status: '確定',
-      decided_by: actorName, decided_at: new Date().toISOString(),
+      candidates: cands, selected_candidate_id: selectedId, draft_text: text,
+      status: '確定', decided_by: actorName, decided_at: new Date().toISOString(),
     })
     setBusy(false)
   }
@@ -415,7 +421,7 @@ function ClientView({ projectId, caption, actorName, onSave }: {
   const requestEdit = async () => {
     setBusy(true)
     await onSave(projectId, {
-      client_comment: comment, status: '修正依頼',
+      candidates: cands, client_comment: comment, status: '修正依頼',
       decided_by: actorName, decided_at: new Date().toISOString(),
     })
     setBusy(false)
@@ -424,7 +430,7 @@ function ClientView({ projectId, caption, actorName, onSave }: {
   const sendBack = async () => {
     setBusy(true)
     await onSave(projectId, {
-      client_comment: comment, status: '差し戻し',
+      candidates: cands, client_comment: comment, status: '差し戻し',
       decided_by: actorName, decided_at: new Date().toISOString(),
     })
     setBusy(false)
@@ -432,56 +438,50 @@ function ClientView({ projectId, caption, actorName, onSave }: {
 
   return (
     <div className="space-y-2.5">
-      {isConfirmed && (
+      {isConfirmed ? (
         <div className="rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5 flex items-center gap-1.5 text-xs text-emerald-800">
-          <CheckCircleIcon className="size-3.5" /> このキャプションは確定済みです。修正したい場合は下で選び直して再度承認できます。
+          <CheckCircleIcon className="size-3.5" /> このキャプションは確定済みです。直したい場合は別の案を選び直して再度承認できます。
+        </div>
+      ) : needsSelection && (
+        <div className="rounded bg-amber-50 border border-amber-200 px-2 py-1.5 flex items-center gap-1.5 text-xs text-amber-800">
+          <CheckCircleIcon className="size-3.5" /> 使う案を1つ選んでから「承認」してください
         </div>
       )}
 
-      {/* 候補一覧（選択） */}
+      {/* 候補一覧：全候補をその場で編集できる */}
       <div className="space-y-1.5">
-        <p className="text-[11px] text-muted-foreground">使う案を選んでください</p>
-        {candidates.map((c, i) => {
+        {cands.map((c, i) => {
           const active = selectedId === c.id
           return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => pick(c)}
-              className={cn(
-                'w-full text-left rounded-md border px-2.5 py-2 transition-all',
-                active ? 'border-primary ring-1 ring-primary bg-primary/5' : 'border-border hover:border-muted-foreground/60 bg-background'
-              )}
-            >
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className={cn('size-3.5 rounded-full border flex items-center justify-center shrink-0',
-                  active ? 'border-primary bg-primary' : 'border-muted-foreground')}>
-                  {active && <CheckIcon className="size-2.5 text-primary-foreground" />}
-                </span>
-                <span className="text-[11px] font-medium">候補{i + 1}{c.memo ? `・${c.memo}` : ''}</span>
+            <div key={c.id}
+              className={cn('rounded-md border px-2.5 py-2 transition-all',
+                active ? 'border-primary ring-1 ring-primary bg-primary/5' : 'border-border bg-background')}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                {/* 選択ボタン */}
+                <button type="button" onClick={() => pick(c)}
+                  className={cn('flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors shrink-0',
+                    active ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary')}>
+                  <span className={cn('size-2.5 rounded-full border flex items-center justify-center',
+                    active ? 'border-primary-foreground' : 'border-current')}>
+                    {active && <CheckIcon className="size-2 text-primary-foreground" />}
+                  </span>
+                  {active ? 'この案を選択中' : 'この案を選ぶ'}
+                </button>
+                <span className="text-[11px] font-medium text-muted-foreground flex-1 min-w-0 truncate">候補{i + 1}{c.memo ? `・${c.memo}` : ''}</span>
+                <CopyButton text={c.text} />
               </div>
-              <div className="text-[11px] whitespace-pre-wrap text-foreground/80 pl-5">{c.text}</div>
-            </button>
+              {/* その場で編集できる本文 */}
+              <Textarea
+                rows={5}
+                value={c.text}
+                onChange={(e) => editCand(c.id, e.target.value)}
+                onBlur={saveCands}
+                className="text-xs"
+              />
+            </div>
           )
         })}
       </div>
-
-      {/* 選択中の本文を修正 */}
-      {selectedId && (
-        <div className="space-y-1">
-          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-            <PencilIcon className="size-3" /> 本文を修正（必要なら直接編集できます）
-          </p>
-          <Textarea
-            rows={6}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={saveDraft}
-            className="text-xs"
-          />
-          <CopyButton text={draft} />
-        </div>
-      )}
 
       {/* 修正依頼コメント */}
       <div className="space-y-1">
