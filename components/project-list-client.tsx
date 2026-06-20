@@ -63,6 +63,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const [view, setView] = useState<'list' | 'schedule'>('list')
   const [statusTab, setStatusTab] = useState<'active' | 'done' | 'all'>('active')
   const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code' | 'caption'>('created')
+  const [captionDir, setCaptionDir] = useState<'todo' | 'done'>('todo') // todo=要対応が上 / done=入力済が上
   const [cols, setCols] = useState<1 | 2 | 3>(3)
 
   // 並び替え・種別フィルター・列数をローカルに保持（リロードしても維持）
@@ -74,12 +75,13 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
       if (saved.typeFilter !== undefined) setTypeFilter(saved.typeFilter)
       if (saved.statusTab) setStatusTab(saved.statusTab)
       if (saved.cols === 1 || saved.cols === 2 || saved.cols === 3) setCols(saved.cols)
+      if (saved.captionDir === 'todo' || saved.captionDir === 'done') setCaptionDir(saved.captionDir)
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
-    try { localStorage.setItem(stateKey, JSON.stringify({ sortOrder, typeFilter, statusTab, cols })) } catch { /* ignore */ }
-  }, [sortOrder, typeFilter, statusTab, cols, stateKey])
+    try { localStorage.setItem(stateKey, JSON.stringify({ sortOrder, typeFilter, statusTab, cols, captionDir })) } catch { /* ignore */ }
+  }, [sortOrder, typeFilter, statusTab, cols, captionDir, stateKey])
   const [codeFilter, setCodeFilter] = useState(urlCode ?? '')
   const [copiedLink, setCopiedLink] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -194,7 +196,9 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
       return (a.assignee ?? '').localeCompare(b.assignee ?? '', 'ja')
     }
     if (sortOrder === 'caption') {
-      const ra = captionRank(a.id), rb = captionRank(b.id)
+      // todo: 要対応(0)→候補あり(1)→対象外(2) / done: 候補あり→要対応→対象外
+      const order = (r: number) => captionDir === 'todo' ? r : (r === 0 ? 1 : r === 1 ? 0 : 2)
+      const ra = order(captionRank(a.id)), rb = order(captionRank(b.id))
       if (ra !== rb) return ra - rb
       return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
     }
@@ -345,11 +349,14 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
               <UsersIcon className="size-3.5" />
               <span className="hidden sm:inline">コード順</span>
             </button>
-            <button onClick={() => setSortOrder('caption')}
-              title="キャプション順（要キャプション→候補ありの順）"
+            <button
+              onClick={() => { if (sortOrder !== 'caption') setSortOrder('caption'); else setCaptionDir((d) => d === 'todo' ? 'done' : 'todo') }}
+              title="キャプション順（クリックで「要対応が上」⇔「入力済が上」を切替）"
               className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors border-l', sortOrder === 'caption' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
               <MessageSquareTextIcon className="size-3.5" />
-              <span className="hidden sm:inline">キャプション順</span>
+              <span className="hidden sm:inline">
+                {sortOrder === 'caption' ? (captionDir === 'todo' ? 'キャプション要対応↑' : 'キャプション入力済↑') : 'キャプション順'}
+              </span>
             </button>
           </div>
 
