@@ -2,10 +2,13 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useProjects } from '@/hooks/use-projects'
+import { useCaptions } from '@/hooks/use-captions'
+import { extractUrl } from '@/lib/caption-csv'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { useStepStatuses } from '@/hooks/use-step-statuses'
 import { useProjectTypes } from '@/hooks/use-project-types'
 import { ProjectCard } from '@/components/project-card'
+import { CaptionBulkDialog } from '@/components/caption-bulk-dialog'
 import { ScheduleView } from '@/components/schedule-view'
 import { TrashDialog } from '@/components/trash-dialog'
 import { ProjectForm } from '@/components/project-form'
@@ -14,10 +17,17 @@ import { useDeadlineConfig } from '@/hooks/use-deadline-config'
 import { useClientDisplayConfig } from '@/hooks/use-client-display-config'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon, UsersIcon, LinkIcon } from 'lucide-react'
+import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon, UsersIcon, LinkIcon, MessageSquareTextIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+
+// 列数 → グリッドクラス（Tailwindが拾えるよう完全な文字列で持つ）
+const GRID_COLS: Record<1 | 2 | 3, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+}
 
 const TYPE_FILTERS = [
   { value: '', label: 'すべて' },
@@ -36,6 +46,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   }, [lockedCode])
 
   const { projects, deletedProjects, steps, loading, updateStepStatus, submitStep, deleteProject, restoreProject, permanentDeleteProject, emptyTrash, duplicateProject, updateStepProvider, updateStepDueDate, updateStepDependencies, setProjectDoneOverride, refetch } = useProjects(lockedCode)
+  const { captions, saveCaption } = useCaptions()
   const { labels: providerLabels, roles: providerRoles } = useProviderLabels()
   const { statuses: statusDefs } = useStepStatuses()
   const { customTypes: customProjectTypes } = useProjectTypes()
@@ -51,9 +62,11 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
   const [statusTab, setStatusTab] = useState<'active' | 'done' | 'all'>('active')
-  const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code'>('created')
+  const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code' | 'caption'>('created')
+  const [captionDir, setCaptionDir] = useState<'todo' | 'done'>('todo') // todo=要対応が上 / done=入力済が上
+  const [cols, setCols] = useState<1 | 2 | 3>(3)
 
-  // 並び替え・種別フィルターをローカルに保持（リロードしても維持）
+  // 並び替え・種別フィルター・列数をローカルに保持（リロードしても維持）
   const stateKey = `cm_list_${lockedCode ?? 'main'}`
   useEffect(() => {
     try {
@@ -61,12 +74,14 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
       if (saved.sortOrder) setSortOrder(saved.sortOrder)
       if (saved.typeFilter !== undefined) setTypeFilter(saved.typeFilter)
       if (saved.statusTab) setStatusTab(saved.statusTab)
+      if (saved.cols === 1 || saved.cols === 2 || saved.cols === 3) setCols(saved.cols)
+      if (saved.captionDir === 'todo' || saved.captionDir === 'done') setCaptionDir(saved.captionDir)
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
-    try { localStorage.setItem(stateKey, JSON.stringify({ sortOrder, typeFilter, statusTab })) } catch { /* ignore */ }
-  }, [sortOrder, typeFilter, statusTab, stateKey])
+    try { localStorage.setItem(stateKey, JSON.stringify({ sortOrder, typeFilter, statusTab, cols, captionDir })) } catch { /* ignore */ }
+  }, [sortOrder, typeFilter, statusTab, cols, captionDir, stateKey])
   const [codeFilter, setCodeFilter] = useState(urlCode ?? '')
   const [copiedLink, setCopiedLink] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -157,6 +172,19 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     .filter((p) => urlCode ? p.assignee === urlCode : (!codeFilter || p.assignee?.includes(codeFilter)))
     .filter((p) => !query.trim() || p.title.includes(query) || p.assignee?.includes(query) || p.client_slug?.includes(query))
 
+  // キャプション状態のランク（小さいほど上）：要キャプション → 候補あり → 対象外
+  // キャプションは Instagram 種別のみ対象
+  const captionRank = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId)
+    if (project?.project_type !== 'instagram') return 2
+    const hasCaption = (captions[projectId]?.candidates?.length ?? 0) > 0
+    if (hasCaption) return 1
+    // 納品物＝ステップの提出物 or 説明文中のURL
+    const hasDelivery = (steps[projectId] ?? []).some((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
+      || !!extractUrl(project?.description)
+    return hasDelivery ? 0 : 2  // 納品あり＆候補なし＝要キャプション（最上位）
+  }
+
   // ソート
   const sortProjects = (list: typeof projects) => [...list].sort((a, b) => {
     if (sortOrder === 'due') {
@@ -167,6 +195,13 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     }
     if (sortOrder === 'code') {
       return (a.assignee ?? '').localeCompare(b.assignee ?? '', 'ja')
+    }
+    if (sortOrder === 'caption') {
+      // todo: 要対応(0)→候補あり(1)→対象外(2) / done: 候補あり→要対応→対象外
+      const order = (r: number) => captionDir === 'todo' ? r : (r === 0 ? 1 : r === 1 ? 0 : 2)
+      const ra = order(captionRank(a.id)), rb = order(captionRank(b.id))
+      if (ra !== rb) return ra - rb
+      return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
     }
     return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
   })
@@ -315,6 +350,15 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
               <UsersIcon className="size-3.5" />
               <span className="hidden sm:inline">コード順</span>
             </button>
+            <button
+              onClick={() => { if (sortOrder !== 'caption') setSortOrder('caption'); else setCaptionDir((d) => d === 'todo' ? 'done' : 'todo') }}
+              title="キャプション順（クリックで「要対応が上」⇔「入力済が上」を切替）"
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors border-l', sortOrder === 'caption' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <MessageSquareTextIcon className="size-3.5" />
+              <span className="hidden sm:inline">
+                {sortOrder === 'caption' ? (captionDir === 'todo' ? 'キャプション要対応↑' : 'キャプション入力済↑') : 'キャプション順'}
+              </span>
+            </button>
           </div>
 
           <div className="flex rounded-md border overflow-hidden ml-1">
@@ -331,6 +375,26 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
               <span className="hidden sm:inline">スケジュール</span>
             </button>
           </div>
+
+          {/* 列数切替（制作管理ビューのみ） */}
+          {view === 'list' && (
+            <div className="flex rounded-md border overflow-hidden ml-1">
+              {([1, 2, 3] as const).map((n) => (
+                <button key={n} onClick={() => setCols(n)}
+                  title={`${n}列で表示`}
+                  className={cn('flex items-center px-2.5 py-1.5 text-xs transition-colors', n > 1 && 'border-l',
+                    cols === n ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+                  {n}列
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!lockedCode && (
+            <div className="ml-1">
+              <CaptionBulkDialog projects={projects} captions={captions} onSave={saveCaption} />
+            </div>
+          )}
 
           {!lockedCode && (
             <div className="ml-1">
@@ -411,7 +475,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                   <span className="text-xs text-muted-foreground">({list.length}件)</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+                <div className={cn('grid gap-4 items-stretch', GRID_COLS[cols])}>
                   {list.map((project) => (
                     <div key={project.id} id={`project-${project.id}`} className="h-full">
                       <ProjectCard
@@ -433,6 +497,10 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                         providerRoles={effectiveRoles}
                         statusDefs={statusDefs}
                         customProjectTypes={customProjectTypes}
+                        clientMode={!!lockedCode}
+                        caption={captions[project.id]}
+                        actorName={lockedCode ?? '社内'}
+                        onSaveCaption={saveCaption}
                       />
                     </div>
                   ))}
@@ -441,7 +509,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+          <div className={cn('grid gap-4 items-stretch', GRID_COLS[cols])}>
             {filtered.map((project) => (
               <div key={project.id} id={`project-${project.id}`}
                 className={cn('rounded-lg transition-all h-full', highlightId === project.id && 'ring-2 ring-primary ring-offset-2')}>
@@ -464,6 +532,10 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                   providerRoles={effectiveRoles}
                   statusDefs={statusDefs}
                   customProjectTypes={customProjectTypes}
+                  clientMode={!!lockedCode}
+                  caption={captions[project.id]}
+                  actorName={lockedCode ?? '社内'}
+                  onSaveCaption={saveCaption}
                 />
               </div>
             ))}
