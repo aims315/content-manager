@@ -29,6 +29,18 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ''))
 }
 
+// 説明文などから最初のURLを抽出
+export function extractUrl(text?: string | null): string | null {
+  if (!text) return null
+  const m = text.match(/https?:\/\/[^\s　）)」』】、。]+/)
+  return m ? m[0] : null
+}
+
+// テキスト貼り付け（--- 区切り）を候補配列に
+export function parseTextCandidates(raw: string): { text: string; memo: string }[] {
+  return raw.split(/\n-{3,}\n/).map((s) => s.trim()).filter(Boolean).map((t) => ({ text: t, memo: '' }))
+}
+
 export interface CaptionGroup { title: string; cands: { text: string; memo: string }[] }
 
 // キャプションアプリ形式(投稿名,キャプション,…) / タスクアプリ形式(タイトル,…,備考) 両対応。

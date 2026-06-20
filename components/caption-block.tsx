@@ -49,13 +49,6 @@ function fileLabel(url: string, names: string[] | undefined, i: number): string 
   return raw || `ファイル${i + 1}`
 }
 
-// 説明文などから最初のURLを抽出
-function extractUrl(text?: string | null): string | null {
-  if (!text) return null
-  const m = text.match(/https?:\/\/[^\s　）)」』】、。]+/)
-  return m ? m[0] : null
-}
-
 // custom_dates（初校/修正完了/投稿OK 等の名前付き期日）のうち日付が最新のもの
 function latestStageDate(project?: Project): { label: string; date: string } | null {
   const cds = project?.custom_dates ?? []
@@ -65,7 +58,7 @@ function latestStageDate(project?: Project): { label: string; date: string } | n
   return { label: sorted[0].label, date: sorted[0].date }
 }
 
-import { uid, parseCaptionCsv, type CaptionGroup } from '@/lib/caption-csv'
+import { uid, parseCaptionCsv, extractUrl, parseTextCandidates, type CaptionGroup } from '@/lib/caption-csv'
 
 const STATUS_STYLE: Record<CaptionStatus, string> = {
   '未確認': 'bg-slate-100 text-slate-600',
@@ -207,16 +200,20 @@ function InternalView({ projectId, caption, onSave }: {
   const [dragOver, setDragOver] = useState(false)
   const [csvGroups, setCsvGroups] = useState<CaptionGroup[] | null>(null)
   const [csvMsg, setCsvMsg] = useState('')
+  const [pasteText, setPasteText] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const candidates = caption?.candidates ?? []
 
   const toRows = (cands: { text: string; memo?: string }[]): EditorRow[] =>
-    cands.length
-      ? cands.map((c) => ({ id: uid(), text: c.text, memo: c.memo ?? '' }))
-      : [{ id: uid(), text: '', memo: '' }]
+    cands.map((c) => ({ id: uid(), text: c.text, memo: c.memo ?? '' }))
+
+  // 既存の入力行（空行は除く）に追記する
+  const appendRows = (cands: { text: string; memo?: string }[]) =>
+    setRows((prev) => [...prev.filter((r) => r.text.trim()), ...toRows(cands)])
 
   const openEditor = () => {
-    setRows(toRows(candidates))
-    setCsvGroups(null); setCsvMsg('')
+    setRows(candidates.length ? toRows(candidates) : [{ id: uid(), text: '', memo: '' }])
+    setCsvGroups(null); setCsvMsg(''); setPasteText('')
     setEditOpen(true)
   }
 
@@ -224,11 +221,11 @@ function InternalView({ projectId, caption, onSave }: {
     const groups = parseCaptionCsv(raw)
     if (groups.length === 0) { setCsvMsg('CSVから候補を読み取れませんでした（投稿名・キャプション/備考の列を確認してください）'); return }
     if (groups.length === 1) {
-      setRows(toRows(groups[0].cands)); setCsvGroups(null)
-      setCsvMsg(`✓「${groups[0].title}」から${groups[0].cands.length}件の候補を読み込みました`)
+      appendRows(groups[0].cands); setCsvGroups(null)
+      setCsvMsg(`✓「${groups[0].title}」から${groups[0].cands.length}件の候補を追加しました`)
     } else {
       setCsvGroups(groups)
-      setCsvMsg(`${groups.length}件の投稿が見つかりました。このカードに入れる投稿を選んでください`)
+      setCsvMsg(`${groups.length}件の投稿が見つかりました。このカードに追加する投稿を選んでください`)
     }
   }
 
@@ -246,8 +243,16 @@ function InternalView({ projectId, caption, onSave }: {
   }
 
   const chooseGroup = (g: CaptionGroup) => {
-    setRows(toRows(g.cands)); setCsvGroups(null)
-    setCsvMsg(`✓「${g.title}」から${g.cands.length}件の候補を読み込みました`)
+    appendRows(g.cands); setCsvGroups(null)
+    setCsvMsg(`✓「${g.title}」から${g.cands.length}件の候補を追加しました`)
+  }
+
+  const importPaste = () => {
+    const parsed = parseTextCandidates(pasteText)
+    if (parsed.length === 0) { setCsvMsg('テキストから候補を読み取れませんでした'); return }
+    appendRows(parsed)
+    setPasteText('')
+    setCsvMsg(`✓ テキストから${parsed.length}件の候補を追加しました`)
   }
 
   const updateRow = (id: string, patch: Partial<EditorRow>) =>
@@ -320,12 +325,17 @@ function InternalView({ projectId, caption, onSave }: {
                     <span className="text-[10px] text-muted-foreground flex-1 min-w-0 truncate">
                       候補{i + 1}{c.memo ? `・${c.memo}` : ''}{isSelected ? '（選択中）' : ''}
                     </span>
+                    <CopyButton text={c.text} />
                     <button type="button" onClick={() => confirmCandidate(c)}
                       className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-50 shrink-0">
                       この案で確定
                     </button>
                   </div>
-                  <div className="text-[11px] line-clamp-2 whitespace-pre-wrap text-foreground/80">{c.text}</div>
+                  <div className={cn('text-[11px] whitespace-pre-wrap text-foreground/80', expandedId !== c.id && 'line-clamp-2')}>{c.text}</div>
+                  <button type="button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
+                    className="mt-0.5 text-[10px] text-primary hover:underline">
+                    {expandedId === c.id ? '▲ 閉じる' : '▼ 全文を見る'}
+                  </button>
                 </div>
               )
             })}
@@ -380,11 +390,24 @@ function InternalView({ projectId, caption, onSave }: {
               )}
             >
               <UploadIcon className="size-5 text-muted-foreground" />
-              <p className="text-xs font-medium">CSVをドラッグ&ドロップして一括登録</p>
-              <p className="text-[10px] text-muted-foreground">またはクリックして選択（投稿名・キャプション/備考の列を読み込みます）</p>
+              <p className="text-xs font-medium">CSVをドラッグ&ドロップして候補に追加</p>
+              <p className="text-[10px] text-muted-foreground">またはクリックして選択（既存の候補に追加されます）</p>
               <input id={`cap-csv-${projectId}`} type="file" accept=".csv,text/csv" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
             </div>
+
+            {/* テキストで貼り付けて追加 */}
+            <div className="rounded-md border p-2 space-y-1.5 bg-muted/20">
+              <p className="text-[11px] text-muted-foreground">
+                テキストで貼り付けて追加（複数の候補は <code className="bg-muted px-1 rounded">---</code>（ハイフン3つだけの行）で区切る）
+              </p>
+              <Textarea rows={4} value={pasteText} onChange={(e) => setPasteText(e.target.value)}
+                placeholder={'1案目の本文…\n---\n2案目の本文…'} className="text-xs" />
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={importPaste} disabled={!pasteText.trim()}>
+                <PlusIcon className="size-3" /> テキストを候補に追加
+              </Button>
+            </div>
+
             {csvMsg && (
               <p className={cn('text-[11px]', csvMsg.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600')}>{csvMsg}</p>
             )}

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useCaptions } from '@/hooks/use-captions'
+import { extractUrl } from '@/lib/caption-csv'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { useStepStatuses } from '@/hooks/use-step-statuses'
 import { useProjectTypes } from '@/hooks/use-project-types'
@@ -16,7 +17,7 @@ import { useDeadlineConfig } from '@/hooks/use-deadline-config'
 import { useClientDisplayConfig } from '@/hooks/use-client-display-config'
 import type { StepStatus, ProviderType } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon, UsersIcon, LinkIcon } from 'lucide-react'
+import { InstagramIcon, TwitterIcon, CalendarDaysIcon, SearchIcon, LayoutGridIcon, CalendarIcon, ArrowUpDownIcon, UsersIcon, LinkIcon, MessageSquareTextIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -61,7 +62,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'list' | 'schedule'>('list')
   const [statusTab, setStatusTab] = useState<'active' | 'done' | 'all'>('active')
-  const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code'>('created')
+  const [sortOrder, setSortOrder] = useState<'created' | 'due' | 'code' | 'caption'>('created')
   const [cols, setCols] = useState<1 | 2 | 3>(3)
 
   // 並び替え・種別フィルター・列数をローカルに保持（リロードしても維持）
@@ -169,6 +170,16 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     .filter((p) => urlCode ? p.assignee === urlCode : (!codeFilter || p.assignee?.includes(codeFilter)))
     .filter((p) => !query.trim() || p.title.includes(query) || p.assignee?.includes(query) || p.client_slug?.includes(query))
 
+  // キャプション状態のランク（小さいほど上）：要キャプション → 候補あり → 対象外
+  const captionRank = (projectId: string) => {
+    const hasCaption = (captions[projectId]?.candidates?.length ?? 0) > 0
+    if (hasCaption) return 1
+    const project = projects.find((p) => p.id === projectId)
+    const hasDeliveryUrl = !!extractUrl(project?.description) ||
+      (steps[projectId] ?? []).some((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
+    return hasDeliveryUrl ? 0 : 2  // 納品URLあり＆候補なし＝要キャプション（最上位）
+  }
+
   // ソート
   const sortProjects = (list: typeof projects) => [...list].sort((a, b) => {
     if (sortOrder === 'due') {
@@ -179,6 +190,11 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     }
     if (sortOrder === 'code') {
       return (a.assignee ?? '').localeCompare(b.assignee ?? '', 'ja')
+    }
+    if (sortOrder === 'caption') {
+      const ra = captionRank(a.id), rb = captionRank(b.id)
+      if (ra !== rb) return ra - rb
+      return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
     }
     return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
   })
@@ -326,6 +342,12 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
               className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors border-l', sortOrder === 'code' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
               <UsersIcon className="size-3.5" />
               <span className="hidden sm:inline">コード順</span>
+            </button>
+            <button onClick={() => setSortOrder('caption')}
+              title="キャプション順（要キャプション→候補ありの順）"
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors border-l', sortOrder === 'caption' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+              <MessageSquareTextIcon className="size-3.5" />
+              <span className="hidden sm:inline">キャプション順</span>
             </button>
           </div>
 
