@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { PostCaption, CaptionCandidate, CaptionStatus, ProjectStep } from '@/lib/types'
+import type { PostCaption, CaptionCandidate, CaptionStatus, ProjectStep, Project } from '@/lib/types'
 import type { CaptionPatch } from '@/hooks/use-captions'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -34,6 +34,23 @@ function fileLabel(url: string, names: string[] | undefined, i: number): string 
   const raw = decodeURIComponent(url.split('/').pop()?.split('?')[0] ?? '')
   return raw || `ファイル${i + 1}`
 }
+
+// 説明文などから最初のURLを抽出
+function extractUrl(text?: string | null): string | null {
+  if (!text) return null
+  const m = text.match(/https?:\/\/[^\s　）)」』】、。]+/)
+  return m ? m[0] : null
+}
+
+// custom_dates（初校/修正完了/投稿OK 等の名前付き期日）のうち日付が最新のもの
+function latestStageDate(project?: Project): { label: string; date: string } | null {
+  const cds = project?.custom_dates ?? []
+  const dated = cds.filter((cd) => cd.date && !isNaN(new Date(cd.date).getTime()))
+  if (dated.length === 0) return null
+  const sorted = [...dated].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  return { label: sorted[0].label, date: sorted[0].date }
+}
+
 import { uid, parseCaptionCsv, type CaptionGroup } from '@/lib/caption-csv'
 
 const STATUS_STYLE: Record<CaptionStatus, string> = {
@@ -65,14 +82,24 @@ interface Props {
   clientMode: boolean
   actorName: string
   steps?: ProjectStep[]
+  project?: Project
   onSave: (projectId: string, patch: CaptionPatch) => Promise<boolean | void>
 }
 
-export function CaptionBlock({ projectId, caption, clientMode, actorName, steps = [], onSave }: Props) {
+export function CaptionBlock({ projectId, caption, clientMode, actorName, steps = [], project, onSave }: Props) {
   const candidates = caption?.candidates ?? []
   const status = caption?.status ?? '未確認'
   const hasCandidates = candidates.length > 0
-  const delivered = latestDelivered(steps)
+
+  // 納品物リンク：ステップの提出物を優先、無ければ説明文中のURL＋最新ステージ(custom_dates)
+  const stepDeliv = latestDelivered(steps)
+  const descUrl = stepDeliv ? null : extractUrl(project?.description)
+  const stageInfo = stepDeliv ? null : latestStageDate(project)
+  const deliveredUrl = stepDeliv?.url || descUrl
+  const deliveredStage = stepDeliv ? stepDeliv.status : (stageInfo?.label ?? '納品物')
+  const deliveredSource = stepDeliv ? stepDeliv.label : '説明文のリンク'
+  const deliveredDate = stepDeliv?.submitted_at || stageInfo?.date || null
+  const hasDelivered = !!stepDeliv || !!descUrl
 
   // クライアントが何も無いカードでは表示しない（社内は登録ボタンを出す）
   if (clientMode && !hasCandidates) return null
@@ -100,29 +127,29 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
       </div>
 
       {/* 最新の納品物リンク（候補の上に表示） */}
-      {delivered && (
+      {hasDelivered && (
         <div className="rounded-md border bg-background px-2.5 py-2 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
             <PaperclipIcon className="size-3 text-primary shrink-0" />
             <span className="font-semibold shrink-0">最新の納品物</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] shrink-0">{delivered.status}</span>
-            <span className="text-muted-foreground truncate flex-1 min-w-0">{delivered.label}</span>
-            {delivered.submitted_at && (
+            <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] shrink-0">{deliveredStage}</span>
+            <span className="text-muted-foreground truncate flex-1 min-w-0">{deliveredSource}</span>
+            {deliveredDate && (
               <span className="text-[10px] text-muted-foreground shrink-0">
-                {new Date(delivered.submitted_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                {new Date(deliveredDate).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
               </span>
             )}
           </div>
-          {delivered.url && (
-            <a href={delivered.url} target="_blank" rel="noopener noreferrer"
+          {deliveredUrl && (
+            <a href={deliveredUrl} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1 text-[11px] text-primary underline break-all hover:opacity-80">
               <ExternalLinkIcon className="size-3 shrink-0" /> 納品リンクを開く
             </a>
           )}
-          {delivered.file_urls?.map((u, i) => (
+          {stepDeliv?.file_urls?.map((u, i) => (
             <a key={i} href={u} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1 text-[11px] text-primary underline break-all hover:opacity-80">
-              <FileIcon className="size-3 shrink-0" /> {fileLabel(u, delivered.file_names, i)}
+              <FileIcon className="size-3 shrink-0" /> {fileLabel(u, stepDeliv.file_names, i)}
             </a>
           ))}
         </div>
