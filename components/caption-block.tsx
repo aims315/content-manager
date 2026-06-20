@@ -59,6 +59,28 @@ function latestDelivered(steps: ProjectStep[]): ProjectStep | null {
   return latestBySubmitted(withLink)
 }
 
+// 説明文から納品リンクを優先順位で拾う：修正完了（修正校）→ 初稿確認。
+// 該当ステージ語が無ければ、最後に出てくるURL（最新の追記とみなす）を採用。
+const STAGE_KEYWORDS: { label: string; kws: string[] }[] = [
+  { label: '修正完了', kws: ['修正完了', '修正校', '修正版', '修正済'] },
+  { label: '初稿確認', kws: ['初稿', '初校'] },
+]
+function deliveredFromDescription(desc?: string | null): { url: string; stage: string } | null {
+  if (!desc) return null
+  const urls = [...desc.matchAll(/https?:\/\/[^\s　）)」』】、。]+/g)].map((m) => ({ url: m[0], idx: m.index ?? 0 }))
+  if (urls.length === 0) return null
+  for (const stage of STAGE_KEYWORDS) {
+    for (const kw of stage.kws) {
+      const ki = desc.indexOf(kw)
+      if (ki >= 0) {
+        const after = urls.find((u) => u.idx >= ki)
+        return { url: (after ?? urls[urls.length - 1]).url, stage: stage.label }
+      }
+    }
+  }
+  return { url: urls[urls.length - 1].url, stage: '納品物' }
+}
+
 function fileLabel(url: string, names: string[] | undefined, i: number): string {
   if (names && names[i]) return names[i]
   const raw = decodeURIComponent(url.split('/').pop()?.split('?')[0] ?? '')
@@ -100,21 +122,22 @@ interface Props {
   onSave: (projectId: string, patch: CaptionPatch) => Promise<boolean | void>
 }
 
-export function CaptionBlock({ projectId, caption, clientMode, actorName, steps = [], onSave }: Props) {
+export function CaptionBlock({ projectId, caption, clientMode, actorName, steps = [], project, onSave }: Props) {
   const candidates = caption?.candidates ?? []
   const status = caption?.status ?? '未確認'
   const hasCandidates = candidates.length > 0
 
-  // 納品物リンク：ステップの提出物（初校/修正完了/投稿OK等の提出URL・ファイル）のみを採用。
-  // 説明文のリンクは「提供素材・指示原稿」など納品物ではないため使わない。
+  // 納品物リンク：ステップの提出物（修正完了→初稿確認 優先）を優先。
+  // 無ければ説明文の中のURLを、同じく修正完了（修正校）→初稿確認 の優先で採用。
   const stepDeliv = latestDelivered(steps)
-  const deliveredUrl = stepDeliv?.url || null
-  const deliveredStage = stepDeliv?.status ?? ''
-  const deliveredSource = stepDeliv?.label ?? ''
+  const descDeliv = stepDeliv ? null : deliveredFromDescription(project?.description)
+  const deliveredUrl = stepDeliv?.url || descDeliv?.url || null
+  const deliveredStage = stepDeliv?.status || descDeliv?.stage || ''
+  const deliveredSource = stepDeliv ? (stepDeliv.label ?? '') : '説明文'
   const deliveredDate = stepDeliv?.submitted_at ?? null
-  const hasDelivered = !!stepDeliv
-  // 引っ張ってきた元の文（ステップの提出メモ）
-  const deliveredText = (stepDeliv?.note ?? '').trim()
+  const hasDelivered = !!deliveredUrl
+  // 引っ張ってきた元の文（ステップの提出メモ or 説明文）
+  const deliveredText = (stepDeliv ? (stepDeliv.note ?? '') : (project?.description ?? '')).trim()
   const [showSource, setShowSource] = useState(false)
 
   // クライアントが何も無いカードでは表示しない（社内は登録ボタンを出す）
