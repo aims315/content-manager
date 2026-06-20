@@ -30,17 +30,33 @@ function LinkText({ text }: { text: string }) {
   )
 }
 
-// 最新の納品物（提出URL/ファイルがあるステップのうち提出日が最新のもの）を返す
-function latestDelivered(steps: ProjectStep[]): ProjectStep | null {
-  const withLink = steps.filter((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
-  if (withLink.length === 0) return null
-  const dated = withLink.filter((s) => s.submitted_at)
-  const pool = dated.length ? dated : withLink
-  return [...pool].sort((a, b) => {
+// 納品リンクのステージ優先順位（前ほど優先）。ステータス名・ステップ名どちらでも部分一致で判定。
+const DELIVERED_STAGE_PRIORITY = ['修正完了', '初稿確認', '初校確認']
+
+function hasLink(s: ProjectStep): boolean {
+  return !!(s.url && s.url.trim()) || (s.file_urls?.length ?? 0) > 0
+}
+
+function latestBySubmitted(list: ProjectStep[]): ProjectStep | null {
+  if (list.length === 0) return null
+  return [...list].sort((a, b) => {
     const ta = a.submitted_at ? new Date(a.submitted_at).getTime() : 0
     const tb = b.submitted_at ? new Date(b.submitted_at).getTime() : 0
     return tb - ta
   })[0] ?? null
+}
+
+// 納品物リンク：修正完了（最新）→ 初稿確認 の順で、提出URL/ファイルがあるステップを採用。
+// 該当が無ければ、提出物のあるステップのうち提出日が最新のものを採用。
+function latestDelivered(steps: ProjectStep[]): ProjectStep | null {
+  const withLink = steps.filter(hasLink)
+  if (withLink.length === 0) return null
+  for (const stage of DELIVERED_STAGE_PRIORITY) {
+    const matches = withLink.filter((s) => (s.status?.includes(stage)) || (s.label?.includes(stage)))
+    const picked = latestBySubmitted(matches)
+    if (picked) return picked
+  }
+  return latestBySubmitted(withLink)
 }
 
 function fileLabel(url: string, names: string[] | undefined, i: number): string {
