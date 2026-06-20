@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useCaptions } from '@/hooks/use-captions'
-import { extractUrl } from '@/lib/caption-csv'
 import { useProviderLabels } from '@/hooks/use-provider-labels'
 import { useStepStatuses } from '@/hooks/use-step-statuses'
 import { useProjectTypes } from '@/hooks/use-project-types'
@@ -179,9 +178,9 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     if (project?.project_type !== 'instagram') return 2
     const hasCaption = (captions[projectId]?.candidates?.length ?? 0) > 0
     if (hasCaption) return 1
-    const hasDeliveryUrl = !!extractUrl(project?.description) ||
-      (steps[projectId] ?? []).some((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
-    return hasDeliveryUrl ? 0 : 2  // 納品URLあり＆候補なし＝要キャプション（最上位）
+    // 納品物＝ステップの提出物（説明文のリンクは納品物ではないので使わない）
+    const hasDelivery = (steps[projectId] ?? []).some((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
+    return hasDelivery ? 0 : 2  // 納品あり＆候補なし＝要キャプション（最上位）
   }
 
   // ソート

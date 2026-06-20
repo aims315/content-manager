@@ -49,16 +49,7 @@ function fileLabel(url: string, names: string[] | undefined, i: number): string 
   return raw || `ファイル${i + 1}`
 }
 
-// custom_dates（初校/修正完了/投稿OK 等の名前付き期日）のうち日付が最新のもの
-function latestStageDate(project?: Project): { label: string; date: string } | null {
-  const cds = project?.custom_dates ?? []
-  const dated = cds.filter((cd) => cd.date && !isNaN(new Date(cd.date).getTime()))
-  if (dated.length === 0) return null
-  const sorted = [...dated].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  return { label: sorted[0].label, date: sorted[0].date }
-}
-
-import { uid, parseCaptionCsv, extractUrl, parseTextCandidates, type CaptionGroup } from '@/lib/caption-csv'
+import { uid, parseCaptionCsv, parseTextCandidates, type CaptionGroup } from '@/lib/caption-csv'
 
 const STATUS_STYLE: Record<CaptionStatus, string> = {
   '未確認': 'bg-slate-100 text-slate-600',
@@ -93,22 +84,21 @@ interface Props {
   onSave: (projectId: string, patch: CaptionPatch) => Promise<boolean | void>
 }
 
-export function CaptionBlock({ projectId, caption, clientMode, actorName, steps = [], project, onSave }: Props) {
+export function CaptionBlock({ projectId, caption, clientMode, actorName, steps = [], onSave }: Props) {
   const candidates = caption?.candidates ?? []
   const status = caption?.status ?? '未確認'
   const hasCandidates = candidates.length > 0
 
-  // 納品物リンク：ステップの提出物を優先、無ければ説明文中のURL＋最新ステージ(custom_dates)
+  // 納品物リンク：ステップの提出物（初校/修正完了/投稿OK等の提出URL・ファイル）のみを採用。
+  // 説明文のリンクは「提供素材・指示原稿」など納品物ではないため使わない。
   const stepDeliv = latestDelivered(steps)
-  const descUrl = stepDeliv ? null : extractUrl(project?.description)
-  const stageInfo = stepDeliv ? null : latestStageDate(project)
-  const deliveredUrl = stepDeliv?.url || descUrl
-  const deliveredStage = stepDeliv ? stepDeliv.status : (stageInfo?.label ?? '納品物')
-  const deliveredSource = stepDeliv ? stepDeliv.label : '説明文のリンク'
-  const deliveredDate = stepDeliv?.submitted_at || stageInfo?.date || null
-  const hasDelivered = !!stepDeliv || !!descUrl
-  // 引っ張ってきた元の文（ステップのメモ or 説明文）
-  const deliveredText = (stepDeliv ? (stepDeliv.note ?? '') : (project?.description ?? '')).trim()
+  const deliveredUrl = stepDeliv?.url || null
+  const deliveredStage = stepDeliv?.status ?? ''
+  const deliveredSource = stepDeliv?.label ?? ''
+  const deliveredDate = stepDeliv?.submitted_at ?? null
+  const hasDelivered = !!stepDeliv
+  // 引っ張ってきた元の文（ステップの提出メモ）
+  const deliveredText = (stepDeliv?.note ?? '').trim()
   const [showSource, setShowSource] = useState(false)
 
   // クライアントが何も無いカードでは表示しない（社内は登録ボタンを出す）
