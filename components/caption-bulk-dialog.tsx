@@ -32,11 +32,14 @@ export function CaptionBulkDialog({ projects, captions, onSave }: {
     [projects]
   )
 
+  // キャプションは Instagram 種別のカードだけが対象
+  const igProjects = useMemo(() => projects.filter((p) => p.project_type === 'instagram'), [projects])
+
   const sorted = useMemo(
-    () => [...projects].sort((a, b) =>
+    () => [...igProjects].sort((a, b) =>
       (a.assignee ?? '').localeCompare(b.assignee ?? '', 'ja') || a.title.localeCompare(b.title, 'ja')
     ),
-    [projects]
+    [igProjects]
   )
 
   // コード絞り込み後のカード候補（マッピング済みのカードは絞り込み外でも残す）
@@ -61,7 +64,7 @@ export function CaptionBulkDialog({ projects, captions, onSave }: {
     const map: Record<string, string> = {}
     const matchedCodes: string[] = []
     for (const g of gs) {
-      const hit = projects.find((p) => p.title.trim() === g.title.trim())
+      const hit = igProjects.find((p) => p.title.trim() === g.title.trim())
       if (hit) { map[g.title] = hit.id; if (hit.assignee) matchedCodes.push(hit.assignee) }
     }
     setMapping(map)

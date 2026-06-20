@@ -171,10 +171,12 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     .filter((p) => !query.trim() || p.title.includes(query) || p.assignee?.includes(query) || p.client_slug?.includes(query))
 
   // キャプション状態のランク（小さいほど上）：要キャプション → 候補あり → 対象外
+  // キャプションは Instagram 種別のみ対象
   const captionRank = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId)
+    if (project?.project_type !== 'instagram') return 2
     const hasCaption = (captions[projectId]?.candidates?.length ?? 0) > 0
     if (hasCaption) return 1
-    const project = projects.find((p) => p.id === projectId)
     const hasDeliveryUrl = !!extractUrl(project?.description) ||
       (steps[projectId] ?? []).some((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
     return hasDeliveryUrl ? 0 : 2  // 納品URLあり＆候補なし＝要キャプション（最上位）

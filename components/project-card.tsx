@@ -748,8 +748,8 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
           </div>
         )}
 
-        {/* キャプション承認ブロック（post_captions のみ読み書き。既存ステップには無関係） */}
-        {onSaveCaption && (
+        {/* キャプション承認ブロック（Instagram種別のみ。post_captions のみ読み書き） */}
+        {onSaveCaption && project.project_type === 'instagram' && (
           <CaptionBlock
             projectId={project.id}
             caption={caption}
