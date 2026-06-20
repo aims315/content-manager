@@ -13,8 +13,22 @@ import { cn } from '@/lib/utils'
 import {
   MessageSquareTextIcon, CheckCircleIcon, CopyIcon, CheckIcon,
   PencilIcon, SendIcon, Undo2Icon, FileTextIcon, UploadIcon, PlusIcon, XIcon,
-  PaperclipIcon, ExternalLinkIcon, FileIcon,
+  PaperclipIcon, ExternalLinkIcon, FileIcon, ChevronDownIcon, ChevronUpIcon,
 } from 'lucide-react'
+
+// 本文中のURLをクリック可能にして表示
+function LinkText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/)
+  return (
+    <span className="whitespace-pre-wrap">
+      {parts.map((p, i) =>
+        /^https?:\/\//.test(p)
+          ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all" onClick={(e) => e.stopPropagation()}>{p}</a>
+          : p
+      )}
+    </span>
+  )
+}
 
 // 最新の納品物（提出URL/ファイルがあるステップのうち提出日が最新のもの）を返す
 function latestDelivered(steps: ProjectStep[]): ProjectStep | null {
@@ -100,6 +114,9 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
   const deliveredSource = stepDeliv ? stepDeliv.label : '説明文のリンク'
   const deliveredDate = stepDeliv?.submitted_at || stageInfo?.date || null
   const hasDelivered = !!stepDeliv || !!descUrl
+  // 引っ張ってきた元の文（ステップのメモ or 説明文）
+  const deliveredText = (stepDeliv ? (stepDeliv.note ?? '') : (project?.description ?? '')).trim()
+  const [showSource, setShowSource] = useState(false)
 
   // クライアントが何も無いカードでは表示しない（社内は登録ボタンを出す）
   if (clientMode && !hasCandidates) return null
@@ -152,6 +169,22 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
               <FileIcon className="size-3 shrink-0" /> {fileLabel(u, stepDeliv.file_names, i)}
             </a>
           ))}
+
+          {/* 引っ張ってきた元の文（折りたたみ） */}
+          {deliveredText && (
+            <div className="pt-0.5">
+              <button type="button" onClick={() => setShowSource((v) => !v)}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
+                {showSource ? <ChevronUpIcon className="size-3" /> : <ChevronDownIcon className="size-3" />}
+                {stepDeliv ? '提出メモ' : '元の説明文'}を{showSource ? '閉じる' : '見る'}
+              </button>
+              {showSource && (
+                <div className="mt-1 text-[11px] text-foreground/80 border-t pt-1.5 max-h-40 overflow-y-auto">
+                  <LinkText text={deliveredText} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
