@@ -127,13 +127,18 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
   const status = caption?.status ?? '未確認'
   const hasCandidates = candidates.length > 0
 
-  // 納品物リンク：ステップの提出物（修正完了→初稿確認 優先）を優先。
-  // 無ければ説明文の中のURLを、同じく修正完了（修正校）→初稿確認 の優先で採用。
-  const stepDeliv = latestDelivered(steps)
-  const descDeliv = stepDeliv ? null : deliveredFromDescription(project?.description)
-  const deliveredUrl = stepDeliv?.url || descDeliv?.url || null
-  const deliveredStage = stepDeliv?.status || descDeliv?.stage || ''
-  const deliveredSource = stepDeliv ? (stepDeliv.label ?? '') : '説明文'
+  // 納品物リンクの優先順位：
+  //  1) タスク同期で取得した納品URL（修正完了 = response_url → 初稿確認 = draft_url）
+  //  2) ステップの提出物（修正完了→初稿確認 優先）
+  //  3) 説明文の中のURL（同優先）
+  const syncedUrl = project?.response_url || project?.draft_url || null
+  const stepDeliv = syncedUrl ? null : latestDelivered(steps)
+  const descDeliv = (syncedUrl || stepDeliv) ? null : deliveredFromDescription(project?.description)
+  const deliveredUrl = syncedUrl || stepDeliv?.url || descDeliv?.url || null
+  const deliveredStage = project?.response_url ? '修正完了'
+    : project?.draft_url ? '初稿確認'
+    : stepDeliv?.status || descDeliv?.stage || ''
+  const deliveredSource = syncedUrl ? '納品データ' : (stepDeliv ? (stepDeliv.label ?? '') : '説明文')
   const deliveredDate = stepDeliv?.submitted_at ?? null
   const hasDelivered = !!deliveredUrl
   // 引っ張ってきた元の文（ステップの提出メモ or 説明文）

@@ -93,6 +93,8 @@ export async function POST(_request: NextRequest) {
           staff: task.staff ?? null,
           description: task.description ?? null,
           custom_dates: (task.custom_deadlines as unknown[] | null) ?? [],
+          draft_url: (task.draft_url as string | null) ?? null,
+          response_url: (task.response_url as string | null) ?? null,
         })
         .eq('id', existingMap.get(task.id as string)!)
     )
@@ -115,6 +117,8 @@ export async function POST(_request: NextRequest) {
           staff: task.staff ?? null,
           description: task.description ?? null,
           custom_dates: (task.custom_deadlines as unknown[] | null) ?? [],
+          draft_url: (task.draft_url as string | null) ?? null,
+          response_url: (task.response_url as string | null) ?? null,
         })
         .select('id')
         .single()

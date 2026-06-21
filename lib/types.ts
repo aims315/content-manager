@@ -84,6 +84,8 @@ export interface Project {
   reminder_days: number | null
   custom_dates: CustomDate[] | null
   bar_color: string | null
+  draft_url: string | null      // 初校（初稿）の納品データURL（タスク同期で取得）
+  response_url: string | null   // 修正対応後（修正完了）の納品データURL（タスク同期で取得）
   created_at: string
   deleted_at: string | null
   steps?: ProjectStep[]
