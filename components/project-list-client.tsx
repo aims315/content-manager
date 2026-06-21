@@ -179,8 +179,9 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
     if (project?.project_type !== 'instagram') return 2
     const hasCaption = (captions[projectId]?.candidates?.length ?? 0) > 0
     if (hasCaption) return 1
-    // 納品物＝ステップの提出物 or 説明文中のURL
-    const hasDelivery = (steps[projectId] ?? []).some((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
+    // 納品物＝同期で取得した納品URL or ステップの提出物 or 説明文中のURL
+    const hasDelivery = !!project?.response_url || !!project?.draft_url
+      || (steps[projectId] ?? []).some((s) => (s.url && s.url.trim()) || (s.file_urls && s.file_urls.length > 0))
       || !!extractUrl(project?.description)
     return hasDelivery ? 0 : 2  // 納品あり＆候補なし＝要キャプション（最上位）
   }
