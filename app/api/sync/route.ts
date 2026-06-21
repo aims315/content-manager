@@ -51,6 +51,9 @@ async function findProjectByTaskId(supabase: ReturnType<typeof getSupabase>, tas
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.ENABLE_TASK_SYNC !== 'true') {
+    return NextResponse.json({ error: 'Task sync is disabled for this deployment' }, { status: 403 })
+  }
   const secret = request.headers.get('x-sync-secret')
   if (process.env.SYNC_SECRET && secret !== process.env.SYNC_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
