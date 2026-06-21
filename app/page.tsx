@@ -30,7 +30,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <SyncAllButton />
+            {process.env.ENABLE_TASK_SYNC === 'true' && <SyncAllButton />}
             <BulkEditDialog />
             <CsvExportButton />
             <CsvImportDialog />
