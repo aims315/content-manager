@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 export interface StepPresetItem {
   label: string
   provider: string   // role id（self / client / freelancer / カスタム）
+  deps?: number[]    // 鍵（前提ステップ）：このプリセット内のステップのインデックス
 }
 
 export interface StepPreset {

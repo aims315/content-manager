@@ -44,6 +44,7 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
   const [roleEditId, setRoleEditId] = useState<string | null>(null)
   const [savePresetMode, setSavePresetMode] = useState(false)
   const [presetName, setPresetName] = useState('')
+  const [presetSequentialLock, setPresetSequentialLock] = useState(false)
 
   const openDialog = () => {
     setLocalSteps([...steps].sort((a, b) => a.step_order - b.step_order))
@@ -97,38 +98,55 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
     setLocalSteps((prev) => prev.map((s) => s.id === stepId ? { ...s, step_due_date: due } : s))
   }
 
-  // プリセットのステップをまとめて追加
+  // プリセットのステップをまとめて追加（鍵=前提ステップも再現）
   const applyPreset = (presetId: string) => {
     const preset = presets.find((p) => p.id === presetId)
     if (!preset) return
     const base = localSteps.length
-    const added: ProjectStep[] = preset.steps.map((item, idx) => ({
-      id: `new_${Date.now()}_${idx}`,
-      project_id: projectId,
-      step_key: 'text' as any,
-      step_order: base + idx,
-      label: item.label,
-      status: '未着手',
-      provider_type: item.provider as ProviderType,
-      provider_name: null,
-      file_urls: [], file_names: [], url: null, note: null,
-      submitted_by: null, submitted_at: null,
-      is_client_step: item.provider !== 'self',
-      step_due_date: null,
-      created_at: new Date().toISOString(),
-    }))
+    const stamp = Date.now()
+    // プリセット内インデックス → 追加した一時ID
+    const tempIds = preset.steps.map((_, idx) => `new_${stamp}_${idx}`)
+    const added: ProjectStep[] = preset.steps.map((item, idx) => {
+      const deps = (item.deps ?? []).map((di) => tempIds[di]).filter(Boolean)
+      return {
+        id: tempIds[idx],
+        project_id: projectId,
+        step_key: 'text' as any,
+        step_order: base + idx,
+        label: item.label,
+        status: deps.length > 0 ? 'ロック中' : '未着手',
+        provider_type: item.provider as ProviderType,
+        provider_name: null,
+        file_urls: [], file_names: [], url: null, note: null,
+        submitted_by: null, submitted_at: null,
+        is_client_step: item.provider !== 'self',
+        step_due_date: null,
+        depends_on: deps,
+        created_at: new Date().toISOString(),
+      }
+    })
     setLocalSteps((prev) => [...prev, ...added])
   }
 
-  // 現在のステップ構成をプリセットとして保存
+  // 現在のステップ構成をプリセットとして保存（鍵=前提ステップもインデックスで保存）
   const saveAsPreset = async () => {
     if (!presetName.trim() || localSteps.length === 0) return
+    const indexById: Record<string, number> = {}
+    localSteps.forEach((s, i) => { indexById[s.id] = i })
     await addPreset(
       presetName.trim(),
-      localSteps.map((s) => ({ label: s.label, provider: s.provider_type }))
+      localSteps.map((s, i) => ({
+        label: s.label,
+        provider: s.provider_type,
+        // チェック時は「前の工程に順番ロック」、それ以外は今の鍵構造を保存
+        deps: presetSequentialLock
+          ? (i > 0 ? [i - 1] : [])
+          : (s.depends_on ?? []).map((id) => indexById[id]).filter((i) => i !== undefined),
+      }))
     )
     setSavePresetMode(false)
     setPresetName('')
+    setPresetSequentialLock(false)
   }
 
   const addStep = () => {
@@ -170,23 +188,30 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
       }
 
       // 新規ステップをinsert、既存ステップのstep_orderをupdate
+      const tempToReal: Record<string, string> = {}  // 一時ID → 実ID（鍵の再マップ用）
+      const newStepsWithDeps: { realId: string; tempDeps: string[] }[] = []
       for (let i = 0; i < localSteps.length; i++) {
         const step = localSteps[i]
         if (step.id.startsWith('new_')) {
-          // 新規追加
-          await supabase.from('project_steps').insert({
+          // 新規追加（鍵がある場合はロック中で作成）
+          const hasDeps = (step.depends_on ?? []).length > 0
+          const { data: inserted } = await supabase.from('project_steps').insert({
             project_id: projectId,
             step_key: 'text',
             step_order: i,
             label: step.label,
-            status: '未着手',
+            status: hasDeps ? 'ロック中' : (step.status ?? '未着手'),
             provider_type: step.provider_type,
             provider_name: null,
             file_urls: [],
             file_names: [],
             is_client_step: step.provider_type !== 'self',
             step_due_date: step.step_due_date ?? null,
-          })
+          }).select('id').single()
+          if (inserted) {
+            tempToReal[step.id] = inserted.id
+            if (hasDeps) newStepsWithDeps.push({ realId: inserted.id, tempDeps: step.depends_on ?? [] })
+          }
         } else {
           // 既存：順序・名前・役割・締切を更新
           await supabase.from('project_steps')
@@ -198,6 +223,14 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
               step_due_date: step.step_due_date ?? null,
             })
             .eq('id', step.id)
+        }
+      }
+
+      // 新規ステップの鍵（depends_on）を実IDに付け替えて保存
+      for (const { realId, tempDeps } of newStepsWithDeps) {
+        const realDeps = tempDeps.map((t) => tempToReal[t] ?? t).filter(Boolean)
+        if (realDeps.length > 0) {
+          await supabase.from('project_steps').update({ depends_on: realDeps }).eq('id', realId)
         }
       }
 
@@ -410,12 +443,18 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
 
             {/* 保存フォーム */}
             {savePresetMode && (
-              <div className="flex gap-1.5">
-                <Input value={presetName} onChange={(e) => setPresetName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && saveAsPreset()}
-                  placeholder="プリセット名（例: Instagram通常投稿）" className="h-7 text-xs" />
-                <Button type="button" size="sm" className="h-7 text-xs px-2" onClick={saveAsPreset} disabled={!presetName.trim()}>保存</Button>
-                <Button type="button" size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setSavePresetMode(false); setPresetName('') }}>×</Button>
+              <div className="space-y-1.5">
+                <div className="flex gap-1.5">
+                  <Input value={presetName} onChange={(e) => setPresetName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && saveAsPreset()}
+                    placeholder="プリセット名（例: Instagram通常投稿）" className="h-7 text-xs" />
+                  <Button type="button" size="sm" className="h-7 text-xs px-2" onClick={saveAsPreset} disabled={!presetName.trim()}>保存</Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => { setSavePresetMode(false); setPresetName('') }}>×</Button>
+                </div>
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                  <input type="checkbox" checked={presetSequentialLock} onChange={(e) => setPresetSequentialLock(e.target.checked)} className="size-3" />
+                  順番にロック（各工程は前の工程が完了したら開始）
+                </label>
               </div>
             )}
 
