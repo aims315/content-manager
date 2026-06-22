@@ -40,7 +40,7 @@ interface StepProviderConfig {
   stepDueDate?: Date | undefined
 }
 
-export function ProjectForm({ lockedCode, onCreated }: { lockedCode?: string; onCreated?: () => void } = {}) {
+export function ProjectForm({ lockedCode, onCreated, onCancel }: { lockedCode?: string; onCreated?: () => void; onCancel?: () => void } = {}) {
   const router = useRouter()
   const supabase = createClient()
   const { labels: providerLabels, roles: allRoles } = useProviderLabels()
@@ -569,7 +569,7 @@ export function ProjectForm({ lockedCode, onCreated }: { lockedCode?: string; on
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => router.push('/')} className="flex-1">
+            <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.push('/')} className="flex-1">
               キャンセル
             </Button>
             <Button type="submit" disabled={isSubmitting || !projectType} className="flex-1">

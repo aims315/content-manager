@@ -235,6 +235,29 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
             {localSteps.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">ステップがありません</p>
             )}
+            {localSteps.length > 0 && (
+              <div className="flex justify-end">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button type="button" className="text-[11px] text-destructive hover:underline flex items-center gap-0.5">
+                      <Trash2Icon className="size-3" />全ステップ削除
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>全ステップを削除しますか？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        このプロジェクトの{localSteps.length}件のステップをすべて削除します。「保存」を押すと確定します。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => setLocalSteps([])}>すべて削除</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
             {localSteps.map((step, i) => {
               const role = providerRoles.find((r) => r.id === step.provider_type)
               const badgeCls = role ? COLOR_STYLES[role.color].badge : 'bg-muted text-muted-foreground'

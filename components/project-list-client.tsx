@@ -246,7 +246,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
               <DialogHeader>
                 <DialogTitle>新規プロジェクト</DialogTitle>
               </DialogHeader>
-              <ProjectForm lockedCode={lockedCode} onCreated={() => { setCreateOpen(false); refetch() }} />
+              <ProjectForm lockedCode={lockedCode} onCreated={() => { setCreateOpen(false); refetch() }} onCancel={() => setCreateOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>
