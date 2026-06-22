@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
-  ListTodoIcon, PlusIcon, Trash2Icon, ChevronUpIcon, ChevronDownIcon, GripVerticalIcon, CheckIcon, BookmarkIcon, SaveIcon, CalendarIcon,
+  ListTodoIcon, PlusIcon, Trash2Icon, ChevronUpIcon, ChevronDownIcon, GripVerticalIcon, CheckIcon, BookmarkIcon, SaveIcon, CalendarIcon, LockIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProjectStep, ProviderType } from '@/lib/types'
@@ -42,6 +42,7 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
   const [roleEditId, setRoleEditId] = useState<string | null>(null)
+  const [lockEditId, setLockEditId] = useState<string | null>(null)
   const [savePresetMode, setSavePresetMode] = useState(false)
   const [presetName, setPresetName] = useState('')
   const [presetSequentialLock, setPresetSequentialLock] = useState(false)
@@ -96,6 +97,19 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
   }
   const setStepDue = (stepId: string, due: string | null) => {
     setLocalSteps((prev) => prev.map((s) => s.id === stepId ? { ...s, step_due_date: due } : s))
+  }
+  // 鍵（前提ステップ）のトグル
+  const toggleStepDep = (stepId: string, depId: string) => {
+    setLocalSteps((prev) => prev.map((s) => {
+      if (s.id !== stepId) return s
+      const deps = s.depends_on ?? []
+      const next = deps.includes(depId) ? deps.filter((d) => d !== depId) : [...deps, depId]
+      // 鍵があり未完了なら「ロック中」、無ければ「未着手」に整える（完了状態は維持）
+      let status = s.status
+      if (next.length > 0 && (status === '未着手' || status === 'ロック中')) status = 'ロック中'
+      if (next.length === 0 && status === 'ロック中') status = '未着手'
+      return { ...s, depends_on: next, status }
+    }))
   }
 
   // プリセットのステップをまとめて追加（鍵=前提ステップも再現）
@@ -187,20 +201,17 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
         await supabase.from('project_steps').delete().eq('id', id)
       }
 
-      // 新規ステップをinsert、既存ステップのstep_orderをupdate
-      const tempToReal: Record<string, string> = {}  // 一時ID → 実ID（鍵の再マップ用）
-      const newStepsWithDeps: { realId: string; tempDeps: string[] }[] = []
+      // Pass1: 新規をinsert（鍵は後で）、既存の基本項目を更新。一時ID→実IDを記録
+      const tempToReal: Record<string, string> = {}
       for (let i = 0; i < localSteps.length; i++) {
         const step = localSteps[i]
         if (step.id.startsWith('new_')) {
-          // 新規追加（鍵がある場合はロック中で作成）
-          const hasDeps = (step.depends_on ?? []).length > 0
           const { data: inserted } = await supabase.from('project_steps').insert({
             project_id: projectId,
             step_key: 'text',
             step_order: i,
             label: step.label,
-            status: hasDeps ? 'ロック中' : (step.status ?? '未着手'),
+            status: step.status ?? '未着手',
             provider_type: step.provider_type,
             provider_name: null,
             file_urls: [],
@@ -208,12 +219,8 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
             is_client_step: step.provider_type !== 'self',
             step_due_date: step.step_due_date ?? null,
           }).select('id').single()
-          if (inserted) {
-            tempToReal[step.id] = inserted.id
-            if (hasDeps) newStepsWithDeps.push({ realId: inserted.id, tempDeps: step.depends_on ?? [] })
-          }
+          if (inserted) tempToReal[step.id] = inserted.id
         } else {
-          // 既存：順序・名前・役割・締切を更新
           await supabase.from('project_steps')
             .update({
               step_order: i,
@@ -226,12 +233,15 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
         }
       }
 
-      // 新規ステップの鍵（depends_on）を実IDに付け替えて保存
-      for (const { realId, tempDeps } of newStepsWithDeps) {
-        const realDeps = tempDeps.map((t) => tempToReal[t] ?? t).filter(Boolean)
-        if (realDeps.length > 0) {
-          await supabase.from('project_steps').update({ depends_on: realDeps }).eq('id', realId)
-        }
+      // Pass2: 全ステップの鍵（depends_on）と状態を実IDで保存
+      for (const step of localSteps) {
+        const realId = tempToReal[step.id] ?? step.id
+        const realDeps = (step.depends_on ?? []).map((t) => tempToReal[t] ?? t).filter(Boolean)
+        const update: Record<string, unknown> = { depends_on: realDeps }
+        // 鍵あり＆未完了 → ロック中、鍵なし＆ロック中 → 未着手
+        if (realDeps.length > 0 && (step.status === '未着手' || step.status === 'ロック中')) update.status = 'ロック中'
+        if (realDeps.length === 0 && step.status === 'ロック中') update.status = '未着手'
+        await supabase.from('project_steps').update(update).eq('id', realId)
       }
 
       setOpen(false)
@@ -343,6 +353,38 @@ export function StepManagerDialog({ projectId, steps, providerRoles, onUpdated }
                     onChange={(e) => renameStep(step.id, e.target.value)}
                     className="h-7 text-xs flex-1 min-w-0 border-transparent hover:border-input focus:border-input bg-transparent px-1.5"
                   />
+
+                  {/* 鍵（前提ステップを設定） */}
+                  <div className="relative shrink-0">
+                    <button type="button"
+                      onClick={() => setLockEditId(lockEditId === step.id ? null : step.id)}
+                      title="鍵（前提ステップを設定）"
+                      className={cn('p-1 rounded transition-colors',
+                        (step.depends_on?.length ?? 0) > 0 ? 'text-amber-600 bg-amber-50' : 'text-muted-foreground hover:text-foreground')}>
+                      <LockIcon className="size-3" />
+                    </button>
+                    {lockEditId === step.id && (
+                      <div className="absolute right-0 top-full mt-1 z-30 bg-popover border rounded-md shadow-md p-1.5 flex flex-col gap-0.5 min-w-[160px] max-h-48 overflow-y-auto">
+                        <p className="text-[10px] text-muted-foreground px-1 pb-1">完了したら解除する工程を選択</p>
+                        {localSteps.filter((o) => o.id !== step.id).length === 0 && (
+                          <p className="text-[10px] text-muted-foreground px-1">他のステップがありません</p>
+                        )}
+                        {localSteps.filter((o) => o.id !== step.id).map((o) => {
+                          const checked = (step.depends_on ?? []).includes(o.id)
+                          return (
+                            <button key={o.id} type="button" onClick={() => toggleStepDep(step.id, o.id)}
+                              className={cn('text-[11px] px-2 py-1 rounded text-left flex items-center gap-1.5 transition-colors',
+                                checked ? 'bg-amber-100 text-amber-800 font-medium' : 'hover:bg-muted')}>
+                              <span className={cn('size-3 rounded border flex items-center justify-center', checked ? 'bg-amber-500 border-amber-500' : 'border-muted-foreground')}>
+                                {checked && <CheckIcon className="size-2.5 text-white" />}
+                              </span>
+                              {o.label || '（無題）'}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
 
                   {/* 役割（クリックで変更）。表示対象外ロールは出さない */}
                   {role && (
