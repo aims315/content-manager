@@ -127,16 +127,22 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
   const status = caption?.status ?? '未確認'
   const hasCandidates = candidates.length > 0
 
-  // 納品物は「実際に提出されたステップ」からのみ取得する。
-  //  説明文や同期URL（draft_url等）は納品物として扱わない（参考表示のみ）。
-  const stepDeliv = latestDelivered(steps)
-  const deliveredUrl = stepDeliv?.url || null
-  const deliveredStage = stepDeliv?.status || ''
-  const deliveredSource = stepDeliv?.label ?? ''
-  const deliveredDate = stepDeliv?.submitted_at ?? null
-  const hasDelivered = !!(stepDeliv && (deliveredUrl || (stepDeliv.file_urls?.length ?? 0) > 0))
-  const deliveredText = (stepDeliv?.note ?? '').trim()
+  // 納品物リンクの判定：
+  //  - response_url（修正完了）は実納品物として表示
+  //  - draft_url（初稿）は「説明文に含まれていない＝実提出」のときだけ表示。
+  //    説明文と同じURL（指示用の資料リンク）は納品物として扱わない
+  //  - 同期URLが無ければ、提出されたステップを使う
   const descriptionText = (project?.description ?? '').trim()
+  const draftIsBrief = !!project?.draft_url && !!descriptionText && descriptionText.includes(project.draft_url)
+  const syncedUrl = project?.response_url || (project?.draft_url && !draftIsBrief ? project.draft_url : null) || null
+  const stepDeliv = syncedUrl ? null : latestDelivered(steps)
+  const deliveredUrl = syncedUrl || stepDeliv?.url || null
+  const deliveredStage = project?.response_url ? '修正完了' : (syncedUrl ? '初稿確認' : (stepDeliv?.status || ''))
+  const deliveredSource = syncedUrl ? '納品データ' : (stepDeliv?.label ?? '')
+  const deliveredDate = stepDeliv?.submitted_at ?? null
+  const hasDelivered = !!(deliveredUrl || (stepDeliv && (stepDeliv.file_urls?.length ?? 0) > 0))
+  // 参考表示する文（ステップの提出メモ or 説明文）
+  const deliveredText = (stepDeliv ? (stepDeliv.note ?? '') : descriptionText).trim()
   const [showSource, setShowSource] = useState(false)
   const [showDesc, setShowDesc] = useState(false)
 
