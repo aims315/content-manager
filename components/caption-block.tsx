@@ -127,23 +127,18 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
   const status = caption?.status ?? '未確認'
   const hasCandidates = candidates.length > 0
 
-  // 納品物リンクの優先順位：
-  //  1) タスク同期で取得した納品URL（修正完了 = response_url → 初稿確認 = draft_url）
-  //  2) ステップの提出物（修正完了→初稿確認 優先）
-  //  3) 説明文の中のURL（同優先）
-  const syncedUrl = project?.response_url || project?.draft_url || null
-  const stepDeliv = syncedUrl ? null : latestDelivered(steps)
-  const descDeliv = (syncedUrl || stepDeliv) ? null : deliveredFromDescription(project?.description)
-  const deliveredUrl = syncedUrl || stepDeliv?.url || descDeliv?.url || null
-  const deliveredStage = project?.response_url ? '修正完了'
-    : project?.draft_url ? '初稿確認'
-    : stepDeliv?.status || descDeliv?.stage || ''
-  const deliveredSource = syncedUrl ? '納品データ' : (stepDeliv ? (stepDeliv.label ?? '') : '説明文')
+  // 納品物は「実際に提出されたステップ」からのみ取得する。
+  //  説明文や同期URL（draft_url等）は納品物として扱わない（参考表示のみ）。
+  const stepDeliv = latestDelivered(steps)
+  const deliveredUrl = stepDeliv?.url || null
+  const deliveredStage = stepDeliv?.status || ''
+  const deliveredSource = stepDeliv?.label ?? ''
   const deliveredDate = stepDeliv?.submitted_at ?? null
-  const hasDelivered = !!deliveredUrl
-  // 引っ張ってきた元の文（ステップの提出メモ or 説明文）
-  const deliveredText = (stepDeliv ? (stepDeliv.note ?? '') : (project?.description ?? '')).trim()
+  const hasDelivered = !!(stepDeliv && (deliveredUrl || (stepDeliv.file_urls?.length ?? 0) > 0))
+  const deliveredText = (stepDeliv?.note ?? '').trim()
+  const descriptionText = (project?.description ?? '').trim()
   const [showSource, setShowSource] = useState(false)
+  const [showDesc, setShowDesc] = useState(false)
 
   // クライアントが何も無いカードでは表示しない（社内は登録ボタンを出す）
   if (clientMode && !hasCandidates) return null
@@ -208,6 +203,31 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
               {showSource && (
                 <div className="mt-1 text-[11px] text-foreground/80 border-t pt-1.5 max-h-40 overflow-y-auto">
                   <LinkText text={deliveredText} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 納品物が無い場合：無い表記＋説明文を参考表示 */}
+      {!hasDelivered && (
+        <div className="rounded-md border bg-background px-2.5 py-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <PaperclipIcon className="size-3 text-muted-foreground shrink-0" />
+            <span className="font-semibold text-muted-foreground">最新の納品物</span>
+            <span className="text-muted-foreground">まだありません</span>
+          </div>
+          {descriptionText && (
+            <div className="pt-0.5">
+              <button type="button" onClick={() => setShowDesc((v) => !v)}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
+                {showDesc ? <ChevronUpIcon className="size-3" /> : <ChevronDownIcon className="size-3" />}
+                説明文を{showDesc ? '閉じる' : '見る'}
+              </button>
+              {showDesc && (
+                <div className="mt-1 text-[11px] text-foreground/80 border-t pt-1.5 max-h-40 overflow-y-auto">
+                  <LinkText text={descriptionText} />
                 </div>
               )}
             </div>
