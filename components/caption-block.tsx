@@ -92,7 +92,7 @@ import { uid, parseCaptionCsv, parseTextCandidates, type CaptionGroup } from '@/
 const STATUS_STYLE: Record<CaptionStatus, string> = {
   '未確認': 'bg-slate-100 text-slate-600',
   '選択済': 'bg-sky-100 text-sky-700',
-  '修正依頼': 'bg-amber-100 text-amber-800',
+  '修正依頼': 'bg-rose-100 text-rose-700',
   '差し戻し': 'bg-rose-100 text-rose-700',
   '確定': 'bg-emerald-100 text-emerald-700',
 }
@@ -397,12 +397,12 @@ function InternalView({ projectId, caption, onSave }: {
 
           {/* クライアントの選択・コメント・確定結果 */}
           {caption?.client_comment && (caption.status === '修正依頼' || caption.status === '差し戻し') && (
-            <div className="rounded bg-amber-50 border border-amber-200 px-2 py-1.5">
-              <div className="text-[10px] font-semibold text-amber-800 mb-0.5">
+            <div className="rounded bg-rose-50 border border-rose-300 px-2 py-1.5">
+              <div className="text-[10px] font-semibold text-rose-700 mb-0.5">
                 クライアントからの{caption.status === '差し戻し' ? '差し戻し' : '修正依頼'}
                 {caption.decided_by && <span className="font-normal"> (by {caption.decided_by})</span>}
               </div>
-              <div className="text-[11px] whitespace-pre-wrap text-amber-900">{caption.client_comment}</div>
+              <div className="text-[11px] whitespace-pre-wrap text-rose-700 font-medium">{caption.client_comment}</div>
             </div>
           )}
 
