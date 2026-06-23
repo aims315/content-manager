@@ -51,6 +51,7 @@ export interface CaptionCandidate {
   id: string
   text: string
   memo?: string
+  orig?: string   // 登録時の元テキスト（クライアント修正の差分表示用）
 }
 
 export interface PostCaption {

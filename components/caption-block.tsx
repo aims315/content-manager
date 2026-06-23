@@ -87,6 +87,38 @@ function fileLabel(url: string, names: string[] | undefined, i: number): string 
   return raw || `ファイル${i + 1}`
 }
 
+// 文字単位の差分（orig → edited）。editedの追加・変更部分を赤で表示する。
+function DiffText({ orig, edited, className }: { orig: string; edited: string; className?: string }) {
+  const a = orig, b = edited
+  const n = a.length, m = b.length
+  // LCS長テーブル
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
+    }
+  }
+  const segs: { text: string; added: boolean }[] = []
+  const push = (ch: string, added: boolean) => {
+    const last = segs[segs.length - 1]
+    if (last && last.added === added) last.text += ch
+    else segs.push({ text: ch, added })
+  }
+  let i = 0, j = 0
+  while (j < m) {
+    if (i < n && a[i] === b[j]) { push(b[j], false); i++; j++ }
+    else if (i < n && dp[i + 1][j] >= dp[i][j + 1]) { i++ } // origの削除はスキップ
+    else { push(b[j], true); j++ }
+  }
+  return (
+    <span className={className} style={{ whiteSpace: 'pre-wrap' }}>
+      {segs.map((s, k) => s.added
+        ? <span key={k} className="text-rose-600 font-semibold bg-rose-50">{s.text}</span>
+        : <span key={k}>{s.text}</span>)}
+    </span>
+  )
+}
+
 import { uid, parseCaptionCsv, parseTextCandidates, type CaptionGroup } from '@/lib/caption-csv'
 
 const STATUS_STYLE: Record<CaptionStatus, string> = {
@@ -323,7 +355,7 @@ function InternalView({ projectId, caption, onSave }: {
   const handleSave = async () => {
     setSaving(true)
     const cands: CaptionCandidate[] = rows
-      .map((r) => ({ id: uid(), text: r.text.trim(), memo: r.memo.trim() || undefined }))
+      .map((r) => ({ id: uid(), text: r.text.trim(), memo: r.memo.trim() || undefined, orig: r.text.trim() }))
       .filter((c) => c.text)
     // 候補を入れたらステータスは「未確認」スタート（既に進行中なら維持）
     const nextStatus = (caption?.status && caption.status !== '未確認') ? caption.status : '未確認'
@@ -391,7 +423,14 @@ function InternalView({ projectId, caption, onSave }: {
                       この案で確定
                     </button>
                   </div>
-                  <div className={cn('text-[11px] whitespace-pre-wrap text-foreground/80', expandedId !== c.id && 'line-clamp-2')}>{c.text}</div>
+                  <div className={cn('text-[11px] whitespace-pre-wrap text-foreground/80', expandedId !== c.id && 'line-clamp-2')}>
+                    {c.orig && c.orig !== c.text
+                      ? <DiffText orig={c.orig} edited={c.text} />
+                      : c.text}
+                  </div>
+                  {c.orig && c.orig !== c.text && (
+                    <span className="text-[9px] text-rose-600">● クライアントが修正（赤字が変更箇所）</span>
+                  )}
                   <button type="button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
                     className="mt-0.5 text-[10px] text-primary hover:underline">
                     {expandedId === c.id ? '▲ 閉じる' : '▼ 全文を見る'}
