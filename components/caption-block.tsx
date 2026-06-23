@@ -469,6 +469,10 @@ function InternalView({ projectId, caption, onSave }: {
                   <div className="text-[10px] font-semibold text-sky-700 mb-0.5 flex items-center gap-1">
                     <span className="px-1.5 py-0.5 rounded-full bg-sky-600 text-white text-[9px]">制作チームの返信</span>
                     {caption.team_reply_at && <span className="font-normal text-sky-600">{new Date(caption.team_reply_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span>}
+                    <button type="button" onClick={() => setReply(caption.team_reply ?? '')}
+                      className="ml-auto text-[10px] text-sky-700 hover:underline flex items-center gap-0.5">
+                      <PencilIcon className="size-2.5" />編集
+                    </button>
                   </div>
                   <div className="text-[11px] whitespace-pre-wrap text-sky-800">{caption.team_reply}</div>
                 </div>
