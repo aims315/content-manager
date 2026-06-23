@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PostCaption } from '@/lib/types'
 
 export type CaptionPatch = Partial<
-  Pick<PostCaption, 'candidates' | 'selected_candidate_id' | 'draft_text' | 'client_comment' | 'status' | 'decided_by' | 'decided_at'>
+  Pick<PostCaption, 'candidates' | 'selected_candidate_id' | 'draft_text' | 'client_comment' | 'status' | 'decided_by' | 'decided_at' | 'team_reply' | 'team_reply_at'>
 >
 
 /**
@@ -43,6 +43,8 @@ export function useCaptions() {
       status: existing?.status ?? '未確認',
       decided_by: existing?.decided_by ?? null,
       decided_at: existing?.decided_at ?? null,
+      team_reply: existing?.team_reply ?? null,
+      team_reply_at: existing?.team_reply_at ?? null,
       ...patch,
       updated_at: now,
     }

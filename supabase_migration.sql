@@ -67,6 +67,10 @@ create table if not exists app_settings (
   updated_at timestamptz default now()
 );
 
+-- ── 投稿キャプション（post_captions が既にある場合の追加列）──
+alter table if exists post_captions add column if not exists team_reply text;
+alter table if exists post_captions add column if not exists team_reply_at timestamptz;
+
 -- ── インデックス ──
 create index if not exists projects_client_slug_idx on projects(client_slug);
 create index if not exists projects_deleted_at_idx on projects(deleted_at);

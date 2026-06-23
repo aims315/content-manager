@@ -294,7 +294,17 @@ function InternalView({ projectId, caption, onSave }: {
   const [csvMsg, setCsvMsg] = useState('')
   const [pasteText, setPasteText] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [reply, setReply] = useState('')
+  const [replySaving, setReplySaving] = useState(false)
   const candidates = caption?.candidates ?? []
+
+  const sendReply = async () => {
+    if (!reply.trim()) return
+    setReplySaving(true)
+    await onSave(projectId, { team_reply: reply.trim(), team_reply_at: new Date().toISOString() })
+    setReply('')
+    setReplySaving(false)
+  }
 
   const toRows = (cands: { text: string; memo?: string }[]): EditorRow[] =>
     cands.map((c) => ({ id: uid(), text: c.text, memo: c.memo ?? '' }))
@@ -448,6 +458,29 @@ function InternalView({ projectId, caption, onSave }: {
                 {caption.decided_by && <span className="font-normal"> (by {caption.decided_by})</span>}
               </div>
               <div className="text-[11px] whitespace-pre-wrap text-rose-700 font-medium">{caption.client_comment}</div>
+            </div>
+          )}
+
+          {/* 制作チームからの返信（差し戻し/修正依頼へ） */}
+          {(caption?.status === '修正依頼' || caption?.status === '差し戻し') && (
+            <div className="space-y-1">
+              {caption?.team_reply && (
+                <div className="rounded bg-sky-50 border border-sky-300 px-2 py-1.5">
+                  <div className="text-[10px] font-semibold text-sky-700 mb-0.5 flex items-center gap-1">
+                    <span className="px-1.5 py-0.5 rounded-full bg-sky-600 text-white text-[9px]">制作チームの返信</span>
+                    {caption.team_reply_at && <span className="font-normal text-sky-600">{new Date(caption.team_reply_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span>}
+                  </div>
+                  <div className="text-[11px] whitespace-pre-wrap text-sky-800">{caption.team_reply}</div>
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <Textarea value={reply} onChange={(e) => setReply(e.target.value)}
+                  placeholder={caption?.team_reply ? '返信を更新…' : 'クライアントへ返信…'} rows={1}
+                  className="text-[11px] min-h-8 resize-none flex-1" />
+                <Button type="button" size="sm" className="h-8 text-xs px-2 self-end" disabled={!reply.trim() || replySaving} onClick={sendReply}>
+                  <SendIcon className="size-3" />返信
+                </Button>
+              </div>
             </div>
           )}
 
@@ -620,6 +653,16 @@ function ClientView({ projectId, caption, actorName, onSave }: {
 
   return (
     <div className="space-y-2.5">
+      {/* 制作チームからの返信（差し戻し/修正依頼への回答） */}
+      {caption.team_reply && (
+        <div className="rounded bg-sky-50 border border-sky-300 px-2 py-1.5">
+          <div className="text-[10px] font-semibold text-sky-700 mb-0.5 flex items-center gap-1">
+            <span className="px-1.5 py-0.5 rounded-full bg-sky-600 text-white text-[9px]">制作チームからの返信</span>
+            {caption.team_reply_at && <span className="font-normal text-sky-600">{new Date(caption.team_reply_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span>}
+          </div>
+          <div className="text-[11px] whitespace-pre-wrap text-sky-800">{caption.team_reply}</div>
+        </div>
+      )}
       {isConfirmed ? (
         <div className="rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5 flex items-center gap-1.5 text-xs text-emerald-800">
           <CheckCircleIcon className="size-3.5" /> このキャプションは確定済みです。直したい場合は別の案を選び直して再度承認できます。

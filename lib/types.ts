@@ -64,6 +64,8 @@ export interface PostCaption {
   status: CaptionStatus
   decided_by: string | null
   decided_at: string | null
+  team_reply: string | null      // 制作チームから差し戻しへの返信
+  team_reply_at: string | null
   created_at: string
   updated_at: string
 }
