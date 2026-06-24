@@ -54,6 +54,15 @@ export interface CaptionCandidate {
   orig?: string   // 登録時の元テキスト（クライアント修正の差分表示用）
 }
 
+// キャプションのやりとり（クライアント↔制作チーム）
+export interface CaptionComment {
+  id: string
+  author: 'client' | 'team'
+  name?: string
+  text: string
+  at: string
+}
+
 export interface PostCaption {
   id: string
   project_id: string
@@ -64,8 +73,9 @@ export interface PostCaption {
   status: CaptionStatus
   decided_by: string | null
   decided_at: string | null
-  team_reply: string | null      // 制作チームから差し戻しへの返信
+  team_reply: string | null      // 制作チームから差し戻しへの返信（旧・単一返信）
   team_reply_at: string | null
+  comments: CaptionComment[]     // 双方向のコメントスレッド
   created_at: string
   updated_at: string
 }

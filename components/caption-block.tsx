@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { PostCaption, CaptionCandidate, CaptionStatus, ProjectStep, Project } from '@/lib/types'
+import type { PostCaption, CaptionCandidate, CaptionComment, CaptionStatus, ProjectStep, Project } from '@/lib/types'
 import type { CaptionPatch } from '@/hooks/use-captions'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -85,6 +85,62 @@ function fileLabel(url: string, names: string[] | undefined, i: number): string 
   if (names && names[i]) return names[i]
   const raw = decodeURIComponent(url.split('/').pop()?.split('?')[0] ?? '')
   return raw || `ファイル${i + 1}`
+}
+
+// 旧フィールド(client_comment / team_reply)も含めた表示用スレッドを組み立てる
+function buildThread(caption?: PostCaption): CaptionComment[] {
+  if (caption?.comments && caption.comments.length > 0) return caption.comments
+  const t: CaptionComment[] = []
+  if (caption?.client_comment) t.push({ id: 'c0', author: 'client', text: caption.client_comment, at: caption.decided_at ?? caption.updated_at ?? '' })
+  if (caption?.team_reply) t.push({ id: 't0', author: 'team', text: caption.team_reply, at: caption.team_reply_at ?? caption.updated_at ?? '' })
+  return t
+}
+
+// コメントスレッド（双方向）。role=自分の立場。onPostで自分のコメントを追記。
+function CommentThread({ thread, role, name, onPost }: {
+  thread: CaptionComment[]; role: 'team' | 'client'; name?: string
+  onPost: (next: CaptionComment[]) => Promise<void>
+}) {
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const send = async () => {
+    if (!text.trim()) return
+    setSending(true)
+    const c: CaptionComment = { id: uid(), author: role, name, text: text.trim(), at: new Date().toISOString() }
+    await onPost([...thread, c])
+    setText(''); setSending(false)
+  }
+  return (
+    <div className="space-y-1.5">
+      {thread.length > 0 && (
+        <div className="space-y-1">
+          {thread.map((c) => {
+            const isTeam = c.author === 'team'
+            return (
+              <div key={c.id} className={cn('rounded px-2 py-1.5 border', isTeam ? 'bg-sky-50 border-sky-300' : 'bg-rose-50 border-rose-300')}>
+                <div className={cn('text-[10px] font-semibold mb-0.5 flex items-center gap-1', isTeam ? 'text-sky-700' : 'text-rose-700')}>
+                  <span className={cn('px-1.5 py-0.5 rounded-full text-white text-[9px]', isTeam ? 'bg-sky-600' : 'bg-rose-600')}>
+                    {isTeam ? '制作チーム' : 'クライアント'}
+                  </span>
+                  {c.name && <span className="font-normal opacity-80">{c.name}</span>}
+                  {c.at && <span className="font-normal opacity-70">{new Date(c.at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span>}
+                </div>
+                <div className={cn('text-[11px] whitespace-pre-wrap', isTeam ? 'text-sky-800' : 'text-rose-800')}>{c.text}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <div className="flex gap-1.5">
+        <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={1}
+          placeholder={role === 'team' ? 'クライアントへ返信…' : '制作チームへ返信…'}
+          className="text-[11px] min-h-8 resize-none flex-1" />
+        <Button type="button" size="sm" className="h-8 text-xs px-2 self-end gap-1" disabled={!text.trim() || sending} onClick={send}>
+          <SendIcon className="size-3" />返信
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 // 文字単位の差分（orig → edited）。editedの追加・変更部分を赤で表示する。
@@ -177,14 +233,17 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
   const deliveredText = (stepDeliv ? (stepDeliv.note ?? '') : descriptionText).trim()
   const [showSource, setShowSource] = useState(false)
   const [showDesc, setShowDesc] = useState(false)
+  // 選択済/確定は既定で折りたたみ。どのステータスでも開閉自由。
+  const [collapsed, setCollapsed] = useState(status === '選択済' || status === '確定')
 
   // クライアントが何も無いカードでは表示しない（社内は登録ボタンを出す）
   if (clientMode && !hasCandidates) return null
 
   return (
     <div className="rounded-lg border bg-muted/30 p-2.5 space-y-2">
-      <div className="flex items-center justify-between">
+      <button type="button" onClick={() => setCollapsed((v) => !v)} className="w-full flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          {collapsed ? <ChevronDownIcon className="size-3.5 text-muted-foreground" /> : <ChevronUpIcon className="size-3.5 text-muted-foreground" />}
           <MessageSquareTextIcon className="size-3.5 text-primary" />
           キャプション
           {hasCandidates && <span className="text-muted-foreground font-normal">（候補{candidates.length}件）</span>}
@@ -201,7 +260,9 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
             </span>
           )}
         </div>
-      </div>
+      </button>
+
+      {!collapsed && (<>
 
       {/* 最新の納品物リンク（候補の上に表示） */}
       {hasDelivered && (
@@ -276,6 +337,7 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
       {clientMode
         ? <ClientView projectId={projectId} caption={caption!} actorName={actorName} onSave={onSave} />
         : <InternalView projectId={projectId} caption={caption} onSave={onSave} />}
+      </>)}
     </div>
   )
 }
@@ -294,17 +356,7 @@ function InternalView({ projectId, caption, onSave }: {
   const [csvMsg, setCsvMsg] = useState('')
   const [pasteText, setPasteText] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [reply, setReply] = useState('')
-  const [replySaving, setReplySaving] = useState(false)
   const candidates = caption?.candidates ?? []
-
-  const sendReply = async () => {
-    if (!reply.trim()) return
-    setReplySaving(true)
-    await onSave(projectId, { team_reply: reply.trim(), team_reply_at: new Date().toISOString() })
-    setReply('')
-    setReplySaving(false)
-  }
 
   const toRows = (cands: { text: string; memo?: string }[]): EditorRow[] =>
     cands.map((c) => ({ id: uid(), text: c.text, memo: c.memo ?? '' }))
@@ -450,41 +502,12 @@ function InternalView({ projectId, caption, onSave }: {
             })}
           </div>
 
-          {/* クライアントの選択・コメント・確定結果 */}
-          {caption?.client_comment && (caption.status === '修正依頼' || caption.status === '差し戻し') && (
-            <div className="rounded bg-rose-50 border border-rose-300 px-2 py-1.5">
-              <div className="text-[10px] font-semibold text-rose-700 mb-0.5">
-                クライアントからの{caption.status === '差し戻し' ? '差し戻し' : '修正依頼'}
-                {caption.decided_by && <span className="font-normal"> (by {caption.decided_by})</span>}
-              </div>
-              <div className="text-[11px] whitespace-pre-wrap text-rose-700 font-medium">{caption.client_comment}</div>
-            </div>
-          )}
-
-          {/* 制作チームからの返信（差し戻し/修正依頼へ） */}
-          {(caption?.status === '修正依頼' || caption?.status === '差し戻し') && (
+          {/* やりとり（クライアント↔制作チーム） */}
+          {(buildThread(caption).length > 0 || caption?.status === '修正依頼' || caption?.status === '差し戻し') && (
             <div className="space-y-1">
-              {caption?.team_reply && (
-                <div className="rounded bg-sky-50 border border-sky-300 px-2 py-1.5">
-                  <div className="text-[10px] font-semibold text-sky-700 mb-0.5 flex items-center gap-1">
-                    <span className="px-1.5 py-0.5 rounded-full bg-sky-600 text-white text-[9px]">制作チームの返信</span>
-                    {caption.team_reply_at && <span className="font-normal text-sky-600">{new Date(caption.team_reply_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span>}
-                    <button type="button" onClick={() => setReply(caption.team_reply ?? '')}
-                      className="ml-auto text-[10px] text-sky-700 hover:underline flex items-center gap-0.5">
-                      <PencilIcon className="size-2.5" />編集
-                    </button>
-                  </div>
-                  <div className="text-[11px] whitespace-pre-wrap text-sky-800">{caption.team_reply}</div>
-                </div>
-              )}
-              <div className="flex gap-1.5">
-                <Textarea value={reply} onChange={(e) => setReply(e.target.value)}
-                  placeholder={caption?.team_reply ? '返信を更新…' : 'クライアントへ返信…'} rows={1}
-                  className="text-[11px] min-h-8 resize-none flex-1" />
-                <Button type="button" size="sm" className="h-8 text-xs px-2 self-end" disabled={!reply.trim() || replySaving} onClick={sendReply}>
-                  <SendIcon className="size-3" />返信
-                </Button>
-              </div>
+              <p className="text-[10px] font-semibold text-muted-foreground">やりとり</p>
+              <CommentThread thread={buildThread(caption)} role="team" name="制作チーム"
+                onPost={(next) => onSave(projectId, { comments: next })} />
             </div>
           )}
 
@@ -637,34 +660,41 @@ function ClientView({ projectId, caption, actorName, onSave }: {
     setBusy(false)
   }
 
+  // コメントをスレッドに追記（旧データもまとめる）
+  const threadWith = (text: string): CaptionComment[] => {
+    const base = (caption.comments && caption.comments.length > 0) ? caption.comments : buildThread(caption)
+    if (!text.trim()) return base
+    return [...base, { id: uid(), author: 'client' as const, name: actorName, text: text.trim(), at: new Date().toISOString() }]
+  }
+
   const requestEdit = async () => {
     setBusy(true)
     await onSave(projectId, {
       candidates: cands, client_comment: comment, status: '修正依頼',
+      comments: threadWith(comment),
       decided_by: actorName, decided_at: new Date().toISOString(),
     })
-    setBusy(false)
+    setComment(''); setBusy(false)
   }
 
   const sendBack = async () => {
     setBusy(true)
     await onSave(projectId, {
       candidates: cands, client_comment: comment, status: '差し戻し',
+      comments: threadWith(comment),
       decided_by: actorName, decided_at: new Date().toISOString(),
     })
-    setBusy(false)
+    setComment(''); setBusy(false)
   }
 
   return (
     <div className="space-y-2.5">
-      {/* 制作チームからの返信（差し戻し/修正依頼への回答） */}
-      {caption.team_reply && (
-        <div className="rounded bg-sky-50 border border-sky-300 px-2 py-1.5">
-          <div className="text-[10px] font-semibold text-sky-700 mb-0.5 flex items-center gap-1">
-            <span className="px-1.5 py-0.5 rounded-full bg-sky-600 text-white text-[9px]">制作チームからの返信</span>
-            {caption.team_reply_at && <span className="font-normal text-sky-600">{new Date(caption.team_reply_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span>}
-          </div>
-          <div className="text-[11px] whitespace-pre-wrap text-sky-800">{caption.team_reply}</div>
+      {/* やりとり（制作チーム↔自分） */}
+      {buildThread(caption).length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground">やりとり</p>
+          <CommentThread thread={buildThread(caption)} role="client" name={actorName}
+            onPost={(next) => onSave(projectId, { comments: next })} />
         </div>
       )}
       {isConfirmed ? (
