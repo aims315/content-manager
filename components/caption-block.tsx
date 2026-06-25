@@ -96,6 +96,25 @@ function buildThread(caption?: PostCaption): CaptionComment[] {
   return t
 }
 
+// 過去の編集で候補IDが変わっていても、本文が実質同じ候補を選択中として復元する。
+// Markdownの太字記号だけを削除した編集も同じ本文として扱う。
+function findSelectedCandidate(
+  candidates: CaptionCandidate[],
+  selectedId?: string | null,
+  draftText?: string | null,
+): CaptionCandidate | undefined {
+  const byId = candidates.find((c) => c.id === selectedId)
+  if (byId) return byId
+  if (draftText) {
+    const normalize = (text: string) =>
+      text.replace(/\*\*/g, '').replace(/\r\n/g, '\n').trim()
+    const normalizedDraft = normalize(draftText)
+    const byText = candidates.find((c) => normalize(c.text) === normalizedDraft)
+    if (byText) return byText
+  }
+  return candidates.length === 1 ? candidates[0] : undefined
+}
+
 // コメントスレッド（双方向）。role=自分の立場。onPostで自分のコメントを追記。
 function CommentThread({ thread, role, name, onPost }: {
   thread: CaptionComment[]; role: 'team' | 'client'; name?: string
@@ -103,12 +122,30 @@ function CommentThread({ thread, role, name, onPost }: {
 }) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingText, setEditingText] = useState('')
   const send = async () => {
     if (!text.trim()) return
     setSending(true)
     const c: CaptionComment = { id: uid(), author: role, name, text: text.trim(), at: new Date().toISOString() }
     await onPost([...thread, c])
     setText(''); setSending(false)
+  }
+  const startEdit = (comment: CaptionComment) => {
+    setEditingId(comment.id)
+    setEditingText(comment.text)
+  }
+  const saveEdit = async () => {
+    if (!editingId || !editingText.trim()) return
+    setSending(true)
+    await onPost(thread.map((c) => (
+      c.id === editingId
+        ? { ...c, text: editingText.trim(), at: new Date().toISOString() }
+        : c
+    )))
+    setEditingId(null)
+    setEditingText('')
+    setSending(false)
   }
   return (
     <div className="space-y-1.5">
@@ -125,7 +162,36 @@ function CommentThread({ thread, role, name, onPost }: {
                   {c.name && <span className="font-normal opacity-80">{c.name}</span>}
                   {c.at && <span className="font-normal opacity-70">{new Date(c.at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span>}
                 </div>
-                <div className={cn('text-[11px] whitespace-pre-wrap', isTeam ? 'text-sky-800' : 'text-rose-800')}>{c.text}</div>
+                {editingId === c.id ? (
+                  <div className="space-y-1.5">
+                    <Textarea
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      rows={2}
+                      className="text-[11px] min-h-16 resize-y bg-white"
+                    />
+                    <div className="flex justify-end gap-1.5">
+                      <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px]"
+                        onClick={() => { setEditingId(null); setEditingText('') }}>
+                        キャンセル
+                      </Button>
+                      <Button type="button" size="sm" className="h-6 text-[10px]"
+                        disabled={!editingText.trim() || sending} onClick={saveEdit}>
+                        保存
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-1">
+                    <div className={cn('text-[11px] whitespace-pre-wrap flex-1', isTeam ? 'text-sky-800' : 'text-rose-800')}>{c.text}</div>
+                    {c.author === role && (
+                      <button type="button" onClick={() => startEdit(c)}
+                        className="text-[10px] text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-0.5">
+                        <PencilIcon className="size-2.5" />編集
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -358,8 +424,7 @@ function InternalView({ projectId, caption, onSave }: {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const candidates = caption?.candidates ?? []
   const confirmedText =
-    candidates.find((c) => c.id === caption?.selected_candidate_id)?.text
-    ?? (candidates.length === 1 ? candidates[0].text : null)
+    findSelectedCandidate(candidates, caption?.selected_candidate_id, caption?.draft_text)?.text
     ?? caption?.draft_text
 
   const toRows = (cands: CaptionCandidate[]): EditorRow[] =>
@@ -433,9 +498,7 @@ function InternalView({ projectId, caption, onSave }: {
       .filter((c) => c.text)
     // 候補を入れたらステータスは「未確認」スタート（既に進行中なら維持）
     const nextStatus = (caption?.status && caption.status !== '未確認') ? caption.status : '未確認'
-    const selected =
-      cands.find((c) => c.id === caption?.selected_candidate_id)
-      ?? (cands.length === 1 ? cands[0] : undefined)
+    const selected = findSelectedCandidate(cands, caption?.selected_candidate_id, caption?.draft_text)
     const patch: CaptionPatch = { candidates: cands, status: nextStatus }
     // 確定表示は draft_text を参照するため、選択中の候補を編集したら
     // 確定本文も同じ内容へ更新する。
@@ -674,10 +737,10 @@ function ClientView({ projectId, caption, actorName, onSave }: {
   }
   const saveCands = async () => {
     const latest = candsRef.current
-    const selected = latest.find((c) => c.id === selectedId)
+    const selected = findSelectedCandidate(latest, selectedId, caption.draft_text)
     await onSave(projectId, {
       candidates: latest,
-      ...(selected ? { draft_text: selected.text } : {}),
+      ...(selected ? { selected_candidate_id: selected.id, draft_text: selected.text } : {}),
     })
   }
 
