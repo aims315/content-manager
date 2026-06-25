@@ -23,9 +23,9 @@ async function sendNotification(config: NotifyConfig | null, code: string | unde
   const route = code && config?.routes?.length
     ? config.routes.find((r) => r.code && (r.code === code || code.includes(r.code)))
     : undefined
-  const provider: Provider = route?.provider ?? config?.provider ?? (process.env.CHATWORK_API_TOKEN ? 'chatwork' : 'none')
+  const provider: Provider = route?.provider ?? config?.provider ?? 'none'
   const chatworkToken = config?.chatworkToken || process.env.CHATWORK_API_TOKEN || ''
-  const chatworkRoomId = route?.chatworkRoomId || config?.chatworkRoomId || process.env.CHATWORK_ROOM_ID || ''
+  const chatworkRoomId = route?.chatworkRoomId || config?.chatworkRoomId || ''
   const discordWebhook = route?.discordWebhook || config?.discordWebhook || ''
 
   if (provider === 'discord' && discordWebhook) {

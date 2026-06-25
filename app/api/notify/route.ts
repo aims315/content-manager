@@ -65,18 +65,21 @@ export async function POST(req: NextRequest) {
     ? config.routes.find((r) => r.code && (r.code === code || code.includes(r.code)))
     : undefined
 
-  // 送信先を決定（ルートがあればそれ、なければ全体設定、なければenv）
-  const provider: Provider = route?.provider ?? config?.provider ?? (process.env.CHATWORK_API_TOKEN ? 'chatwork' : 'none')
+  // 送信先を決定。送信先（ルーム/Webhook）はルート→全体設定のみで決める（envルームには
+  // フォールバックしない＝未設定コードが既定ルームへ誤送信されるのを防ぐ）。
+  // トークンはアカウント共通なのでenvフォールバック可。
+  const provider: Provider = route?.provider ?? config?.provider ?? 'none'
   const chatworkToken = config?.chatworkToken || process.env.CHATWORK_API_TOKEN || ''
-  const chatworkRoomId = route?.chatworkRoomId || config?.chatworkRoomId || process.env.CHATWORK_ROOM_ID || ''
+  const chatworkRoomId = route?.chatworkRoomId || config?.chatworkRoomId || ''
   const discordWebhook = route?.discordWebhook || config?.discordWebhook || ''
 
   let result: { ok?: boolean; error?: string; status?: number }
   if (provider === 'discord') {
-    if (!discordWebhook) return NextResponse.json({ error: 'Discord not configured' }, { status: 500 })
+    if (!discordWebhook) return NextResponse.json({ ok: true, skipped: 'no discord webhook' })
     result = await sendDiscord(discordWebhook, message)
   } else if (provider === 'chatwork') {
-    if (!chatworkToken || !chatworkRoomId) return NextResponse.json({ error: 'Chatwork not configured' }, { status: 500 })
+    // 送信先ルーム or トークンが無いコードは送らない（スキップ）
+    if (!chatworkToken || !chatworkRoomId) return NextResponse.json({ ok: true, skipped: 'no chatwork room/token' })
     result = await sendChatwork(chatworkToken, chatworkRoomId, message)
   } else {
     return NextResponse.json({ ok: true, skipped: true })
