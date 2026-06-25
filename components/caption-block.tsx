@@ -357,6 +357,9 @@ function InternalView({ projectId, caption, onSave }: {
   const [pasteText, setPasteText] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const candidates = caption?.candidates ?? []
+  const confirmedText =
+    candidates.find((c) => c.id === caption?.selected_candidate_id)?.text
+    ?? caption?.draft_text
 
   const toRows = (cands: CaptionCandidate[]): EditorRow[] =>
     cands.map((c) => ({ id: c.id, text: c.text, memo: c.memo ?? '', orig: c.orig }))
@@ -524,14 +527,14 @@ function InternalView({ projectId, caption, onSave }: {
             </div>
           )}
 
-          {caption?.status === '確定' && caption.draft_text && (
+          {caption?.status === '確定' && confirmedText && (
             <div className="rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5 space-y-1">
               <div className="text-[10px] font-semibold text-emerald-800 flex items-center gap-1">
                 <CheckCircleIcon className="size-3" /> 確定キャプション
                 {caption.decided_by && <span className="font-normal">(by {caption.decided_by})</span>}
               </div>
-              <div className="text-[11px] whitespace-pre-wrap text-emerald-900">{caption.draft_text}</div>
-              <CopyButton text={caption.draft_text} label="確定をコピー" />
+              <div className="text-[11px] whitespace-pre-wrap text-emerald-900">{confirmedText}</div>
+              <CopyButton text={confirmedText} label="確定をコピー" />
             </div>
           )}
 
