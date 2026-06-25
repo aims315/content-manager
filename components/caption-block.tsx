@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PostCaption, CaptionCandidate, CaptionComment, CaptionStatus, ProjectStep, Project } from '@/lib/types'
 import type { CaptionPatch } from '@/hooks/use-captions'
 import { Button } from '@/components/ui/button'
@@ -343,7 +343,7 @@ export function CaptionBlock({ projectId, caption, clientMode, actorName, steps 
 }
 
 // ── 社内側：候補の登録・編集 + クライアントの結果確認 ──────────────
-interface EditorRow { id: string; text: string; memo: string }
+interface EditorRow { id: string; text: string; memo: string; orig?: string }
 
 function InternalView({ projectId, caption, onSave }: {
   projectId: string; caption?: PostCaption; onSave: Props['onSave']
@@ -358,12 +358,15 @@ function InternalView({ projectId, caption, onSave }: {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const candidates = caption?.candidates ?? []
 
-  const toRows = (cands: { text: string; memo?: string }[]): EditorRow[] =>
-    cands.map((c) => ({ id: uid(), text: c.text, memo: c.memo ?? '' }))
+  const toRows = (cands: CaptionCandidate[]): EditorRow[] =>
+    cands.map((c) => ({ id: c.id, text: c.text, memo: c.memo ?? '', orig: c.orig }))
 
   // 既存の入力行（空行は除く）に追記する
   const appendRows = (cands: { text: string; memo?: string }[]) =>
-    setRows((prev) => [...prev.filter((r) => r.text.trim()), ...toRows(cands)])
+    setRows((prev) => [
+      ...prev.filter((r) => r.text.trim()),
+      ...cands.map((c) => ({ id: uid(), text: c.text, memo: c.memo ?? '', orig: c.text })),
+    ])
 
   const openEditor = () => {
     setRows(candidates.length ? toRows(candidates) : [{ id: uid(), text: '', memo: '' }])
@@ -417,11 +420,21 @@ function InternalView({ projectId, caption, onSave }: {
   const handleSave = async () => {
     setSaving(true)
     const cands: CaptionCandidate[] = rows
-      .map((r) => ({ id: uid(), text: r.text.trim(), memo: r.memo.trim() || undefined, orig: r.text.trim() }))
+      .map((r) => ({
+        id: r.id,
+        text: r.text.trim(),
+        memo: r.memo.trim() || undefined,
+        orig: r.orig ?? r.text.trim(),
+      }))
       .filter((c) => c.text)
     // 候補を入れたらステータスは「未確認」スタート（既に進行中なら維持）
     const nextStatus = (caption?.status && caption.status !== '未確認') ? caption.status : '未確認'
-    await onSave(projectId, { candidates: cands, status: nextStatus })
+    const selected = cands.find((c) => c.id === caption?.selected_candidate_id)
+    const patch: CaptionPatch = { candidates: cands, status: nextStatus }
+    // 確定表示は draft_text を参照するため、選択中の候補を編集したら
+    // 確定本文も同じ内容へ更新する。
+    if (selected) patch.draft_text = selected.text
+    await onSave(projectId, patch)
     setSaving(false)
     setEditOpen(false)
   }
@@ -431,7 +444,7 @@ function InternalView({ projectId, caption, onSave }: {
     const patch: { status: CaptionStatus; selected_candidate_id?: string; draft_text?: string; decided_by?: string; decided_at?: string } = { status }
     const sel = candidates.find((c) => c.id === caption?.selected_candidate_id) ?? candidates[0]
     if (status === '確定') {
-      patch.draft_text = (caption?.draft_text && caption.draft_text.trim()) ? caption.draft_text : (sel?.text ?? '')
+      patch.draft_text = sel?.text ?? caption?.draft_text ?? ''
       if (sel && !caption?.selected_candidate_id) patch.selected_candidate_id = sel.id
       patch.decided_by = '社内'; patch.decided_at = new Date().toISOString()
     } else if (status === '選択済' && !caption?.selected_candidate_id && sel) {
@@ -507,7 +520,7 @@ function InternalView({ projectId, caption, onSave }: {
             <div className="space-y-1">
               <p className="text-[10px] font-semibold text-muted-foreground">やりとり</p>
               <CommentThread thread={buildThread(caption)} role="team" name="制作チーム"
-                onPost={(next) => onSave(projectId, { comments: next })} />
+                onPost={async (next) => { await onSave(projectId, { comments: next }) }} />
             </div>
           )}
 
@@ -627,6 +640,7 @@ function ClientView({ projectId, caption, actorName, onSave }: {
   projectId: string; caption: PostCaption; actorName: string; onSave: Props['onSave']
 }) {
   const [cands, setCands] = useState<CaptionCandidate[]>(caption.candidates)
+  const candsRef = useRef(caption.candidates)
   const [selectedId, setSelectedId] = useState<string | null>(caption.selected_candidate_id)
   const [comment, setComment] = useState(caption.client_comment ?? '')
   const [busy, setBusy] = useState(false)
@@ -634,6 +648,7 @@ function ClientView({ projectId, caption, actorName, onSave }: {
   // 別端末での更新を反映
   useEffect(() => {
     setCands(caption.candidates)
+    candsRef.current = caption.candidates
     setSelectedId(caption.selected_candidate_id)
     setComment(caption.client_comment ?? '')
   }, [caption.candidates, caption.selected_candidate_id, caption.client_comment])
@@ -641,8 +656,21 @@ function ClientView({ projectId, caption, actorName, onSave }: {
   const isConfirmed = caption.status === '確定'
   const needsSelection = !selectedId
 
-  const editCand = (id: string, text: string) => setCands((prev) => prev.map((c) => c.id === id ? { ...c, text } : c))
-  const saveCands = async () => { await onSave(projectId, { candidates: cands }) }
+  const editCand = (id: string, text: string) => {
+    setCands((prev) => {
+      const next = prev.map((c) => c.id === id ? { ...c, text } : c)
+      candsRef.current = next
+      return next
+    })
+  }
+  const saveCands = async () => {
+    const latest = candsRef.current
+    const selected = latest.find((c) => c.id === selectedId)
+    await onSave(projectId, {
+      candidates: latest,
+      ...(selected ? { draft_text: selected.text } : {}),
+    })
+  }
 
   const pick = async (c: CaptionCandidate) => {
     setSelectedId(c.id)
@@ -694,7 +722,7 @@ function ClientView({ projectId, caption, actorName, onSave }: {
         <div className="space-y-1">
           <p className="text-[10px] font-semibold text-muted-foreground">やりとり</p>
           <CommentThread thread={buildThread(caption)} role="client" name={actorName}
-            onPost={(next) => onSave(projectId, { comments: next })} />
+            onPost={async (next) => { await onSave(projectId, { comments: next }) }} />
         </div>
       )}
       {isConfirmed ? (

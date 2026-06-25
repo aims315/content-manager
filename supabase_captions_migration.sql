@@ -18,6 +18,9 @@ create table if not exists post_captions (
   selected_candidate_id text,                     -- クライアントが選んだ候補ID
   draft_text text,                                -- 修正後の本文（編集中・承認時の本文）
   client_comment text,                            -- クライアントからの修正依頼コメント
+  team_reply text,                                -- 制作チームからの返信（旧・単一返信）
+  team_reply_at timestamptz,
+  comments jsonb not null default '[]'::jsonb,    -- 双方向コメントスレッド
   status text not null default '未確認',          -- 未確認/選択済/修正依頼/確定/差し戻し
   decided_by text,                                -- 承認・差し戻しをした人の名前
   decided_at timestamptz,                         -- 承認・差し戻しの日時

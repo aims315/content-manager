@@ -57,9 +57,21 @@ export function useCaptions() {
       [projectId]: { ...(prev[projectId] ?? {}), ...merged } as PostCaption,
     }))
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('post_captions')
       .upsert(merged, { onConflict: 'project_id' })
+    // comments/team_reply 系の追加列が未マイグレーションの環境でも、
+    // キャプション本文・選択・ステータスの更新までは止めない。
+    if (error && /comments|team_reply/.test(error.message)) {
+      const compatible = { ...merged }
+      delete compatible.comments
+      delete compatible.team_reply
+      delete compatible.team_reply_at
+      const retry = await supabase
+        .from('post_captions')
+        .upsert(compatible, { onConflict: 'project_id' })
+      error = retry.error
+    }
     if (error) {
       console.error('Error saving caption:', error)
       await fetchAll() // 失敗時はサーバー状態に戻す
