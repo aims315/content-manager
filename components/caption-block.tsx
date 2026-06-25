@@ -359,6 +359,7 @@ function InternalView({ projectId, caption, onSave }: {
   const candidates = caption?.candidates ?? []
   const confirmedText =
     candidates.find((c) => c.id === caption?.selected_candidate_id)?.text
+    ?? (candidates.length === 1 ? candidates[0].text : null)
     ?? caption?.draft_text
 
   const toRows = (cands: CaptionCandidate[]): EditorRow[] =>
@@ -432,11 +433,16 @@ function InternalView({ projectId, caption, onSave }: {
       .filter((c) => c.text)
     // 候補を入れたらステータスは「未確認」スタート（既に進行中なら維持）
     const nextStatus = (caption?.status && caption.status !== '未確認') ? caption.status : '未確認'
-    const selected = cands.find((c) => c.id === caption?.selected_candidate_id)
+    const selected =
+      cands.find((c) => c.id === caption?.selected_candidate_id)
+      ?? (cands.length === 1 ? cands[0] : undefined)
     const patch: CaptionPatch = { candidates: cands, status: nextStatus }
     // 確定表示は draft_text を参照するため、選択中の候補を編集したら
     // 確定本文も同じ内容へ更新する。
-    if (selected) patch.draft_text = selected.text
+    if (selected) {
+      patch.selected_candidate_id = selected.id
+      patch.draft_text = selected.text
+    }
     await onSave(projectId, patch)
     setSaving(false)
     setEditOpen(false)
