@@ -84,10 +84,26 @@ export async function POST(_request: NextRequest) {
   const toUpdate = validTasks.filter((t) => existingMap.has(t.id as string))
   const toCreate = validTasks.filter((t) => !existingMap.has(t.id as string))
 
+  // 更新対象プロジェクトの「最初のステップ」を一括取得（初稿締切の反映先）
+  const updateProjectIds = toUpdate.map((t) => existingMap.get(t.id as string)!)
+  const { data: firstSteps } = updateProjectIds.length
+    ? await supabase
+        .from('project_steps')
+        .select('id, project_id, step_order')
+        .in('project_id', updateProjectIds)
+        .order('step_order', { ascending: true })
+    : { data: [] as { id: string; project_id: string; step_order: number }[] }
+
+  const firstStepMap = new Map<string, string>()
+  for (const step of firstSteps ?? []) {
+    if (!firstStepMap.has(step.project_id)) firstStepMap.set(step.project_id, step.id)
+  }
+
   // 並列で更新
   await Promise.all(
-    toUpdate.map((task) =>
-      supabase
+    toUpdate.map(async (task) => {
+      const projectId = existingMap.get(task.id as string)!
+      await supabase
         .from('projects')
         .update({
           title: task.title ?? undefined,
@@ -99,8 +115,17 @@ export async function POST(_request: NextRequest) {
           draft_url: (task.draft_url as string | null) ?? null,
           response_url: (task.response_url as string | null) ?? null,
         })
-        .eq('id', existingMap.get(task.id as string)!)
-    )
+        .eq('id', projectId)
+
+      // 初稿締切（draft_due_date）を先頭ステップの期日に反映
+      const firstStepId = firstStepMap.get(projectId)
+      if (firstStepId) {
+        await supabase
+          .from('project_steps')
+          .update({ step_due_date: (task.draft_due_date as string | null) ?? null })
+          .eq('id', firstStepId)
+      }
+    })
   )
 
   // 並列で新規作成
@@ -138,6 +163,7 @@ export async function POST(_request: NextRequest) {
               step_order: idx,
               label: item.label,
               status: '未着手',
+              step_due_date: idx === 0 ? ((task.draft_due_date as string | null) ?? null) : null,
               provider_type: item.provider === 'client' ? 'client'
                 : item.provider === 'freelancer' ? 'freelancer'
                 : 'self',
