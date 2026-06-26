@@ -67,6 +67,16 @@ export async function POST(_request: NextRequest) {
     return allPresets.find((p) => p.name === name) ?? allPresets[0] ?? null
   }
 
+  // 初校締切（draft_due_date）を「初校」ラベルのカスタム締切として合成
+  const buildCustomDates = (task: Record<string, unknown>) => {
+    const base = (task.custom_deadlines as { label: string; date: string }[] | null) ?? []
+    const withoutDraft = base.filter((cd) => cd.label !== '初校')
+    const draftDueDate = task.draft_due_date as string | null
+    return draftDueDate
+      ? [{ label: '初校', date: draftDueDate }, ...withoutDraft]
+      : withoutDraft
+  }
+
   // 既存プロジェクトを一括取得
   const { data: existingProjects } = await supabase
     .from('projects')
@@ -111,7 +121,7 @@ export async function POST(_request: NextRequest) {
           amount: task.amount ?? null,
           staff: task.staff ?? null,
           description: task.description ?? null,
-          custom_dates: (task.custom_deadlines as unknown[] | null) ?? [],
+          custom_dates: buildCustomDates(task),
           draft_url: (task.draft_url as string | null) ?? null,
           response_url: (task.response_url as string | null) ?? null,
         })
@@ -144,7 +154,7 @@ export async function POST(_request: NextRequest) {
           amount: task.amount ?? null,
           staff: task.staff ?? null,
           description: task.description ?? null,
-          custom_dates: (task.custom_deadlines as unknown[] | null) ?? [],
+          custom_dates: buildCustomDates(task),
           draft_url: (task.draft_url as string | null) ?? null,
           response_url: (task.response_url as string | null) ?? null,
         })
