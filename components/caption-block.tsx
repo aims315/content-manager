@@ -493,7 +493,9 @@ function InternalView({ projectId, caption, onSave }: {
         id: r.id,
         text: r.text.trim(),
         memo: r.memo.trim() || undefined,
-        orig: r.orig ?? r.text.trim(),
+        // 社内（制作）が登録・編集した内容が新しい基準。origは常に現在のテキストに揃える
+        // （差分＝赤字はクライアントが編集したときだけ出す）
+        orig: r.text.trim(),
       }))
       .filter((c) => c.text)
     // 候補を入れたらステータスは「未確認」スタート（既に進行中なら維持）

@@ -362,7 +362,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
             </button>
           </div>
 
-          <div className="flex rounded-md border overflow-hidden ml-1">
+          <div className="flex rounded-md border overflow-hidden ml-1" data-tour="view-toggle">
             <button onClick={() => setView('list')}
               title="制作管理"
               className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors', view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
@@ -476,7 +476,7 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
                   <span className="text-xs text-muted-foreground">({list.length}件)</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
-                <div className={cn('grid gap-4 items-stretch', GRID_COLS[cols])}>
+                <div className={cn('grid gap-4 items-stretch', GRID_COLS[cols])} data-tour="project-grid">
                   {list.map((project) => (
                     <div key={project.id} id={`project-${project.id}`} className="h-full">
                       <ProjectCard

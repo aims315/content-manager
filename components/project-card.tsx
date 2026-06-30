@@ -762,7 +762,7 @@ export function ProjectCard({ project, steps, providerLabels, providerRoles, sta
         )}
 
         {/* ステップ一覧トグル */}
-        <div className="flex items-center justify-between py-1 border-t">
+        <div className="flex items-center justify-between py-1 border-t" data-tour="step-manager">
           <StepManagerDialog
             projectId={project.id}
             steps={steps}

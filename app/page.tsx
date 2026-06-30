@@ -6,10 +6,13 @@ import { CsvExportButton } from '@/components/csv-export-button'
 import { BulkEditDialog } from '@/components/bulk-edit-dialog'
 import { SyncAllButton } from '@/components/sync-all-button'
 import { AdminAuthGuard } from '@/components/admin-auth-guard'
+import { HomeTour } from '@/components/home-tour'
 import { Button } from '@/components/ui/button'
 import { PlusIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react'
+import { seedDemoProjectsIfNeeded } from '@/lib/demo-seed'
 
-export default function HomePage() {
+export default async function HomePage() {
+  await seedDemoProjectsIfNeeded()
   const adminSecret = process.env.ADMIN_PATH_SECRET ?? 'setup-required'
   const newProjectHref = `/p/${adminSecret}`
   const settingsHref = `/p/${adminSecret}/settings`
@@ -30,6 +33,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <HomeTour />
             {process.env.ENABLE_TASK_SYNC === 'true' && <SyncAllButton />}
             <BulkEditDialog />
             <CsvExportButton />
@@ -40,7 +44,7 @@ export default function HomePage() {
                 <SettingsIcon className="size-4" />
               </Link>
             </Button>
-            <Button asChild>
+            <Button asChild data-tour="new-project-button">
               <Link href={newProjectHref}>
                 <PlusIcon className="size-4" />
                 新規プロジェクト
