@@ -86,7 +86,7 @@ export function ProjectEditDialog({ project, onUpdated }: ProjectEditDialogProps
           <PencilIcon className="size-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>プロジェクトを編集</DialogTitle>
         </DialogHeader>
