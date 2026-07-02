@@ -224,25 +224,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ updated_first_step: project.id })
   }
 
-  // ── 完了: 全ステップを完了 ──
+  // ── 完了: 「クリエイティブ完了」ステップを追加して完了表示にする（既存ステップは変更しない） ──
   if (record.status === '完了') {
     const project = await findProjectByTaskId(supabase, record.id)
     if (!project) return NextResponse.json({ skipped: 'no project found' })
 
-    const { data: remainingSteps } = await supabase
+    const { data: steps } = await supabase
       .from('project_steps')
-      .select('id')
+      .select('id, label, step_order')
       .eq('project_id', project.id)
-      .neq('status', '完了')
 
-    if (remainingSteps && remainingSteps.length > 0) {
-      await supabase
-        .from('project_steps')
-        .update({ status: '完了' })
-        .in('id', remainingSteps.map((s) => s.id))
+    // 既に「クリエイティブ完了」があれば重複追加しない（完了にだけ更新）
+    const existing = (steps ?? []).find((s) => s.label === 'クリエイティブ完了')
+    if (existing) {
+      await supabase.from('project_steps').update({ status: '完了' }).eq('id', existing.id)
+      return NextResponse.json({ completed: project.id, step: 'existing' })
     }
 
-    return NextResponse.json({ completed: project.id })
+    const maxOrder = (steps ?? []).reduce((m, s) => Math.max(m, s.step_order ?? 0), 0)
+    await supabase.from('project_steps').insert({
+      project_id: project.id,
+      step_key: 'text',
+      step_order: maxOrder + 1,
+      label: 'クリエイティブ完了',
+      status: '完了',
+      provider_type: 'self',
+      provider_name: null,
+      file_urls: [],
+      file_names: [],
+      is_client_step: false,
+    })
+
+    return NextResponse.json({ completed: project.id, step: 'added' })
   }
 
   return NextResponse.json({ skipped: 'status not matched' })

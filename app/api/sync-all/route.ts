@@ -99,14 +99,19 @@ export async function POST(_request: NextRequest) {
   const { data: firstSteps } = updateProjectIds.length
     ? await supabase
         .from('project_steps')
-        .select('id, project_id, step_order')
+        .select('id, project_id, step_order, label')
         .in('project_id', updateProjectIds)
         .order('step_order', { ascending: true })
-    : { data: [] as { id: string; project_id: string; step_order: number }[] }
+    : { data: [] as { id: string; project_id: string; step_order: number; label: string }[] }
 
   const firstStepMap = new Map<string, string>()
+  // プロジェクトごとの最大 step_order と「クリエイティブ完了」ステップの有無
+  const maxOrderMap = new Map<string, number>()
+  const creativeDoneMap = new Map<string, string>()
   for (const step of firstSteps ?? []) {
     if (!firstStepMap.has(step.project_id)) firstStepMap.set(step.project_id, step.id)
+    maxOrderMap.set(step.project_id, Math.max(maxOrderMap.get(step.project_id) ?? 0, step.step_order ?? 0))
+    if (step.label === 'クリエイティブ完了') creativeDoneMap.set(step.project_id, step.id)
   }
 
   // 並列で更新
@@ -134,6 +139,27 @@ export async function POST(_request: NextRequest) {
           .from('project_steps')
           .update({ step_due_date: (task.draft_due_date as string | null) ?? null })
           .eq('id', firstStepId)
+      }
+
+      // タスクが完了なら「クリエイティブ完了」ステップを追加（既存ステップは変更しない）
+      if (task.status === '完了') {
+        const existingId = creativeDoneMap.get(projectId)
+        if (existingId) {
+          await supabase.from('project_steps').update({ status: '完了' }).eq('id', existingId)
+        } else {
+          await supabase.from('project_steps').insert({
+            project_id: projectId,
+            step_key: 'text',
+            step_order: (maxOrderMap.get(projectId) ?? 0) + 1,
+            label: 'クリエイティブ完了',
+            status: '完了',
+            provider_type: 'self',
+            provider_name: null,
+            file_urls: [],
+            file_names: [],
+            is_client_step: false,
+          })
+        }
       }
     })
   )
