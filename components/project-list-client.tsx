@@ -444,8 +444,8 @@ export function ProjectListClient({ lockedCode }: { lockedCode?: string } = {}) 
 
       {/* スケジュールビュー */}
       {view === 'schedule' && (
-        <ScheduleView projects={filtered} allSteps={steps} warningDays={deadlineConfig.warningDays}
-          progressByProject={Object.fromEntries(filtered.map((p) => {
+        <ScheduleView projects={statusTab === 'done' ? doneProjects : baseFiltered} allSteps={steps} warningDays={deadlineConfig.warningDays}
+          progressByProject={Object.fromEntries(baseFiltered.map((p) => {
             const ps = steps[p.id] ?? []
             return [p.id, { done: ps.filter((s) => doneLabels.includes(s.status)).length, total: ps.length }]
           }))}
